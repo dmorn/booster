@@ -1,16 +1,26 @@
 package main
 
 import (
+	"flag"
 	"log"
-	"net/http"
+	"strconv"
 
 	"github.com/danielmorandini/booster/proxy"
 )
 
+var (
+	port = flag.Int("port", 3128, "Proxy listening port")
+	crt  = flag.String("cert", "server.crt", ".crt file path")
+	key  = flag.String("key", "server.key", ".key file path")
+)
+
 func main() {
-	p := &proxy.Proxy{}
-	http.Handle("/", p)
-	if err := http.ListenAndServe(":3128", nil); err != nil {
+	flag.Parse()
+
+	p, err := proxy.NewProxy(strconv.Itoa(*port), *crt, *key)
+	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Fatal(p.ListenAndServe())
 }
