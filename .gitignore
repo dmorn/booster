@@ -19,5 +19,5 @@
 /test/coverage.*
 
 .env
-.crt
-.key
+*.crt
+*.key
