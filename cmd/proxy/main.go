@@ -22,5 +22,6 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Printf("Proxy listening on port :%s", strconv.Itoa(*port))
 	log.Fatal(p.ListenAndServe())
 }
