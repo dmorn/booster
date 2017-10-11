@@ -1,3 +1,6 @@
+// Package proxy provides an authomatized method for collecting requets that could
+// be exploited with booster. This allows the user to take advantage of booster without
+// leaving his habits.
 package proxy
 
 import (
