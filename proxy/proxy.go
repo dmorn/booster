@@ -1,4 +1,4 @@
-// Package proxy provides an authomatized method for collecting requets that could
+// Package proxy provides an automized method for collecting requests that could
 // be exploited with booster. This allows the user to take advantage of booster without
 // leaving his habits.
 package proxy
