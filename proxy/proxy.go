@@ -1,85 +1,73 @@
-// Package proxy provides an automized method for collecting requests that could
-// be exploited with booster. This allows the user to take advantage of booster without
-// leaving his habits.
+// Package proxy provides a transparent http forward proxy implementation
 package proxy
 
 import (
-	"log"
+	"io"
 	"net"
 	"net/http"
-	"net/http/httputil"
+	"strconv"
 	"time"
 )
 
-// Proxy is actually an HTTP (not HTTPS atm) forward proxy.
+// Proxy is a Forward Proxy.
 type Proxy struct {
 	transport *http.Transport
 
-	// server config
-	port string
-
-	// TLS .crt and .key file paths
-	crt string
-	key string
+	port int
 }
 
 // NewProxy creates a new Proxy with custom http.Transport. `port` is the port that
-// the proxy will be listening on. `crt` and `key` are used to configure TLS.
-func NewProxy(port, crt, key string) (*Proxy, error) {
+// the proxy will be listening on.
+func NewProxy(port int) *Proxy {
 	t := &http.Transport{
-		Dial: (&net.Dialer{
-			Timeout: 5 * time.Second,
-		}).Dial,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
 		TLSHandshakeTimeout: 5 * time.Second,
+		MaxIdleConns:        100,
+		IdleConnTimeout:     5 * time.Second,
+		DisableKeepAlives:   false,
 	}
 
 	return &Proxy{
 		transport: t,
 		port:      port,
-		crt:       crt,
-		key:       key,
-	}, nil
+	}
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	proxy := &httputil.ReverseProxy{
+	// CONNECT is used when the client wants to setup a TLS.
+	// not supported yet
+	if r.Method == http.MethodConnect {
+		http.Error(w, http.ErrNotSupported.ErrorString, http.StatusInternalServerError)
+		return
+	}
+
+	c := http.Client{
 		Transport: p.transport,
-		Director:  p.newDirector(r),
-	}
-	proxy.ServeHTTP(w, r)
-}
-
-// ListenAndServeTLS is supposed to be used for HTTPS forward proxy.
-// does not work yet.
-func (p *Proxy) ListenAndServeTLS() error {
-	srv := &http.Server{
-		Addr:    ":3124",
-		Handler: p,
 	}
 
-	return srv.ListenAndServeTLS(p.crt, p.key)
+	// Check `send` in net/http/client.go
+	r.RequestURI = ""
+
+	resp, err := c.Do(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer resp.Body.Close()
+
+	io.Copy(w, resp.Body)
 }
 
-// ListenAndServe accepts HTTP connections.
+// ListenAndServe listens on port 3128 by default.
 func (p *Proxy) ListenAndServe() error {
 	srv := &http.Server{
-		Addr:    ":" + p.port,
+		Addr:    ":" + strconv.Itoa(p.port),
 		Handler: p,
 	}
 
 	return srv.ListenAndServe()
-}
-
-func (p *Proxy) newDirector(r *http.Request) func(*http.Request) {
-	return func(req *http.Request) {
-		req.URL.Host = r.Host
-		req.URL.Scheme = "http"
-
-		reqLog, err := httputil.DumpRequestOut(req, false)
-		if err != nil {
-			log.Printf("Got error %s\n %+v\n", err.Error(), req)
-		}
-
-		log.Println(string(reqLog))
-	}
 }
