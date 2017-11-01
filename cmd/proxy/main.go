@@ -3,18 +3,21 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 
 	"github.com/danielmorandini/booster/proxy"
 )
 
 var (
-	port = flag.Int("port", 3128, "Proxy listening port")
+	port = flag.Int("port", 1080, "SOCKS listening port. Defaults on 1080.")
 )
 
 func main() {
 	flag.Parse()
 
-	p := proxy.NewProxy(*port)
-	log.Printf("Proxy listening on port :%v", *port)
-	log.Fatal(p.ListenAndServe())
+	l := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+	s := &proxy.Server{Port: *port, Log: l}
+
+	log.Printf("Proxy Server listening on port :%v", *port)
+	log.Fatal(s.ListenAndServe())
 }
