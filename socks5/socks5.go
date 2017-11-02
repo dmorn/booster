@@ -3,6 +3,7 @@ package socks5
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
 )
 
@@ -24,6 +25,16 @@ func (s *Socks5) Close() error {
 	return s.rwc.Close()
 }
 
+func (s *Socks5) Write(p []byte) (int, error) {
+	w := bufio.NewWriter(s.rwc)
+	return w.Write(p)
+}
+
+func (s *Socks5) Read(p []byte) (int, error) {
+	r := bufio.NewReader(s.rwc)
+	return r.Read(p)
+}
+
 func (s *Socks5) Run() error {
 	var (
 		ctx    context.Context
@@ -34,19 +45,65 @@ func (s *Socks5) Run() error {
 	defer cancel()
 
 	// First negotiate
-	if err := s.Negotiate(ctx, s.Write); err != nil {
+	buf := make([]byte, 257)
+	negReq := new(NegRequest)
+	if _, err := s.Read(buf); err != nil {
 		return err
 	}
+
+	if err := negReq.Unmarshal(buf); err != nil {
+		return err
+	}
+
+	if err := s.Negotiate(ctx, negReq, s.Write); err != nil {
+		return err
+	}
+
+	// parse request
+	p := make([]byte, 256)
+	if _, err := s.Read(p); err != nil {
+		return err
+	}
+
+	req := new(Request)
+	if err := req.Unmarshal(p); err != nil {
+		return err
+	}
+
+	// execute proper command
+	var err error
+	var trg io.ReadWriteCloser // target (usually a connection)
+
+	switch req.Cmd {
+	case CmdConnect:
+		trg, err = s.Connect(ctx, req, s.Write)
+	case CmdAssociate:
+		trg, err = s.Associate(ctx, req, s.Write)
+	case CmdBind:
+		trg, err = s.Associate(ctx, req, s.Write)
+	default:
+		return fmt.Errorf("unexpected CMD(%v)", req.Cmd)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// start proxying
+	go io.Copy(trg, s.rwc)
+	io.Copy(s.rwc, trg)
 
 	return nil
 }
 
-func (s *Socks5) Write(p []byte) (int, error) {
-	w := bufio.NewWriter(s.rwc)
-	return w.Write(p)
+func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
+	return nil, fmt.Errorf("unsopported method")
 }
 
-func (s *Socks5) Read(p []byte) (int, error) {
-	r := bufio.NewReader(s.rwc)
-	return r.Read(p)
+func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
+	return nil, fmt.Errorf("unsopported method")
+}
+
+func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
+	return nil, fmt.Errorf("unsopported method")
 }
