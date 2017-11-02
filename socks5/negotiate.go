@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type negRequest struct {
+type NegRequest struct {
 	Unmarshaler
 
 	Ver     uint8
@@ -22,7 +22,7 @@ type negRequest struct {
 // +----+----------+----------+
 // numers represent field size
 //
-func (r *negRequest) Unmarshal(p []byte) error {
+func (r *NegRequest) Unmarshal(p []byte) error {
 	v := p[0] // version
 
 	// procede with method checking
@@ -34,7 +34,7 @@ func (r *negRequest) Unmarshal(p []byte) error {
 	return nil
 }
 
-type negResponse struct {
+type NegResponse struct {
 	Marshaler
 
 	Ver    uint8
@@ -51,7 +51,7 @@ type negResponse struct {
 // +----+--------+
 // numers represent field size
 //
-func (r *negResponse) Marshal() ([]byte, error) {
+func (r *NegResponse) Marshal() ([]byte, error) {
 	return []byte{r.Ver, r.Method}, nil
 }
 
@@ -60,28 +60,16 @@ var _ Negotiater = &Socks5{}
 // Negotiate expects s.Read to fill a buffer with a well formed negRequest.
 // Returns an error if versions is different from 5. Writes results back using w
 // function.
-func (s *Socks5) Negotiate(ctx context.Context, w WriteFunc) error {
-	req := &negRequest{}
-	buf := make([]byte, 257)
-	c := make(chan error, 1)
-
-	if _, err := s.Read(buf); err != nil {
-		return err
-	}
-
-	if err := req.Unmarshal(buf); err != nil {
-		return err
-	}
-
+func (s *Socks5) Negotiate(ctx context.Context, req *NegRequest, w WriteFunc) error {
 	// Check version number
 	if req.Ver != Version5 {
 		return fmt.Errorf("unsupported version (%v)", req.Ver)
 	}
 
 	// build response checking methods
-	resp := &negResponse{
+	resp := &NegResponse{
 		Ver:    req.Ver,
-		Method: s.methodsSupported(req.Methods),
+		Method: s.areMethodsSupported(req.Methods),
 	}
 
 	mr, err := resp.Marshal()
@@ -89,6 +77,7 @@ func (s *Socks5) Negotiate(ctx context.Context, w WriteFunc) error {
 		return err
 	}
 
+	c := make(chan error, 1)
 	go func(c chan<- error) {
 		_, err := w(mr)
 		c <- err
@@ -103,7 +92,7 @@ func (s *Socks5) Negotiate(ctx context.Context, w WriteFunc) error {
 	}
 }
 
-func (s *Socks5) methodsSupported(m []uint8) uint8 {
+func (s *Socks5) areMethodsSupported(m []uint8) uint8 {
 	for _, sm := range s.supportedMethods {
 		for _, tm := range m {
 			if sm == tm {
