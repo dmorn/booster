@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	port = flag.Int("port", 1080, "SOCKS listening port. Defaults on 1080.")
+	port = flag.Int("port", 1080, "SOCKS listening port")
 )
 
 func main() {
