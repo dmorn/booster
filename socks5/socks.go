@@ -62,14 +62,13 @@ const (
 
 // Socks5er describes a socks5 handler instance.
 type Socks5er interface {
-	Runner
-
 	io.ReadWriteCloser
 
+	Runner
 	Negotiater
-	// Connecter
-	// Associater
-	// Binder
+	Connecter
+	Associater
+	Binder
 }
 
 // WriteFunc is just an alias for io.Writer's Write function
@@ -81,25 +80,25 @@ type WriteFunc func([]byte) (int, error)
 // version and also checks if the client asked for a method that is actually supported.
 // Writes the response back using w.
 type Negotiater interface {
-	Negotiate(ctx context.Context, w WriteFunc) error
+	Negotiate(ctx context.Context, req *NegRequest, w WriteFunc) error
 }
 
 // Connecter is the interface that wraps the basic Connect function.
 // TODO(daniel): doc
 type Connecter interface {
-	Connect(ctx context.Context, w WriteFunc) error
+	Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error)
 }
 
 // Binder is the interface that wraps the basic Bind function.
 // TODO(daniel): doc
 type Binder interface {
-	Bind(ctx context.Context, w WriteFunc) error
+	Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error)
 }
 
 // Associater is the interface that wraps the basic Associate function.
 // TODO(daniel): doc
 type Associater interface {
-	Associate(ctx context.Context, w WriteFunc) error
+	Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error)
 }
 
 // Marshaler is the interface that wraps the Marshal function.
