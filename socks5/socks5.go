@@ -86,7 +86,7 @@ func (s *Socks5) Run() error {
 	case CmdAssociate:
 		trg, err = s.Associate(ctx, req, s.Write)
 	case CmdBind:
-		trg, err = s.Associate(ctx, req, s.Write)
+		trg, err = s.Bind(ctx, req, s.Write)
 	default:
 		return fmt.Errorf("unexpected CMD(%v)", req.Cmd)
 	}
