@@ -58,7 +58,8 @@ func (r *Request) Unmarshal(p []byte) error {
 	}
 
 	// destination port
-	dstPort := p[(asi + len(addr)):2]
+	psi := asi + len(addr) // port starting index
+	dstPort := p[psi:(psi + 2)]
 	if len(dstPort) == 0 {
 		return fmt.Errorf("unable to parse destination port")
 	}

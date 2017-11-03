@@ -1,7 +1,6 @@
 package socks5
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -15,6 +14,8 @@ type Socks5 struct {
 	supportedMethods []uint8
 }
 
+var _ Socks5er = &Socks5{}
+
 func NewSocks5(rwc io.ReadWriteCloser) *Socks5 {
 	return &Socks5{
 		rwc:              rwc,
@@ -23,13 +24,11 @@ func NewSocks5(rwc io.ReadWriteCloser) *Socks5 {
 }
 
 func (s *Socks5) Write(p []byte) (int, error) {
-	w := bufio.NewWriter(s.rwc)
-	return w.Write(p)
+	return s.rwc.Write(p)
 }
 
 func (s *Socks5) Read(p []byte) (int, error) {
-	r := bufio.NewReader(s.rwc)
-	return r.Read(p)
+	return s.rwc.Read(p)
 }
 
 func (s *Socks5) Run() error {
@@ -85,7 +84,17 @@ func (s *Socks5) Run() error {
 	if err != nil {
 		return err
 	}
-	defer trg.Close()
+
+	defer func(rwc io.ReadWriteCloser) {
+		if conn, ok := rwc.(io.Closer); ok {
+			conn.Close()
+		}
+	}(trg)
+
+	// check that the connection is not nil
+	if trg == nil {
+		return fmt.Errorf("unable to enstablish connection with remote host")
+	}
 
 	// start proxying
 	go io.Copy(trg, s.rwc)
@@ -95,13 +104,40 @@ func (s *Socks5) Run() error {
 }
 
 func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	return nil, fmt.Errorf("unsopported method")
+	fmt.Printf("connect request %v\n", req)
+
+	res := new(Response)
+	res.Ver = req.Ver
+	res.Rep = RespCommandNotSupported
+	res.Rsv = FieldReserved
+	res.AddrType = req.AddrType
+	res.BndAddr = req.Addr
+	res.BndPort = req.DstPort
+
+	mr, err := res.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	c := make(chan error, 1)
+	go func(c chan<- error, p []byte) {
+		_, err := w(p)
+		c <- err
+	}(c, mr)
+
+	select {
+	case <-ctx.Done():
+		<-c
+		return nil, ctx.Err()
+	case err := <-c:
+		return nil, err
+	}
 }
 
 func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	return nil, fmt.Errorf("unsopported method")
+	return nil, fmt.Errorf("unsupported method")
 }
 
 func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	return nil, fmt.Errorf("unsopported method")
+	return nil, fmt.Errorf("unsupported method")
 }

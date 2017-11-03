@@ -32,7 +32,7 @@ func (r *Response) Marshal() ([]byte, error) {
 	buf[1] = r.Rep
 	buf[2] = FieldReserved
 	buf[3] = r.AddrType
-	copy(buf[bas:bas+bae], r.BndAddr)
+	copy(buf[bas:bas+addrl], r.BndAddr)
 	copy(buf[bae:bae+2], r.BndPort)
 
 	return buf, nil

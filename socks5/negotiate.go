@@ -78,10 +78,10 @@ func (s *Socks5) Negotiate(ctx context.Context, req *NegRequest, w WriteFunc) er
 	}
 
 	c := make(chan error, 1)
-	go func(c chan<- error) {
-		_, err := w(mr)
+	go func(c chan<- error, p []byte) {
+		_, err := w(p)
 		c <- err
-	}(c)
+	}(c, mr)
 
 	select {
 	case <-ctx.Done():
