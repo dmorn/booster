@@ -35,10 +35,6 @@ func (s *Server) ListenAndServe() error {
 }
 
 func (s *Server) handle(proxy socks5.Socks5er) {
-	defer func() {
-		proxy.Close()
-	}()
-
 	if err := proxy.Run(); err != nil {
 		s.Log.Println(err)
 	}

@@ -62,7 +62,7 @@ const (
 
 // Socks5er describes a socks5 handler instance.
 type Socks5er interface {
-	io.ReadWriteCloser
+	io.ReadWriter
 
 	Runner
 	Negotiater

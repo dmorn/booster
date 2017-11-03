@@ -11,6 +11,7 @@ type Socks5 struct {
 	Socks5er
 
 	rwc              io.ReadWriteCloser // such as conn.Conn
+	trg              io.ReadWriteCloser // such as conn.Conn
 	supportedMethods []uint8
 }
 
@@ -19,10 +20,6 @@ func NewSocks5(rwc io.ReadWriteCloser) *Socks5 {
 		rwc:              rwc,
 		supportedMethods: []uint8{MethodNoAuth},
 	}
-}
-
-func (s *Socks5) Close() error {
-	return s.rwc.Close()
 }
 
 func (s *Socks5) Write(p []byte) (int, error) {
@@ -43,6 +40,7 @@ func (s *Socks5) Run() error {
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
+	defer s.rwc.Close()
 
 	// First negotiate
 	buf := make([]byte, 257)
@@ -72,7 +70,7 @@ func (s *Socks5) Run() error {
 
 	// execute proper command
 	var err error
-	var trg io.ReadWriteCloser // target (usually a connection)
+	var trg io.ReadWriteCloser // such as conn.Conn
 
 	switch req.Cmd {
 	case CmdConnect:
@@ -84,10 +82,10 @@ func (s *Socks5) Run() error {
 	default:
 		return fmt.Errorf("unexpected CMD(%v)", req.Cmd)
 	}
-
 	if err != nil {
 		return err
 	}
+	defer trg.Close()
 
 	// start proxying
 	go io.Copy(trg, s.rwc)
