@@ -6,16 +6,19 @@ import (
 	"io"
 )
 
+// Socks5 is a Socks5er implementation.
 type Socks5 struct {
 	Socks5er
 
 	rwc              io.ReadWriteCloser // such as conn.Conn
-	trg              io.ReadWriteCloser // such as conn.Conn
 	supportedMethods []uint8
 }
 
 var _ Socks5er = &Socks5{}
 
+// NewSocks5 creates a new instance of Socks5.
+//
+// rwc will be used as source.
 func NewSocks5(rwc io.ReadWriteCloser) *Socks5 {
 	return &Socks5{
 		rwc:              rwc,
@@ -31,6 +34,12 @@ func (s *Socks5) Read(p []byte) (int, error) {
 	return s.rwc.Read(p)
 }
 
+// Run marshals and unmarshals requests, starting from the
+// negotiation. It then checks which Command the client asked to
+// execute and performs the request.
+//
+// When the negotation phase ends, enstablishes a connection with the remote host,
+// then starts proxing requests between client and server.
 func (s *Socks5) Run() error {
 	var (
 		ctx    context.Context
