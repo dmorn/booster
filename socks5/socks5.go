@@ -164,10 +164,28 @@ func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.Rea
 }
 
 func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
+	resp, err := NewResponse(nil, RespCommandNotSupported)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = s.writeResp(ctx, resp, w); err != nil {
+		return nil, err
+	}
+
 	return nil, fmt.Errorf("unsupported method")
 }
 
 func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
+	resp, err := NewResponse(nil, RespCommandNotSupported)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = s.writeResp(ctx, resp, w); err != nil {
+		return nil, err
+	}
+
 	return nil, fmt.Errorf("unsupported method")
 }
 
