@@ -1,15 +1,15 @@
 package socks5
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Request struct {
 	Unmarshaler
 
 	Ver      uint8
 	Cmd      uint8
-	AddrType uint8
-	Addr     []uint8
-	DstPort  []uint8
+	DestAddr *Addr
 }
 
 // Unmarshal fill r with data contained in p.
@@ -23,52 +23,24 @@ type Request struct {
 // numers represent field size
 //
 func (r *Request) Unmarshal(p []byte) error {
-	expl := 5 // expected p length
+	expl := 3 // expected p length
 	if len(p) < expl {
 		return fmt.Errorf("unexpected input length. found %v", len(p))
 	}
-	v := p[0]    // version
-	cmd := p[1]  // command
-	atyp := p[3] // address type
+	v := p[0]   // version
+	cmd := p[1] // command
 
-	// destination address
-	var addr []byte
-	var addrl int // address length
-	asi := 4      // address start index
-
-	switch atyp {
-	case AddrTypeIPV4:
-		addrl = 4
-	case AddrTypeIPV6:
-		addrl = 16
-	case AddrTypeDomainName:
-		addrl = int(p[4])
-		asi = 5
+	// read address/port
+	addr := new(Addr)
+	if err := addr.Unmarshal(p[3:]); err != nil {
+		return err
 	}
 
-	expl = 6 + addrl
-	if len(p) < expl {
-		return fmt.Errorf("unexpected input length. found %v", len(p))
-	}
-
-	addr = make([]uint8, addrl)
-	copy(addr, p[asi:(asi+addrl)])
-	if len(addr) == 0 {
-		return fmt.Errorf("unable to parse destination address")
-	}
-
-	// destination port
-	psi := asi + len(addr) // port starting index
-	dstPort := p[psi:(psi + 2)]
-	if len(dstPort) == 0 {
-		return fmt.Errorf("unable to parse destination port")
-	}
+	fmt.Printf("Address translated: %v\n", addr.String())
 
 	r.Ver = v
 	r.Cmd = cmd
-	r.AddrType = atyp
-	r.Addr = addr
-	r.DstPort = dstPort
+	r.DestAddr = addr
 
 	return nil
 }

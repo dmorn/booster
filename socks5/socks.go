@@ -51,10 +51,10 @@ const (
 	// AddrTypeIPV4 is a version-4 IP address, with a length of 4 octets
 	AddrTypeIPV4 = uint8(1)
 
-	// AddrTypeDomainName field contains a fully-qualified domain name. The first
+	// AddrTypeFQDN field contains a fully-qualified domain name. The first
 	// octet of the address field contains the number of octets of name that
 	// follow, there is no terminating NUL octet.
-	AddrTypeDomainName = uint8(3)
+	AddrTypeFQDN = uint8(3)
 
 	// AddrTypeIPV6 is a version-6 IP address, with a length of 16 octets.
 	AddrTypeIPV6 = uint8(4)

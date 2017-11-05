@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"strings"
 )
 
 // Socks5 is a Socks5er implementation.
@@ -51,7 +53,7 @@ func (s *Socks5) Run() error {
 	defer s.rwc.Close()
 
 	// First negotiate
-	buf := make([]byte, 257)
+	buf := make([]byte, 256)
 	negReq := new(NegRequest)
 	if _, err := s.Read(buf); err != nil {
 		return err
@@ -76,6 +78,24 @@ func (s *Socks5) Run() error {
 		return err
 	}
 
+	// resolve destination address if it is a FQDN
+	dest := req.DestAddr
+	if dest.FQDN != "" {
+		ipaddr, err := net.ResolveIPAddr("ip", dest.FQDN)
+		if err != nil {
+			resp, err := NewResponse(nil, RespHostUnreachable)
+			if err != nil {
+				return fmt.Errorf("unable to build resp message")
+			}
+			s.writeResp(ctx, resp, s.Write)
+			return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
+		}
+		dest.IP = ipaddr.IP
+	}
+
+	// Apply any address rewrites
+	req.DestAddr = dest
+
 	// execute proper command
 	var err error
 	var trg io.ReadWriteCloser // such as conn.Conn
@@ -93,12 +113,7 @@ func (s *Socks5) Run() error {
 	if err != nil {
 		return err
 	}
-
-	defer func(rwc io.ReadWriteCloser) {
-		if conn, ok := rwc.(io.Closer); ok {
-			conn.Close()
-		}
-	}(trg)
+	defer trg.Close()
 
 	// check that the connection is not nil
 	if trg == nil {
@@ -115,32 +130,37 @@ func (s *Socks5) Run() error {
 func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
 	fmt.Printf("connect request %v\n", req)
 
-	res := new(Response)
-	res.Ver = req.Ver
-	res.Rep = RespCommandNotSupported
-	res.Rsv = FieldReserved
-	res.AddrType = req.AddrType
-	res.BndAddr = req.Addr
-	res.BndPort = req.DstPort
+	target, err := s.dialContext(ctx, req.DestAddr)
+	if err != nil {
+		msg := err.Error()
+		rc := RespHostUnreachable
+		if strings.Contains(msg, "refused") {
+			rc = RespConnectionRefused
+		} else if strings.Contains(msg, "network is unreachable") {
+			rc = RespNetworkUnreachable
+		}
 
-	mr, err := res.Marshal()
+		resp, err := NewResponse(nil, rc)
+		if err != nil {
+			return nil, fmt.Errorf("unable to build resp message")
+		}
+
+		return nil, s.writeResp(ctx, resp, w)
+	}
+
+	// Send success
+	local := target.LocalAddr().(*net.TCPAddr)
+	bind := Addr{IP: local.IP, Port: local.Port}
+	resp, err := NewResponse(&bind, RespSucceded)
 	if err != nil {
 		return nil, err
 	}
 
-	c := make(chan error, 1)
-	go func(c chan<- error, p []byte) {
-		_, err := w(p)
-		c <- err
-	}(c, mr)
-
-	select {
-	case <-ctx.Done():
-		<-c
-		return nil, ctx.Err()
-	case err := <-c:
+	if err := s.writeResp(ctx, resp, w); err != nil {
 		return nil, err
 	}
+
+	return target, nil
 }
 
 func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
@@ -149,4 +169,49 @@ func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWr
 
 func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
 	return nil, fmt.Errorf("unsupported method")
+}
+
+func (s *Socks5) dialContext(ctx context.Context, addr *Addr) (net.Conn, error) {
+	c := make(chan net.Conn, 1)
+	errc := make(chan error, 1)
+
+	go func(c chan net.Conn, errc chan error) {
+		conn, err := net.Dial("tcp", addr.Address())
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		c <- conn
+	}(c, errc)
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case conn := <-c:
+		return conn, nil
+	case err := <-errc:
+		return nil, err
+	}
+}
+
+func (s *Socks5) writeResp(ctx context.Context, resp *Response, w WriteFunc) error {
+	c := make(chan error, 1)
+	go func(c chan error) {
+		b, err := resp.Marshal()
+		if err != nil {
+			c <- err
+			return
+		}
+
+		_, err = w(b)
+		c <- err
+	}(c)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-c:
+		return err
+	}
 }
