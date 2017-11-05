@@ -27,7 +27,7 @@ func NewResponse(bdnAddr *Addr, code uint8) (*Response, error) {
 // +----+-----+-------+------+----------+----------+
 // | 1  |  1  | X'00' |  1   | Variable |    2     |
 // +----+-----+-------+------+----------+----------+
-// numers represent field size
+// numbers represent field size
 //
 func (r *Response) Marshal() ([]byte, error) {
 	// Format the address

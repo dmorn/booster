@@ -20,7 +20,7 @@ type Request struct {
 // +----+-----+-------+------+----------+----------+
 // | 1  |  1  | X'00' |  1   | Variable |    2     |
 // +----+-----+-------+------+----------+----------+
-// numers represent field size
+// numbers represent field size
 //
 func (r *Request) Unmarshal(p []byte) error {
 	expl := 3 // expected p length

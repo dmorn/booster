@@ -20,7 +20,7 @@ type NegRequest struct {
 // +----+----------+----------+
 // | 1  |    1     | 1 to 255 |
 // +----+----------+----------+
-// numers represent field size
+// numbers represent field size
 //
 func (r *NegRequest) Unmarshal(p []byte) error {
 	v := p[0] // version
