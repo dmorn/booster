@@ -10,13 +10,9 @@ import (
 
 // Socks5 is a Socks5er implementation.
 type Socks5 struct {
-	Socks5er
-
 	rwc              io.ReadWriteCloser // such as conn.Conn
 	supportedMethods []uint8
 }
-
-var _ Socks5er = &Socks5{}
 
 // NewSocks5 creates a new instance of Socks5.
 //
@@ -130,7 +126,7 @@ func (s *Socks5) Run() error {
 func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
 	fmt.Printf("connect request %v\n", req)
 
-	target, err := s.dialContext(ctx, req.DestAddr)
+	target, err := s.DialContext(ctx, "tcp", req.DestAddr.Address())
 	if err != nil {
 		msg := err.Error()
 		rc := RespHostUnreachable
@@ -189,12 +185,16 @@ func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.R
 	return nil, fmt.Errorf("unsupported method")
 }
 
-func (s *Socks5) dialContext(ctx context.Context, addr *Addr) (net.Conn, error) {
+func (s *Socks5) Dial(network, addr string) (c net.Conn, err error) {
+	return net.Dial(network, addr)
+}
+
+func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	c := make(chan net.Conn, 1)
 	errc := make(chan error, 1)
 
 	go func(c chan net.Conn, errc chan error) {
-		conn, err := net.Dial("tcp", addr.Address())
+		conn, err := s.Dial(network, addr)
 		if err != nil {
 			errc <- err
 			return

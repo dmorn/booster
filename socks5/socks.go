@@ -60,17 +60,6 @@ const (
 	AddrTypeIPV6 = uint8(4)
 )
 
-// Socks5er describes a socks5 handler instance.
-type Socks5er interface {
-	io.ReadWriter
-
-	Runner
-	Negotiater
-	Connecter
-	Associater
-	Binder
-}
-
 // WriteFunc is just an alias for io.Writer's Write function
 type WriteFunc func([]byte) (int, error)
 

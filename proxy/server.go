@@ -29,13 +29,12 @@ func (s *Server) ListenAndServe() error {
 			s.Log.Printf("[TCP Accept Error]: %v\n", err)
 			continue
 		}
-		s5 := socks5.NewSocks5(conn)
-		go s.handle(s5)
-	}
-}
 
-func (s *Server) handle(proxy socks5.Socks5er) {
-	if err := proxy.Run(); err != nil {
-		s.Log.Println(err)
+		go func() {
+			s5 := socks5.NewSocks5(conn)
+			if err := s5.Run(); err != nil {
+				s.Log.Println(err)
+			}
+		}()
 	}
 }
