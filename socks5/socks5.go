@@ -2,43 +2,124 @@ package socks5
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
-	"strings"
+	"strconv"
+	"time"
 )
 
-// Socks5 is a Socks5er implementation.
-type Socks5 struct {
-	rwc              io.ReadWriteCloser // such as conn.Conn
-	supportedMethods []uint8
+const (
+	socks5Version = uint8(5)
+)
+
+// Possible METHOD field values
+const (
+	socks5MethodNoAuth              = uint8(0)
+	socks5MethodGSSAPI              = uint8(1)
+	socks5MethodUsernamePassword    = uint8(2)
+	socks5MethodNoAcceptableMethods = uint8(0xff)
+)
+
+// Possible CMD field values
+const (
+	socks5CmdConnect   = uint8(1)
+	socks5CmdBind      = uint8(2)
+	socks5CmdAssociate = uint8(3)
+)
+
+// Possible REP field values
+const (
+	socks5RespSuccess                 = uint8(0)
+	socks5RespGeneralServerFailure    = uint8(1)
+	socks5RespConnectionNotAllowed    = uint8(2)
+	socks5RespNetworkUnreachable      = uint8(3)
+	socks5RespHostUnreachable         = uint8(4)
+	socks5RespConnectionRefused       = uint8(5)
+	socks5RespTTLExpired              = uint8(6)
+	socks5RespCommandNotSupported     = uint8(7)
+	socks5RespAddressTypeNotSupported = uint8(8)
+	socks5RespUnassigned              = uint8(9)
+)
+
+const (
+	// FieldReserved should be used to fill fields marked as reserved.
+	socks5FieldReserved = uint8(0x00)
+)
+
+const (
+	// AddrTypeIPV4 is a version-4 IP address, with a length of 4 octets
+	socks5IP4 = uint8(1)
+
+	// AddrTypeFQDN field contains a fully-qualified domain name. The first
+	// octet of the address field contains the number of octets of name that
+	// follow, there is no terminating NUL octet.
+	socks5FQDN = uint8(3)
+
+	// AddrTypeIPV6 is a version-6 IP address, with a length of 16 octets.
+	socks5IP6 = uint8(4)
+)
+
+var (
+	supportedMethods = []uint8{socks5MethodNoAuth}
+)
+
+// Conn is a wrapper around io.ReadWriteCloser.
+type Conn interface {
+	io.ReadWriteCloser
 }
 
-// NewSocks5 creates a new instance of Socks5.
-//
-// rwc will be used as source.
-func NewSocks5(rwc io.ReadWriteCloser) *Socks5 {
-	return &Socks5{
-		rwc:              rwc,
-		supportedMethods: []uint8{MethodNoAuth},
+// Dialer is the interface that wraps the DialContext function.
+type Dialer interface {
+	// DialContext opens a connection to addr, which should
+	// be a canonical address with host and port.
+	DialContext(ctx context.Context, network, addr string) (c net.Conn, err error)
+}
+
+// Socks5 represents a SOCKS5 proxy server implementation.
+type Socks5 struct {
+	// Port where the server will be listening on.
+	Port int
+
+	// No default logger is provided.
+	Log *log.Logger
+
+	// Dialer is used when connecting to a remote host. Could
+	// be useful when chaining multiple proxies.
+	Dialer Dialer
+}
+
+// ListenAndServe accepts and handles TCP connections
+// using the SOCKS5 protocol.
+func (s *Socks5) ListenAndServe() error {
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(s.Port))
+	if err != nil {
+		return err
+	}
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			s.Log.Printf("[TCP Accept Error]: %v\n", err)
+			continue
+		}
+
+		go func() {
+			if err := s.Handle(conn); err != nil {
+				s.Log.Println(err)
+			}
+		}()
 	}
 }
 
-func (s *Socks5) Write(p []byte) (int, error) {
-	return s.rwc.Write(p)
-}
-
-func (s *Socks5) Read(p []byte) (int, error) {
-	return s.rwc.Read(p)
-}
-
-// Run marshals and unmarshals requests, starting from the
-// negotiation. It then checks which Command the client asked to
-// execute and performs the request.
+// Handle performs the steps required to be SOCKS5 compliant.
+// See RFC 1928 for details.
 //
-// When the negotation phase ends, enstablishes a connection with the remote host,
-// then starts proxing requests between client and server.
-func (s *Socks5) Run() error {
+// Should run in its own go routine, closes the connection
+// when returning.
+func (s *Socks5) Handle(conn Conn) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -46,155 +127,103 @@ func (s *Socks5) Run() error {
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
-	defer s.rwc.Close()
+	defer conn.Close()
 
-	// First negotiate
-	buf := make([]byte, 256)
-	negReq := new(NegRequest)
-	if _, err := s.Read(buf); err != nil {
+	// method sub-negotiation phase
+	if err := s.Negotiate(conn); err != nil {
 		return err
 	}
 
-	if err := negReq.Unmarshal(buf); err != nil {
-		return err
+	// request details
+
+	// len is jsut an estimation
+	buf := make([]byte, 6+net.IPv4len)
+
+	if _, err := io.ReadFull(conn, buf[:4]); err != nil {
+		return errors.New("proxy: unable to read request: " + err.Error())
 	}
 
-	if err := s.Negotiate(ctx, negReq, s.Write); err != nil {
-		return err
+	v := buf[0]     // protocol version
+	cmd := buf[1]   // command to execute
+	_ = buf[2]      // reserved field
+	atype := buf[3] // address type
+
+	// Check version number
+	if v != socks5Version {
+		return errors.New("proxy: unsupported version: " + string(v))
 	}
 
-	// parse request
-	p := make([]byte, 256)
-	if _, err := s.Read(p); err != nil {
-		return err
-	}
-
-	req := new(Request)
-	if err := req.Unmarshal(p); err != nil {
-		return err
-	}
-
-	// resolve destination address if it is a FQDN
-	dest := req.DestAddr
-	if dest.FQDN != "" {
-		ipaddr, err := net.ResolveIPAddr("ip", dest.FQDN)
+	bytesToRead := 0
+	switch atype {
+	case socks5IP4:
+		bytesToRead = net.IPv4len
+	case socks5IP6:
+		bytesToRead = net.IPv6len
+	case socks5FQDN:
+		_, err := io.ReadFull(conn, buf[:1])
 		if err != nil {
-			resp, err := NewResponse(nil, RespHostUnreachable)
-			if err != nil {
-				return fmt.Errorf("unable to build resp message")
-			}
-			s.writeResp(ctx, resp, s.Write)
-			return fmt.Errorf("failed to resolve destination '%v': %v", dest.FQDN, err)
+			return errors.New("proxy: failed to read domain length: " + err.Error())
 		}
-		dest.IP = ipaddr.IP
+		bytesToRead = int(buf[0])
+	default:
+		return errors.New("proxy: got unknown address type " + strconv.Itoa(int(atype)))
 	}
 
-	// Apply any address rewrites
-	req.DestAddr = dest
+	if cap(buf) < bytesToRead {
+		buf = make([]byte, bytesToRead)
+	} else {
+		buf = buf[:bytesToRead]
+	}
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		return errors.New("proxy: failed to read address: " + err.Error())
+	}
 
-	// execute proper command
+	addr := net.IP(buf).String()
+
+	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+		return errors.New("proxy: failed to read port: " + err.Error())
+	}
+
+	port := int(buf[0])<<8 | int(buf[1])
+
+	target := addr + ":" + strconv.Itoa(port)
+
 	var err error
-	var trg io.ReadWriteCloser // such as conn.Conn
+	var tconn Conn
 
-	switch req.Cmd {
-	case CmdConnect:
-		trg, err = s.Connect(ctx, req, s.Write)
-	case CmdAssociate:
-		trg, err = s.Associate(ctx, req, s.Write)
-	case CmdBind:
-		trg, err = s.Bind(ctx, req, s.Write)
+	ctx, cancel = context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	switch cmd {
+	case socks5CmdConnect:
+		tconn, err = s.Connect(ctx, conn, target)
+	case socks5CmdAssociate:
+		tconn, err = s.Associate(ctx, conn, target)
+	case socks5CmdBind:
+		tconn, err = s.Bind(ctx, conn, target)
 	default:
-		return fmt.Errorf("unexpected CMD(%v)", req.Cmd)
+		return fmt.Errorf("unexpected CMD(%v)", cmd)
 	}
 	if err != nil {
 		return err
 	}
-	defer trg.Close()
-
-	// check that the connection is not nil
-	if trg == nil {
-		return fmt.Errorf("unable to enstablish connection with remote host")
-	}
+	defer tconn.Close()
 
 	// start proxying
-	go io.Copy(trg, s.rwc)
-	io.Copy(s.rwc, trg)
+	go io.Copy(tconn, conn)
+	io.Copy(conn, tconn)
 
 	return nil
 }
 
-func (s *Socks5) Connect(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	fmt.Printf("connect request %v\n", req)
-
-	target, err := s.DialContext(ctx, "tcp", req.DestAddr.Address())
-	if err != nil {
-		msg := err.Error()
-		rc := RespHostUnreachable
-		if strings.Contains(msg, "refused") {
-			rc = RespConnectionRefused
-		} else if strings.Contains(msg, "network is unreachable") {
-			rc = RespNetworkUnreachable
-		}
-
-		resp, err := NewResponse(nil, rc)
-		if err != nil {
-			return nil, fmt.Errorf("unable to build resp message")
-		}
-
-		return nil, s.writeResp(ctx, resp, w)
-	}
-
-	// Send success
-	local := target.LocalAddr().(*net.TCPAddr)
-	bind := Addr{IP: local.IP, Port: local.Port}
-	resp, err := NewResponse(&bind, RespSucceded)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.writeResp(ctx, resp, w); err != nil {
-		return nil, err
-	}
-
-	return target, nil
-}
-
-func (s *Socks5) Bind(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	resp, err := NewResponse(nil, RespCommandNotSupported)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = s.writeResp(ctx, resp, w); err != nil {
-		return nil, err
-	}
-
-	return nil, fmt.Errorf("unsupported method")
-}
-
-func (s *Socks5) Associate(ctx context.Context, req *Request, w WriteFunc) (io.ReadWriteCloser, error) {
-	resp, err := NewResponse(nil, RespCommandNotSupported)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = s.writeResp(ctx, resp, w); err != nil {
-		return nil, err
-	}
-
-	return nil, fmt.Errorf("unsupported method")
-}
-
-func (s *Socks5) Dial(network, addr string) (c net.Conn, err error) {
-	return net.Dial(network, addr)
-}
-
+// DialContext opens a new connection to addr using the specified network.
+// returns immediately then ctx.Done() is called.
 func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	c := make(chan net.Conn, 1)
 	errc := make(chan error, 1)
 
 	go func(c chan net.Conn, errc chan error) {
-		conn, err := s.Dial(network, addr)
+		conn, err := net.Dial(network, addr)
 		if err != nil {
 			errc <- err
 			return
@@ -210,26 +239,5 @@ func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Con
 		return conn, nil
 	case err := <-errc:
 		return nil, err
-	}
-}
-
-func (s *Socks5) writeResp(ctx context.Context, resp *Response, w WriteFunc) error {
-	c := make(chan error, 1)
-	go func(c chan error) {
-		b, err := resp.Marshal()
-		if err != nil {
-			c <- err
-			return
-		}
-
-		_, err = w(b)
-		c <- err
-	}(c)
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-c:
-		return err
 	}
 }

@@ -1,99 +1,55 @@
 package socks5
 
 import (
-	"context"
-	"fmt"
+	"errors"
+	"io"
 )
 
-type NegRequest struct {
-	Unmarshaler
+// Negotiate performs the very first method subnegotiation when handling
+// a new connection. See RFC 1928
+func (s *Socks5) Negotiate(conn io.ReadWriter) error {
 
-	Ver     uint8
-	Methods []uint8
-}
+	// len is just an estimation
+	buf := make([]byte, 7)
 
-// Unmarshal fill r with data contained in p.
-// expected input format:
-//
-// +----+----------+----------+
-// |VER | NMETHODS | METHODS  |
-// +----+----------+----------+
-// | 1  |    1     | 1 to 255 |
-// +----+----------+----------+
-// numbers represent field size
-//
-func (r *NegRequest) Unmarshal(p []byte) error {
-	v := p[0] // version
+	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+		return errors.New("proxy: failed to read negotiation: " + err.Error())
+	}
 
-	// procede with method checking
-	nmethods := uint8(p[1])        // methods field size
-	methods := p[2:(2 + nmethods)] // methods supported by client
+	v := buf[0]         // protocol version
+	nm := uint8(buf[1]) // number of methods
 
-	r.Ver = v
-	r.Methods = methods
+	if cap(buf) < int(nm) {
+		buf = make([]byte, nm)
+	} else {
+		buf = buf[:nm]
+	}
+
+	// Check version number
+	if v != socks5Version {
+		return errors.New("proxy: unsupported version: " + string(v))
+	}
+
+	if _, err := io.ReadFull(conn, buf[:nm]); err != nil {
+		return errors.New("proxy: failed to read methods: " + err.Error())
+	}
+
+	// select one method - could also be socksV5MethodNoAcceptableMethods
+	m := acceptMethod(buf)
+
+	buf = buf[:0]
+	buf = append(buf, socks5Version)
+	buf = append(buf, m)
+
+	if _, err := conn.Write(buf); err != nil {
+		return errors.New("proxy: unable to write negotitation reponse: " + err.Error())
+	}
+
 	return nil
 }
 
-type NegResponse struct {
-	Marshaler
-
-	Ver    uint8
-	Method uint8
-}
-
-// Marshal converts r into []byte.
-// Output format:
-//
-// +----+--------+
-// |VER | METHOD |
-// +----+--------+
-// | 1  |   1    |
-// +----+--------+
-// numers represent field size
-//
-func (r *NegResponse) Marshal() ([]byte, error) {
-	return []byte{r.Ver, r.Method}, nil
-}
-
-var _ Negotiater = &Socks5{}
-
-// Negotiate expects s.Read to fill a buffer with a well formed negRequest.
-// Returns an error if versions is different from 5. Writes results back using w
-// function.
-func (s *Socks5) Negotiate(ctx context.Context, req *NegRequest, w WriteFunc) error {
-	// Check version number
-	if req.Ver != Version5 {
-		return fmt.Errorf("unsupported version (%v)", req.Ver)
-	}
-
-	// build response checking methods
-	resp := &NegResponse{
-		Ver:    req.Ver,
-		Method: s.areMethodsSupported(req.Methods),
-	}
-
-	mr, err := resp.Marshal()
-	if err != nil {
-		return err
-	}
-
-	c := make(chan error, 1)
-	go func(c chan<- error, p []byte) {
-		_, err := w(p)
-		c <- err
-	}(c, mr)
-
-	select {
-	case <-ctx.Done():
-		<-c // wait w to return
-		return ctx.Err()
-	case err := <-c:
-		return err
-	}
-}
-
-func (s *Socks5) areMethodsSupported(m []uint8) uint8 {
-	for _, sm := range s.supportedMethods {
+func acceptMethod(m []uint8) uint8 {
+	for _, sm := range supportedMethods {
 		for _, tm := range m {
 			if sm == tm {
 				return sm
@@ -101,5 +57,5 @@ func (s *Socks5) areMethodsSupported(m []uint8) uint8 {
 		}
 	}
 
-	return MethodNoAcceptableMethods
+	return socks5MethodNoAcceptableMethods
 }

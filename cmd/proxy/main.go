@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmorandini/booster/proxy"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 var (
@@ -15,9 +15,10 @@ var (
 func main() {
 	flag.Parse()
 
-	l := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
-	s := &proxy.Server{Port: *port, Log: l}
+	proxy := new(socks5.Socks5)
+	proxy.Port = *port
+	proxy.Log = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
 	log.Printf("Proxy Server listening on port :%v", *port)
-	log.Fatal(s.ListenAndServe())
+	log.Fatal(proxy.ListenAndServe())
 }
