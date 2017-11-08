@@ -28,7 +28,7 @@ func TestNegotiate(t *testing.T) {
 	var tests = []struct {
 		in  []byte
 		out []byte
-		err bool
+		err bool // should expect negotiation error?
 	}{
 		{in: []byte{5, 2, 0, 1}, out: []byte{5, 0}, err: false}, // successfull response
 		{in: []byte{5, 1, 1}, out: []byte{5, 0xff}, err: false}, // command not supported
