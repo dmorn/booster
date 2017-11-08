@@ -24,7 +24,7 @@ func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, e
 
 	tconn, err := dialer.DialContext(ctx, "tcp", target)
 	if err != nil {
-		// TODO(daniel): Responde with the proper code
+		// TODO(daniel): Responde with proper code
 		buf = append(buf, socks5RespHostUnreachable, socks5FieldReserved)
 		if _, err := conn.Write(buf); err != nil {
 			return nil, errors.New("proxy: unable to write connect response: " + err.Error())
