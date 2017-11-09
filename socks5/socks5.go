@@ -1,3 +1,5 @@
+// Package socks5 provides a SOCKS5 server implementation. See RFC 1928
+// for the protocol specification
 package socks5
 
 import (
