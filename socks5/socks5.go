@@ -3,7 +3,6 @@ package socks5
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -139,58 +138,25 @@ func (s *Socks5) Handle(conn Conn) error {
 	// len is jsut an estimation
 	buf := make([]byte, 6+net.IPv4len)
 
-	if _, err := io.ReadFull(conn, buf[:4]); err != nil {
+	if _, err := io.ReadFull(conn, buf[:3]); err != nil {
 		return errors.New("proxy: unable to read request: " + err.Error())
 	}
 
-	v := buf[0]     // protocol version
-	cmd := buf[1]   // command to execute
-	_ = buf[2]      // reserved field
-	atype := buf[3] // address type
+	v := buf[0]   // protocol version
+	cmd := buf[1] // command to execute
+	_ = buf[2]    // reserved field
 
 	// Check version number
 	if v != socks5Version {
 		return errors.New("proxy: unsupported version: " + string(v))
 	}
 
-	bytesToRead := 0
-	switch atype {
-	case socks5IP4:
-		bytesToRead = net.IPv4len
-	case socks5IP6:
-		bytesToRead = net.IPv6len
-	case socks5FQDN:
-		_, err := io.ReadFull(conn, buf[:1])
-		if err != nil {
-			return errors.New("proxy: failed to read domain length: " + err.Error())
-		}
-		bytesToRead = int(buf[0])
-	default:
-		return errors.New("proxy: got unknown address type " + strconv.Itoa(int(atype)))
+	target, err := ReadAddress(conn)
+	if err != nil {
+		return err
 	}
 
-	if cap(buf) < bytesToRead {
-		buf = make([]byte, bytesToRead)
-	} else {
-		buf = buf[:bytesToRead]
-	}
-	if _, err := io.ReadFull(conn, buf); err != nil {
-		return errors.New("proxy: failed to read address: " + err.Error())
-	}
-
-	addr := net.IP(buf).String()
-
-	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
-		return errors.New("proxy: failed to read port: " + err.Error())
-	}
-
-	port := int(buf[0])<<8 | int(buf[1])
-
-	target := addr + ":" + strconv.Itoa(port)
-
-	var err error
 	var tconn Conn
-
 	ctx, cancel = context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -202,7 +168,7 @@ func (s *Socks5) Handle(conn Conn) error {
 	case socks5CmdBind:
 		tconn, err = s.Bind(ctx, conn, target)
 	default:
-		return fmt.Errorf("unexpected CMD(%v)", cmd)
+		return errors.New("unexpected CMD(" + strconv.Itoa(int(cmd)) + ")")
 	}
 	if err != nil {
 		return err
@@ -214,6 +180,68 @@ func (s *Socks5) Handle(conn Conn) error {
 	io.Copy(conn, tconn)
 
 	return nil
+}
+
+// ReadAddress reads hostname and port and converts them
+// into its string format, properly formatted.
+//
+// r expects to read one byte that specifies the address
+// format (1/3/4), follwed by the address itself and a
+// 16 bit port number.
+//
+// addr == "" only when err != nil.
+func ReadAddress(r io.Reader) (addr string, err error) {
+
+	// cap is just an estimantion
+	buf := make([]byte, 0, 2+net.IPv6len)
+	buf = buf[:1]
+
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return "", errors.New("proxy: unable to read address type: " + err.Error())
+	}
+
+	atype := buf[0] // address type
+
+	bytesToRead := 0
+	switch atype {
+	case socks5IP4:
+		bytesToRead = net.IPv4len
+	case socks5IP6:
+		bytesToRead = net.IPv6len
+	case socks5FQDN:
+		_, err := io.ReadFull(r, buf[:1])
+		if err != nil {
+			return "", errors.New("proxy: failed to read domain length: " + err.Error())
+		}
+		bytesToRead = int(buf[0])
+	default:
+		return "", errors.New("proxy: got unknown address type " + strconv.Itoa(int(atype)))
+	}
+
+	if cap(buf) < bytesToRead {
+		buf = make([]byte, bytesToRead)
+	} else {
+		buf = buf[:bytesToRead]
+	}
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return "", errors.New("proxy: failed to read address: " + err.Error())
+	}
+
+	var host string
+	if atype == socks5FQDN {
+		host = string(buf)
+	} else {
+		host = net.IP(buf).String()
+	}
+
+	if _, err := io.ReadFull(r, buf[:2]); err != nil {
+		return "", errors.New("proxy: failed to read port: " + err.Error())
+	}
+
+	port := int(buf[0])<<8 | int(buf[1])
+	addr = net.JoinHostPort(host, strconv.Itoa(port))
+
+	return addr, nil
 }
 
 // DialContext opens a new connection to addr using the specified network.

@@ -42,8 +42,8 @@ func TestNegotiate(t *testing.T) {
 		}
 
 		if err := s5.Negotiate(conn); err != nil {
-			// only fail if we were not expecting any error
-			if test.err == false {
+			// only fail if not expecting any error
+			if !test.err {
 				t.Fatal(err)
 			} else {
 				return
