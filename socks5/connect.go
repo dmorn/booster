@@ -15,14 +15,7 @@ func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, e
 	buf := make([]byte, 0, 6+len(target))
 	buf = append(buf, socks5Version)
 
-	var dialer Dialer
-	if s.Dialer != nil {
-		dialer = s.Dialer
-	} else {
-		dialer = s
-	}
-
-	tconn, err := dialer.DialContext(ctx, "tcp", target)
+	tconn, err := s.getDialer().DialContext(ctx, "tcp", target)
 	if err != nil {
 		// TODO(daniel): Responde with proper code
 		buf = append(buf, socks5RespHostUnreachable, socks5FieldReserved)

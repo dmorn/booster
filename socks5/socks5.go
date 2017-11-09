@@ -269,3 +269,11 @@ func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Con
 		return nil, err
 	}
 }
+
+func (s *Socks5) getDialer() Dialer {
+	if s.Dialer != nil {
+		return s.Dialer
+	}
+
+	return s
+}
