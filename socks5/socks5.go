@@ -247,7 +247,7 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 }
 
 // DialContext opens a new connection to addr using the specified network.
-// returns immediately then ctx.Done() is called.
+// returns immediately when ctx.Done() is called.
 func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	c := make(chan net.Conn, 1)
 	errc := make(chan error, 1)
