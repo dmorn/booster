@@ -1,25 +1,10 @@
 package socks5_test
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/danielmorandini/booster/socks5"
 )
-
-type conn struct {
-	buf bytes.Buffer
-}
-
-func (c *conn) Read(p []byte) (int, error) {
-	return c.buf.Read(p)
-}
-
-func (c *conn) Write(p []byte) (int, error) {
-	return c.buf.Write(p)
-}
-
-func (c *conn) Close() {}
 
 func TestNegotiate(t *testing.T) {
 	s5 := new(socks5.Socks5)

@@ -81,11 +81,11 @@ type Dialer interface {
 
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
-	Log *log.Logger
+	*log.Logger
 
 	// Dialer is used when connecting to a remote host. Could
 	// be useful when chaining multiple proxies.
-	Dialer Dialer
+	Dialer
 }
 
 // ListenAndServe accepts and handles TCP connections
@@ -96,20 +96,20 @@ func (s *Socks5) ListenAndServe(port int) error {
 		return err
 	}
 
-	s.Log.Printf("[TCP] listening on port: %v", port)
+	s.Printf("[TCP] listening on port: %v", port)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			s.Log.Printf("[TCP Accept Error]: %v\n", err)
+			s.Printf("[TCP Accept Error]: %v\n", err)
 			continue
 		}
 
 		go func() {
 			if err := s.Handle(conn); err != nil {
-				s.Log.Println(err)
+				s.Println(err)
 			}
-			s.Log.Printf("[TCP]: connection to %v closed.\n", conn.RemoteAddr().String())
+			s.Printf("[TCP]: connection to %v closed.\n", conn.RemoteAddr().String())
 		}()
 	}
 }

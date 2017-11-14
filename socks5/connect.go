@@ -46,7 +46,7 @@ func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, e
 
 	conn.Write(buf)
 
-	s.Log.Printf("CONNECT to %v. Response: %v\n", target, buf)
+	s.Printf("CONNECT to %v. Response: %v\n", target, buf)
 
 	return tconn, nil
 }

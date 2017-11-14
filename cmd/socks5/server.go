@@ -16,8 +16,7 @@ func main() {
 	flag.Parse()
 
 	proxy := new(socks5.Socks5)
-	logger := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
-	proxy.Log = logger
+	proxy.Logger = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
-	logger.Fatal(proxy.ListenAndServe(*port))
+	proxy.Logger.Fatal(proxy.ListenAndServe(*port))
 }
