@@ -26,6 +26,7 @@ type dialer struct {
 }
 
 func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	// p1 should be received from booster
 	socksDialer, err := proxy.SOCKS5("tcp", p1, nil, new(net.Dialer))
 	if err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	connc := make(chan net.Conn, 1)
 
 	go func() {
-		conn, err := socksDialer.Dial(network, addr)
+		conn, err := d.dialFallback(ctx, socksDialer, network, addr)
 		if err != nil {
 			errc <- err
 			return
@@ -52,4 +53,15 @@ func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	case conn := <-connc:
 		return conn, nil
 	}
+}
+
+func (d *dialer) dialFallback(ctx context.Context, socksDialer proxy.Dialer, network, addr string) (net.Conn, error) {
+	conn, err := socksDialer.Dial(network, addr)
+	if err == nil {
+		return conn, err
+	}
+
+	// try without proxy
+	fallback := new(net.Dialer)
+	return fallback.DialContext(ctx, network, addr)
 }
