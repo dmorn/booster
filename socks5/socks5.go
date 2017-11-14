@@ -81,10 +81,6 @@ type Dialer interface {
 
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
-	// Port where the server will be listening on.
-	Port int
-
-	// No default logger is provided.
 	Log *log.Logger
 
 	// Dialer is used when connecting to a remote host. Could
@@ -94,11 +90,13 @@ type Socks5 struct {
 
 // ListenAndServe accepts and handles TCP connections
 // using the SOCKS5 protocol.
-func (s *Socks5) ListenAndServe() error {
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(s.Port))
+func (s *Socks5) ListenAndServe(port int) error {
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return err
 	}
+
+	s.Log.Printf("[TCP] listening on port: %v", port)
 
 	for {
 		conn, err := ln.Accept()
@@ -111,6 +109,7 @@ func (s *Socks5) ListenAndServe() error {
 			if err := s.Handle(conn); err != nil {
 				s.Log.Println(err)
 			}
+			s.Log.Printf("[TCP]: connection to %v closed.\n", conn.RemoteAddr().String())
 		}()
 	}
 }
@@ -246,36 +245,10 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	return addr, nil
 }
 
-// DialContext opens a new connection to addr using the specified network.
-// returns immediately when ctx.Done() is called.
-func (s *Socks5) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	c := make(chan net.Conn, 1)
-	errc := make(chan error, 1)
-
-	go func(c chan net.Conn, errc chan error) {
-		conn, err := net.Dial(network, addr)
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		c <- conn
-	}(c, errc)
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case conn := <-c:
-		return conn, nil
-	case err := <-errc:
-		return nil, err
-	}
-}
-
 func (s *Socks5) getDialer() Dialer {
-	if s.Dialer != nil {
-		return s.Dialer
+	if s.Dialer == nil {
+		s.Dialer = new(net.Dialer)
 	}
 
-	return s
+	return s.Dialer
 }

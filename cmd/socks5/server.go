@@ -16,9 +16,8 @@ func main() {
 	flag.Parse()
 
 	proxy := new(socks5.Socks5)
-	proxy.Port = *port
-	proxy.Log = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+	logger := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+	proxy.Log = logger
 
-	log.Printf("Proxy Server listening on port :%v", *port)
-	log.Fatal(proxy.ListenAndServe())
+	logger.Fatal(proxy.ListenAndServe(*port))
 }
