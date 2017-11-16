@@ -19,6 +19,22 @@ func NewProxyServer(port int) *Proxy {
 	p.Socks5 = new(socks5.Socks5)
 	p.Dialer = new(dialer)
 
+	c := make(chan uint8)
+	if err := p.RegisterStatusListener(p1, c); err != nil {
+		panic("unable to register status listener")
+	}
+
+	go func() {
+		for status := range c {
+			switch status {
+			case 0:
+				p.Printf("[PROXY status]: IDLE")
+			case 1:
+				p.Printf("[PROXY status]: proxying")
+			}
+		}
+	}()
+
 	return p
 }
 

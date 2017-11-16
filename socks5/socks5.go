@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -67,6 +68,12 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
+// Possible proxy status
+const (
+	ProxyStatusIDLE    = uint8(0)
+	ProxyStatusProxing = uint8(1)
+)
+
 // Conn is a wrapper around io.ReadWriteCloser.
 type Conn interface {
 	io.ReadWriteCloser
@@ -86,11 +93,19 @@ type Socks5 struct {
 	// Dialer is used when connecting to a remote host. Could
 	// be useful when chaining multiple proxies.
 	Dialer
+
+	sync.Mutex
+	port            int
+	statusListeners map[string]chan<- uint8
 }
 
 // ListenAndServe accepts and handles TCP connections
 // using the SOCKS5 protocol.
 func (s *Socks5) ListenAndServe(port int) error {
+	s.Lock()
+	s.port = port
+	s.Unlock()
+
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return err
@@ -177,8 +192,12 @@ func (s *Socks5) Handle(conn Conn) error {
 	defer tconn.Close()
 
 	// start proxying
+	s.setStatus(ProxyStatusProxing)
+
 	go io.Copy(tconn, conn)
 	io.Copy(conn, tconn)
+
+	s.setStatus(ProxyStatusIDLE)
 
 	return nil
 }
