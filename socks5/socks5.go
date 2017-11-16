@@ -136,7 +136,7 @@ func (s *Socks5) Handle(conn Conn) error {
 
 	// request details
 
-	// len is jsut an estimation
+	// len is just an estimation
 	buf := make([]byte, 6+net.IPv4len)
 
 	if _, err := io.ReadFull(conn, buf[:3]); err != nil {
@@ -187,7 +187,7 @@ func (s *Socks5) Handle(conn Conn) error {
 // into its string format, properly formatted.
 //
 // r expects to read one byte that specifies the address
-// format (1/3/4), follwed by the address itself and a
+// format (1/3/4), followed by the address itself and a
 // 16 bit port number.
 //
 // addr == "" only when err != nil.
