@@ -90,7 +90,7 @@ type Socks5 struct {
 
 	sync.Mutex
 	port              int
-	workloadListeners map[string]chan<- int
+	workloadListeners map[string]chan int
 	workload          int
 }
 
@@ -106,12 +106,12 @@ func (s *Socks5) ListenAndServe(port int) error {
 		return err
 	}
 
-	s.Printf("[TCP] listening on port: %v", port)
+	s.Printf("listening on port: %v", port)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			s.Printf("[TCP Accept Error]: %v\n", err)
+			s.Printf("tcp accept error: %v\n", err)
 			continue
 		}
 
@@ -119,7 +119,6 @@ func (s *Socks5) ListenAndServe(port int) error {
 			if err := s.Handle(conn); err != nil {
 				s.Println(err)
 			}
-			s.Printf("[TCP]: connection to %v closed.\n", conn.RemoteAddr().String())
 		}()
 	}
 }
@@ -130,12 +129,7 @@ func (s *Socks5) ListenAndServe(port int) error {
 // Should run in its own go routine, closes the connection
 // when returning.
 func (s *Socks5) Handle(conn Conn) error {
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer conn.Close()
 
@@ -150,7 +144,7 @@ func (s *Socks5) Handle(conn Conn) error {
 	buf := make([]byte, 6+net.IPv4len)
 
 	if _, err := io.ReadFull(conn, buf[:3]); err != nil {
-		return errors.New("proxy: unable to read request: " + err.Error())
+		return errors.New("socks5: unable to read request: " + err.Error())
 	}
 
 	v := buf[0]   // protocol version
@@ -159,7 +153,7 @@ func (s *Socks5) Handle(conn Conn) error {
 
 	// Check version number
 	if v != socks5Version {
-		return errors.New("proxy: unsupported version: " + string(v))
+		return errors.New("socks5: unsupported version: " + string(v))
 	}
 
 	target, err := ReadAddress(conn)
@@ -212,7 +206,7 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	buf = buf[:1]
 
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return "", errors.New("proxy: unable to read address type: " + err.Error())
+		return "", errors.New("unable to read address type: " + err.Error())
 	}
 
 	atype := buf[0] // address type
@@ -226,11 +220,11 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	case socks5FQDN:
 		_, err := io.ReadFull(r, buf[:1])
 		if err != nil {
-			return "", errors.New("proxy: failed to read domain length: " + err.Error())
+			return "", errors.New("failed to read domain length: " + err.Error())
 		}
 		bytesToRead = int(buf[0])
 	default:
-		return "", errors.New("proxy: got unknown address type " + strconv.Itoa(int(atype)))
+		return "", errors.New("got unknown address type " + strconv.Itoa(int(atype)))
 	}
 
 	if cap(buf) < bytesToRead {
@@ -239,7 +233,7 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 		buf = buf[:bytesToRead]
 	}
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return "", errors.New("proxy: failed to read address: " + err.Error())
+		return "", errors.New("failed to read address: " + err.Error())
 	}
 
 	var host string
@@ -250,7 +244,7 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	}
 
 	if _, err := io.ReadFull(r, buf[:2]); err != nil {
-		return "", errors.New("proxy: failed to read port: " + err.Error())
+		return "", errors.New("failed to read port: " + err.Error())
 	}
 
 	port := int(buf[0])<<8 | int(buf[1])

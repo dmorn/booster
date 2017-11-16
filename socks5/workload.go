@@ -9,12 +9,12 @@ import (
 // when the proxy changes its workload value.
 // Returns an error if the id is already registered.
 // It is safe to use from multiple goroutines.
-func (s *Socks5) RegisterWorkloadListener(id string, c chan<- int) error {
+func (s *Socks5) RegisterWorkloadListener(id string, c chan int) error {
 	s.Lock()
 	defer s.Unlock()
 
 	if s.workloadListeners == nil {
-		s.workloadListeners = make(map[string]chan<- int)
+		s.workloadListeners = make(map[string]chan int)
 	}
 
 	if _, ok := s.workloadListeners[id]; ok {
@@ -66,7 +66,7 @@ func (s *Socks5) popLoad() {
 
 func (s *Socks5) workloadChanged() {
 	for key, c := range s.workloadListeners {
-		go func(k string, ch chan<- int) {
+		go func(k string, ch chan int) {
 			// safely remove the listener if the channel was closed
 			defer func() {
 				if err := recover(); err != nil {

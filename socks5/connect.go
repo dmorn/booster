@@ -20,7 +20,7 @@ func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, e
 		// TODO(daniel): Responde with proper code
 		buf = append(buf, socks5RespHostUnreachable, socks5FieldReserved)
 		if _, err := conn.Write(buf); err != nil {
-			return nil, errors.New("proxy: unable to write connect response: " + err.Error())
+			return nil, errors.New("socks5: unable to write connect response: " + err.Error())
 		}
 
 		return nil, err
@@ -45,8 +45,6 @@ func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, e
 	buf = append(buf, byte(port>>8), byte(port)&0xff)
 
 	conn.Write(buf)
-
-	s.Printf("CONNECT to %v. Response: %v\n", target, buf)
 
 	return tconn, nil
 }
