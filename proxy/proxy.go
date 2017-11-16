@@ -1,14 +1,16 @@
 package proxy
 
 import (
+	"container/ring"
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/danielmorandini/booster/socks5"
 	"golang.org/x/net/proxy"
 )
 
-var p1 string = "booster-pi1:1080"
+var connectedProxies = []string{"booster-pi1:1080", "booster-pi1:1081"}
 
 type Proxy struct {
 	*socks5.Socks5
@@ -17,21 +19,24 @@ type Proxy struct {
 func NewProxyServer(port int) *Proxy {
 	p := new(Proxy)
 	p.Socks5 = new(socks5.Socks5)
-	p.Dialer = new(dialer)
 
-	c := make(chan uint8)
-	if err := p.RegisterStatusListener(p1, c); err != nil {
+	d := new(dialer)
+	d.ring = ring.New(len(connectedProxies))
+	for _, v := range connectedProxies {
+		d.ring.Value = v
+		d.ring = d.ring.Next()
+	}
+
+	p.Dialer = d
+
+	c := make(chan int)
+	if err := p.RegisterWorkloadListener("fooid", c); err != nil {
 		panic("unable to register status listener")
 	}
 
 	go func() {
-		for status := range c {
-			switch status {
-			case 0:
-				p.Printf("[PROXY status]: IDLE")
-			case 1:
-				p.Printf("[PROXY status]: proxying")
-			}
+		for workload := range c {
+			p.Printf("[PROXY workload]: %v\n", workload)
 		}
 	}()
 
@@ -39,11 +44,15 @@ func NewProxyServer(port int) *Proxy {
 }
 
 type dialer struct {
+	ring *ring.Ring
 }
 
 func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	// p1 should be received from booster
-	socksDialer, err := proxy.SOCKS5("tcp", p1, nil, new(net.Dialer))
+	paddr := d.ring.Value.(string)
+	d.ring = d.ring.Next()
+
+	fmt.Printf("Proxy Address: %v\n", paddr)
+	socksDialer, err := proxy.SOCKS5("tcp", paddr, nil, new(net.Dialer))
 	if err != nil {
 		return nil, err
 	}

@@ -68,12 +68,6 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
-// Possible proxy status
-const (
-	ProxyStatusIDLE    = uint8(0)
-	ProxyStatusProxing = uint8(1)
-)
-
 // Conn is a wrapper around io.ReadWriteCloser.
 type Conn interface {
 	io.ReadWriteCloser
@@ -95,8 +89,9 @@ type Socks5 struct {
 	Dialer
 
 	sync.Mutex
-	port            int
-	statusListeners map[string]chan<- uint8
+	port              int
+	workloadListeners map[string]chan<- int
+	workload          int
 }
 
 // ListenAndServe accepts and handles TCP connections
@@ -192,12 +187,12 @@ func (s *Socks5) Handle(conn Conn) error {
 	defer tconn.Close()
 
 	// start proxying
-	s.setStatus(ProxyStatusProxing)
+	s.pushLoad()
 
 	go io.Copy(tconn, conn)
 	io.Copy(conn, tconn)
 
-	s.setStatus(ProxyStatusIDLE)
+	s.popLoad()
 
 	return nil
 }
