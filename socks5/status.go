@@ -35,7 +35,6 @@ func (s *Socks5) RemoveStatusListener(id string) {
 	}
 
 	delete(s.statusListeners, id)
-	s.Unlock()
 }
 
 // setStatus updates proxy's status and notifies every listener of the change.
