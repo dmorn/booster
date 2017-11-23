@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmorandini/booster/socks5"
+	"github.com/danielmorandini/booster-network/socks5"
 )
 
 var (

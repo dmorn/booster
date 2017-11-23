@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster-network/node"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 func main() {
 	flag.Parse()
 
-	b := booster.NewBooster()
+	b := node.NewBooster()
 	b.Logger = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
 	go func() {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/danielmorandini/booster/socks5"
+	"github.com/danielmorandini/booster-network/socks5"
 )
 
 type conn struct {

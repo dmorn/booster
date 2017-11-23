@@ -1,10 +1,10 @@
-package booster
+package node
 
 import (
 	"context"
 	"net"
 
-	"github.com/danielmorandini/booster/socks5"
+	"github.com/danielmorandini/booster-network/socks5"
 	"golang.org/x/net/proxy"
 )
 

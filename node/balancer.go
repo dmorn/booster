@@ -1,4 +1,4 @@
-package booster
+package node
 
 import (
 	"context"
