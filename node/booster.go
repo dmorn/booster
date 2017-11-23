@@ -32,6 +32,19 @@ const (
 	BoosterRespAccepted = uint8(1)
 )
 
+const (
+	// Booster5IP4 is a version-4 IP address, with a length of 4 octets
+	BoosterAddrIP4 = uint8(1)
+
+	// Booster5FQDN field contains a fully-qualified domain name. The first
+	// octet of the address field contains the number of octets of name that
+	// follow, there is no terminating NUL octet.
+	BoosterAddrFQDN = uint8(3)
+
+	// AddrTypeIPV6 is a version-6 IP address, with a length of 16 octets.
+	BoosterAddrIP6 = uint8(4)
+)
+
 type Booster struct {
 	*log.Logger
 	Proxy    *Proxy
@@ -48,10 +61,10 @@ type Conn interface {
 
 func NewBooster() *Booster {
 	b := new(Booster)
-	bal := new(Balancer)
+	bal := NewBalancer()
 	b.balancer = bal
 	b.Proxy = NewProxy(bal)
-	b.Proxy.Logger = log.New(os.Stdout, "PROXY ", log.LstdFlags)
+	b.Proxy.Logger = log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 
 	return b
 }
@@ -141,14 +154,69 @@ func (b *Booster) handleRegister(ctx context.Context, conn Conn) error {
 		return errors.New("booster: " + err.Error())
 	}
 
-	return b.Register(ctx, "tcp", addr)
+	return b.Hello(ctx, "tcp", addr)
 }
 
-// Register dials with the remote address, expecting it to be a booster server.
+// Register performs the steps required to register a remote node.
+// laddr is the local booster address to dial with. raddr is the remote
+// node address that as to be registered.
+func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) error {
+	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	conn, err := new(net.Dialer).DialContext(_ctx, network, laddr)
+	if err != nil {
+		return errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
+	}
+
+	host, portStr, err := net.SplitHostPort(raddr)
+	if err != nil {
+		return errors.New("booster: unrecognised address format : " + raddr + " : " + err.Error())
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return errors.New("booster: failed to parse port number: " + portStr)
+	}
+	if port < 1 || port > 0xffff {
+		return errors.New("booster: port number out of range: " + portStr)
+	}
+
+	buf := make([]byte, 0, 5+len(host))
+	buf = append(buf, BoosterVersion)
+	buf = append(buf, BoosterCMDRegister)
+	buf = append(buf, BoosterFieldReserved)
+
+	if ip := net.ParseIP(host); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			buf = append(buf, BoosterAddrIP4)
+			ip = ip4
+		} else {
+			buf = append(buf, BoosterAddrIP6)
+		}
+		buf = append(buf, ip...)
+	} else {
+		if len(host) > 255 {
+			return errors.New("booster: destination host name too long: " + host)
+		}
+		buf = append(buf, BoosterAddrFQDN)
+		buf = append(buf, byte(len(host)))
+		buf = append(buf, host...)
+	}
+	buf = append(buf, byte(port>>8), byte(port))
+
+	if _, err := conn.Write(buf); err != nil {
+		return errors.New("booster: unable to register: " + err.Error())
+	}
+
+	return nil
+}
+
+// Hello dials with the remote address, expecting it to be a booster server.
 // Right after having enstablished the connection, it performs a "Hello" request.
 // If the response is successfull, the remote booster is added to the list of
 // helpers.
-func (b *Booster) Register(ctx context.Context, network, addr string) error {
+func (b *Booster) Hello(ctx context.Context, network, addr string) error {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -157,11 +225,6 @@ func (b *Booster) Register(ctx context.Context, network, addr string) error {
 		return errors.New("booster: unable to contact remote instance: " + err.Error())
 	}
 
-	return b.Hello(conn)
-}
-
-// Hello performs the "Hello" procedure with the connection.
-func (b *Booster) Hello(conn Conn) error {
 	buf := make([]byte, 0, 3)
 	buf = append(buf, BoosterVersion)
 	buf = append(buf, BoosterCMDHello)
@@ -193,8 +256,9 @@ func (b *Booster) Hello(conn Conn) error {
 	if err != nil {
 		return errors.New("booster: " + err.Error())
 	}
-	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	b.balancer.AddProxy(addr, conn)
+
+	paddr := net.JoinHostPort(host, strconv.Itoa(port))
+	b.balancer.AddProxy(paddr, conn)
 
 	return nil
 }

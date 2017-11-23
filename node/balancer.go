@@ -20,6 +20,13 @@ type entry struct {
 	workload int
 }
 
+func NewBalancer() *Balancer {
+	b := new(Balancer)
+	b.entries = make(map[string]*entry)
+
+	return b
+}
+
 func (b *Balancer) GetProxy() (string, error) {
 	var candidate *entry
 	var addr string
