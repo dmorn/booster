@@ -17,11 +17,11 @@ func main() {
 
 	var cmdStart = &cobra.Command{
 		Use:   "start",
-		Short: "starts a socks5 proxy",
+		Short: "starts a booster node",
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			b := node.Booster()
+			b := node.BOOSTER()
 
 			go func() {
 				log.Fatal(b.Proxy.ListenAndServe(pport))

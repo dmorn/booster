@@ -68,9 +68,9 @@ func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
 	return b
 }
 
-func Booster() *Booster {
+func BOOSTER() *Booster {
 	balancer := NewBalancer()
-	proxy := NewProxy(balancer)
+	proxy := PROXY(balancer)
 	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
 	return NewBooster(proxy, balancer, log)

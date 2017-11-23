@@ -21,7 +21,7 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 	return p
 }
 
-func Proxy(balancer LoadBalancer) *Proxy {
+func PROXY(balancer LoadBalancer) *Proxy {
 	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	return NewProxy(d, log)
@@ -32,7 +32,7 @@ type Dialer struct {
 }
 
 func NewDialer(balancer LoadBalancer) *Dialer {
-	d := new(dialer)
+	d := new(Dialer)
 	d.balancer = balancer
 
 	return d
