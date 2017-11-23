@@ -48,7 +48,7 @@ const (
 type Booster struct {
 	*log.Logger
 	Proxy    *Proxy
-	balancer *Balancer
+	balancer LoadBalancer
 
 	sync.Mutex
 }
@@ -59,14 +59,21 @@ type Conn interface {
 	RemoteAddr() net.Addr
 }
 
-func NewBooster() *Booster {
+func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
 	b := new(Booster)
-	bal := NewBalancer()
-	b.balancer = bal
-	b.Proxy = NewProxy(bal)
-	b.Proxy.Logger = log.New(os.Stdout, "PROXY   ", log.LstdFlags)
+	b.Proxy = proxy
+	b.balancer = balancer
+	b.Logger = log
 
 	return b
+}
+
+func Booster() *Booster {
+	balancer := NewBalancer()
+	proxy := NewProxy(balancer)
+	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+
+	return NewBooster(proxy, balancer, log)
 }
 
 func (b *Booster) ListenAndServe(port int) error {

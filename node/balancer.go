@@ -8,6 +8,12 @@ import (
 	"sync"
 )
 
+type LoadBalancer interface {
+	GetProxy() (string, error)
+	AddProxy(addr string, conn Conn)
+	RemoveProxy(addr string)
+}
+
 type Balancer struct {
 	entries map[string]*entry
 }

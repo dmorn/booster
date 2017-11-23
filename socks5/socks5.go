@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -92,6 +93,21 @@ type Socks5 struct {
 	port              int
 	workloadListeners map[string]chan int
 	workload          int
+}
+
+func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
+	s := new(Socks5)
+	s.Dialer = dialer
+	s.Logger = log
+
+	return s
+}
+
+func SOCKS5() *Socks5 {
+	d := new(net.Dialer)
+	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
+
+	return NewSOCKS5(d, log)
 }
 
 // ListenAndServe accepts and handles TCP connections
@@ -251,12 +267,4 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	addr = net.JoinHostPort(host, strconv.Itoa(port))
 
 	return addr, nil
-}
-
-func (s *Socks5) getDialer() Dialer {
-	if s.Dialer == nil {
-		s.Dialer = new(net.Dialer)
-	}
-
-	return s.Dialer
 }

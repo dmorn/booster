@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/danielmorandini/booster-network/node"
@@ -22,8 +21,7 @@ func main() {
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			b := node.NewBooster()
-			b.Logger = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+			b := node.Booster()
 
 			go func() {
 				log.Fatal(b.Proxy.ListenAndServe(pport))

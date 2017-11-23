@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
-	"os"
 
 	"github.com/danielmorandini/booster-network/socks5"
 )
@@ -15,8 +13,6 @@ var (
 func main() {
 	flag.Parse()
 
-	proxy := new(socks5.Socks5)
-	proxy.Logger = log.New(os.Stdout, "SOCKS5 ", log.LstdFlags)
-
+	proxy := socks5.SOCKS5()
 	proxy.Fatal(proxy.ListenAndServe(*port))
 }

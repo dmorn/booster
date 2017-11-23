@@ -2,7 +2,9 @@ package node
 
 import (
 	"context"
+	"log"
 	"net"
+	"os"
 
 	"github.com/danielmorandini/booster-network/socks5"
 	"golang.org/x/net/proxy"
@@ -12,26 +14,35 @@ type Proxy struct {
 	*socks5.Socks5
 }
 
-func NewProxy(balancer *Balancer) *Proxy {
+func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 	p := new(Proxy)
-	p.Socks5 = new(socks5.Socks5)
-
-	d := new(dialer)
-	d.balancer = balancer
-	p.Dialer = d
+	p.Socks5 = socks5.NewSOCKS5(dialer, log)
 
 	return p
 }
 
-type dialer struct {
-	balancer *Balancer
+func Proxy(balancer LoadBalancer) *Proxy {
+	d := NewDialer(balancer)
+	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
+	return NewProxy(d, log)
 }
 
-func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+type Dialer struct {
+	balancer LoadBalancer
+}
+
+func NewDialer(balancer LoadBalancer) *Dialer {
+	d := new(dialer)
+	d.balancer = balancer
+
+	return d
+}
+
+func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	var socksDialer proxy.Dialer
 
 	if paddr, err := d.balancer.GetProxy(); err != nil {
-		socksDialer = new(net.Dialer) // just a normal dialer
+		socksDialer = new(net.Dialer) // just a normal Dialer
 	} else {
 		socksDialer, err = proxy.SOCKS5("tcp", paddr, nil, new(net.Dialer))
 		if err != nil {
@@ -62,7 +73,7 @@ func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	}
 }
 
-func (d *dialer) dialFallback(ctx context.Context, socksDialer proxy.Dialer, network, addr string) (net.Conn, error) {
+func (d *Dialer) dialFallback(ctx context.Context, socksDialer proxy.Dialer, network, addr string) (net.Conn, error) {
 	conn, err := socksDialer.Dial(network, addr)
 	if err == nil {
 		return conn, err
