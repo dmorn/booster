@@ -56,13 +56,14 @@ func NewBooster() *Booster {
 	return b
 }
 
-func (b *Booster) ListenAndServe() error {
-	ln, err := net.Listen("tcp", ":8448")
+func (b *Booster) ListenAndServe(port int) error {
+	p := strconv.Itoa(port)
+	ln, err := net.Listen("tcp", ":"+p)
 	if err != nil {
 		return err
 	}
 
-	b.Printf("listening on port: 8448")
+	b.Printf("listening on port: %v", p)
 
 	for {
 		conn, err := ln.Accept()

@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	port = flag.Int("port", 1080, "PROXY listening port")
+	pport = flag.Int("pport", 1080, "PROXY listening port")
+	bport = flag.Int("bport", 4884, "BOOSTER listening port")
 )
 
 func main() {
@@ -19,7 +20,7 @@ func main() {
 	b.Logger = log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
 	go func() {
-		log.Fatal(b.Proxy.ListenAndServe(*port))
+		log.Fatal(b.Proxy.ListenAndServe(*pport))
 	}()
-	log.Fatal(b.ListenAndServe())
+	log.Fatal(b.ListenAndServe(*bport))
 }
