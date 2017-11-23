@@ -17,7 +17,7 @@ func main() {
 
 	var cmdStart = &cobra.Command{
 		Use:   "start",
-		Short: "starts a booster node",
+		Short: "starts a socks5 proxy",
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {

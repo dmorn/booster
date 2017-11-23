@@ -1,18 +1,30 @@
 package main
 
 import (
-	"flag"
+	"log"
 
 	"github.com/danielmorandini/booster-network/socks5"
-)
-
-var (
-	port = flag.Int("port", 1080, "SOCKS listening port")
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	flag.Parse()
+	var pport int
 
-	proxy := socks5.SOCKS5()
-	proxy.Fatal(proxy.ListenAndServe(*port))
+	var cmdStart = &cobra.Command{
+		Use:   "start",
+		Short: "starts a socks5 proxy server",
+		Long:  ``,
+		Args:  cobra.MinimumNArgs(0),
+		Run: func(cmd *cobra.Command, args []string) {
+			p := socks5.SOCKS5()
+			log.Fatal(p.ListenAndServe(pport))
+		},
+	}
+
+	cmdStart.Flags().IntVar(&pport, "pport", 1080, "socks5 listening port")
+
+	var rootCmd = &cobra.Command{Use: "socks5"}
+	rootCmd.AddCommand(cmdStart)
+
+	rootCmd.Execute()
 }
