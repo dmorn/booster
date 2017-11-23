@@ -11,11 +11,8 @@ import (
 type LoadBalancer interface {
 	GetProxy() (string, error)
 	AddProxy(addr string, conn Conn)
+	LocalWorkload(chan int)
 	RemoveProxy(addr string)
-}
-
-type Balancer struct {
-	entries map[string]*entry
 }
 
 type entry struct {
@@ -24,6 +21,14 @@ type entry struct {
 
 	sync.Mutex
 	workload int
+}
+
+type Balancer struct {
+	entries map[string]*entry
+
+	sync.Mutex
+	hasLocalLoad bool
+	workload     int
 }
 
 func NewBalancer() *Balancer {
@@ -61,6 +66,16 @@ func (b *Balancer) GetProxy() (string, error) {
 		return "", errors.New("booster balancer: no remote boosters connected")
 	}
 
+	b.Lock()
+	defer b.Unlock()
+	if b.hasLocalLoad {
+		// if candidate has more load than the local proxy,
+		// return an error and make the proxy use the local dialer
+		if b.workload < candidate.workload {
+			return "", errors.New("booster balancer: use local dialer")
+		}
+	}
+
 	return addr, nil
 }
 
@@ -94,10 +109,11 @@ func (b *Balancer) AddProxy(addr string, conn Conn) {
 				}
 
 				_ = buf[0]     // version - already checked in the hello procedure
-				load := buf[1] // workload
-				_ = buf[2]     // reserved field
+				_ = buf[1]     // reserved field
+				load := buf[2] // workload
 
 				e.Lock()
+				fmt.Printf("[BALANCER]: changing workload (%v) from %v to %v\n", e.conn.RemoteAddr(), e.workload, load)
 				e.workload = int(load)
 				e.Unlock()
 			}
@@ -111,7 +127,6 @@ func (b *Balancer) AddProxy(addr string, conn Conn) {
 		case <-c:
 			return
 		}
-
 	}()
 }
 
@@ -125,4 +140,23 @@ func (b *Balancer) RemoveProxy(addr string) {
 	}
 
 	delete(b.entries, addr)
+}
+
+func (b *Balancer) LocalWorkload(c chan int) {
+	b.Lock()
+	b.hasLocalLoad = true
+	b.Unlock()
+
+	go func(c chan int) {
+		for w := range c {
+			b.Lock()
+			fmt.Printf("[BALANCER]: local workload updated from %v to %v\n", b.workload, w)
+			b.workload = w
+			b.Unlock()
+		}
+
+		b.Lock()
+		b.hasLocalLoad = false
+		b.Unlock()
+	}(c)
 }

@@ -23,10 +23,9 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			b := node.BOOSTER()
 
-			go func() {
-				log.Fatal(b.Proxy.ListenAndServe(pport))
-			}()
-			log.Fatal(b.ListenAndServe(bport))
+			if err := b.Start(pport, bport); err != nil {
+				log.Fatal(err)
+			}
 		},
 	}
 

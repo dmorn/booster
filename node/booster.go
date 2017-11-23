@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -65,6 +66,11 @@ func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
 	b.balancer = balancer
 	b.Logger = log
 
+	// keep track of local proxy usage
+	c := make(chan int)
+	proxy.RegisterWorkloadListener(":"+strconv.Itoa(proxy.Port()), c)
+	b.balancer.LocalWorkload(c)
+
 	return b
 }
 
@@ -74,6 +80,20 @@ func BOOSTER() *Booster {
 	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 
 	return NewBooster(proxy, balancer, log)
+}
+
+func (b *Booster) Start(pport, bport int) error {
+	c := make(chan error)
+
+	go func() {
+		c <- b.Proxy.ListenAndServe(pport)
+	}()
+
+	go func() {
+		c <- b.ListenAndServe(bport)
+	}()
+
+	return <-c
 }
 
 func (b *Booster) ListenAndServe(port int) error {
@@ -287,6 +307,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn Conn) error {
 		for workload := range wc {
 			buf = buf[:2]
 			buf = append(buf, byte(workload))
+
+			fmt.Printf("[BOOSTER]: status %v\n", buf)
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
 			}
