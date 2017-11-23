@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -42,9 +43,11 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	var socksDialer proxy.Dialer
 
 	if paddr, err := d.balancer.GetProxy(); err != nil {
+		fmt.Printf("[DIALER]: no gateway\n")
 		socksDialer = new(net.Dialer) // just a normal Dialer
 	} else {
-		socksDialer, err = proxy.SOCKS5("tcp", paddr, nil, new(net.Dialer))
+		fmt.Printf("[DIALER]: using sock5 gateway %v\n", paddr)
+		socksDialer, err = proxy.SOCKS5(network, paddr, nil, new(net.Dialer))
 		if err != nil {
 			return nil, err
 		}

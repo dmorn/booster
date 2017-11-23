@@ -189,7 +189,7 @@ func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) er
 		return errors.New("booster: port number out of range: " + portStr)
 	}
 
-	buf := make([]byte, 0, 5+len(host))
+	buf := make([]byte, 0, 6+len(host))
 	buf = append(buf, BoosterVersion)
 	buf = append(buf, BoosterCMDRegister)
 	buf = append(buf, BoosterFieldReserved)

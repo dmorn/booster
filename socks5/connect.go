@@ -11,6 +11,8 @@ import (
 // to RFC 1928.
 func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, error) {
 
+	s.Printf("connect to %v", target)
+
 	// cap is just an estimation
 	buf := make([]byte, 0, 6+len(target))
 	buf = append(buf, socks5Version)
