@@ -6,15 +6,19 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
+	"sync"
 
 	"github.com/danielmorandini/booster-network/socks5"
 	"golang.org/x/net/proxy"
 )
 
+// Proxy is a SOCK5 server.
 type Proxy struct {
 	*socks5.Socks5
 }
 
+// NewProxy returns a new proxy instance.
 func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 	p := new(Proxy)
 	p.Socks5 = socks5.NewSOCKS5(dialer, log)
@@ -22,14 +26,41 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 	return p
 }
 
+// PROXY returns a new proxy instance. balancer is passed as
+// a paramenter to the dialer that the proxy will use.
+// balancer will be used by the proxy dialer to fetch the
+// proxy addresses that can be chained to this proxy.
 func PROXY(balancer LoadBalancer) *Proxy {
 	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
-	return NewProxy(d, log)
+	p := NewProxy(d, log)
+
+	// keep track of local proxy usage
+	c := make(chan int)
+	p.RegisterWorkloadListener(":"+strconv.Itoa(p.Port()), c)
+	go func() {
+		for w := range c {
+			d.Lock()
+			d.workload = w
+			d.Unlock()
+		}
+	}()
+
+	d.Logger = log
+
+	return p
 }
 
 type Dialer struct {
+	*log.Logger
 	balancer LoadBalancer
+
+	sync.Mutex
+	// local proxy workload.
+	// Be careful that this value will be updated each time that the underlying
+	// socks5 proxy is tunneling some data, so it is updated either when
+	// we directly dial with the remote host AND when we chain with other proxies.
+	workload int
 }
 
 func NewDialer(balancer LoadBalancer) *Dialer {
@@ -40,27 +71,37 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 }
 
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	var socksDialer proxy.Dialer
+	d.Lock()
+	lwl := d.workload // local workload
+	d.Unlock()
 
-	if paddr, err := d.balancer.GetProxy(); err != nil {
-		fmt.Printf("[DIALER]: no gateway\n")
-		socksDialer = new(net.Dialer) // just a normal Dialer
-	} else {
-		fmt.Printf("[DIALER]: using sock5 gateway %v\n", paddr)
-		socksDialer, err = proxy.SOCKS5(network, paddr, nil, new(net.Dialer))
-		if err != nil {
-			return nil, err
-		}
+	paddr, err := d.balancer.GetBalanced(lwl) // lwl: local workload
+	if err != nil {
+		fmt.Printf("[DIALER]: no gateway: %v\n", err)
+		return new(net.Dialer).DialContext(ctx, network, addr)
 	}
 
 	ec := make(chan error, 1)
 	cc := make(chan net.Conn, 1)
 
 	go func() {
-		conn, err := d.dialFallback(ctx, socksDialer, network, addr)
+		fmt.Printf("[DIALER]: using sock5 gateway %v\n", paddr)
+		socksDialer, err := proxy.SOCKS5(network, paddr, nil, new(net.Dialer))
 		if err != nil {
 			ec <- err
 			return
+		}
+
+		conn, err := socksDialer.Dial(network, addr)
+		if err != nil {
+			// the node that we tried to chain to is down or unusable.
+			// remove it and fallback to a normal dialer
+			d.balancer.Remove(paddr)
+			conn, err = new(net.Dialer).Dial(network, addr)
+			if err != nil {
+				ec <- err
+				return
+			}
 		}
 
 		cc <- conn
@@ -74,15 +115,4 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	case conn := <-cc:
 		return conn, nil
 	}
-}
-
-func (d *Dialer) dialFallback(ctx context.Context, socksDialer proxy.Dialer, network, addr string) (net.Conn, error) {
-	conn, err := socksDialer.Dial(network, addr)
-	if err == nil {
-		return conn, err
-	}
-
-	// try without proxy
-	fallback := new(net.Dialer)
-	return fallback.DialContext(ctx, network, addr)
 }

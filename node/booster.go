@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
@@ -20,8 +19,9 @@ const (
 )
 
 const (
-	BoosterCMDRegister = uint8(1)
-	BoosterCMDHello    = uint8(2)
+	BoosterCMDPair   = uint8(1)
+	BoosterCMDUnpair = uint8(2)
+	BoosterCMDHello  = uint8(3)
 )
 
 const (
@@ -50,8 +50,6 @@ type Booster struct {
 	*log.Logger
 	Proxy    *Proxy
 	balancer LoadBalancer
-
-	sync.Mutex
 }
 
 // Conn is a wrapper around io.ReadWriteCloser.
@@ -65,11 +63,6 @@ func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
 	b.Proxy = proxy
 	b.balancer = balancer
 	b.Logger = log
-
-	// keep track of local proxy usage
-	c := make(chan int)
-	proxy.RegisterWorkloadListener(":"+strconv.Itoa(proxy.Port()), c)
-	b.balancer.LocalWorkload(c)
 
 	return b
 }
@@ -142,8 +135,11 @@ func (b *Booster) Handle(conn Conn) error {
 	_ = buf[2]    // reserved field
 
 	switch cmd {
-	case BoosterCMDRegister:
-		return b.handleRegister(ctx, conn)
+	case BoosterCMDPair:
+		return b.handlePair(ctx, conn)
+
+	case BoosterCMDUnpair:
+		return b.handleUnpair(ctx, conn)
 
 	case BoosterCMDHello:
 		if err := b.handleHello(conn); err != nil {
@@ -175,19 +171,40 @@ func (b *Booster) handleHello(conn Conn) error {
 	return nil
 }
 
-func (b *Booster) handleRegister(ctx context.Context, conn Conn) error {
+func (b *Booster) handlePair(ctx context.Context, conn Conn) error {
 	addr, err := socks5.ReadAddress(conn)
 	if err != nil {
 		return errors.New("booster: " + err.Error())
 	}
 
-	return b.Hello(ctx, "tcp", addr)
+	bconn, paddr, err := b.Hello(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	b.balancer.Add(paddr, bconn)
+	return nil
 }
 
-// Register performs the steps required to register a remote node.
+func (b *Booster) handleUnpair(ctx context.Context, conn Conn) error {
+	addr, err := socks5.ReadAddress(conn)
+	if err != nil {
+		return errors.New("booster: " + err.Error())
+	}
+
+	_, paddr, err := b.Hello(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	b.balancer.Remove(paddr)
+	return nil
+}
+
+// Pair performs the steps required to register a remote node.
 // laddr is the local booster address to dial with. raddr is the remote
 // node address that as to be registered.
-func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) error {
+func (b *Booster) Pair(ctx context.Context, network, laddr, raddr string) error {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -196,23 +213,69 @@ func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) er
 		return errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
 	}
 
-	host, portStr, err := net.SplitHostPort(raddr)
+	abuf, err := encodeAddressBinary(raddr)
 	if err != nil {
-		return errors.New("booster: unrecognised address format : " + raddr + " : " + err.Error())
+		return err
+	}
+
+	buf := make([]byte, 0, 3+len(abuf))
+	buf = append(buf, BoosterVersion)
+	buf = append(buf, BoosterCMDPair)
+	buf = append(buf, BoosterFieldReserved)
+	buf = append(buf, abuf...)
+
+	if _, err := conn.Write(buf); err != nil {
+		return errors.New("booster: unable to write pair request: " + err.Error())
+	}
+
+	return nil
+}
+
+// Unpair performs the steps required to unpair a remote node.
+// laddr is the local booster address to dial with. raddr is the remote
+// node address that as to be removed.
+func (b *Booster) Unpair(ctx context.Context, network, laddr, raddr string) error {
+	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	conn, err := new(net.Dialer).DialContext(_ctx, network, laddr)
+	if err != nil {
+		return errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
+	}
+
+	abuf, err := encodeAddressBinary(raddr)
+	if err != nil {
+		return err
+	}
+
+	buf := make([]byte, 0, 3+len(abuf))
+	buf = append(buf, BoosterVersion)
+	buf = append(buf, BoosterCMDUnpair)
+	buf = append(buf, BoosterFieldReserved)
+	buf = append(buf, abuf...)
+
+	if _, err := conn.Write(buf); err != nil {
+		return errors.New("booster: unable to write pair request: " + err.Error())
+	}
+
+	return nil
+}
+
+func encodeAddressBinary(addr string) ([]byte, error) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, errors.New("booster: unrecognised address format : " + addr + " : " + err.Error())
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return errors.New("booster: failed to parse port number: " + portStr)
+		return nil, errors.New("booster: failed to parse port number: " + portStr)
 	}
 	if port < 1 || port > 0xffff {
-		return errors.New("booster: port number out of range: " + portStr)
+		return nil, errors.New("booster: port number out of range: " + portStr)
 	}
 
-	buf := make([]byte, 0, 6+len(host))
-	buf = append(buf, BoosterVersion)
-	buf = append(buf, BoosterCMDRegister)
-	buf = append(buf, BoosterFieldReserved)
+	buf := make([]byte, 0, 3+len(host)) // 2 for the port, 1 if fqdn (address size)
 
 	if ip := net.ParseIP(host); ip != nil {
 		if ip4 := ip.To4(); ip4 != nil {
@@ -224,7 +287,7 @@ func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) er
 		buf = append(buf, ip...)
 	} else {
 		if len(host) > 255 {
-			return errors.New("booster: destination host name too long: " + host)
+			return nil, errors.New("booster: destination host name too long: " + host)
 		}
 		buf = append(buf, BoosterAddrFQDN)
 		buf = append(buf, byte(len(host)))
@@ -232,24 +295,21 @@ func (b *Booster) Register(ctx context.Context, network, laddr, raddr string) er
 	}
 	buf = append(buf, byte(port>>8), byte(port))
 
-	if _, err := conn.Write(buf); err != nil {
-		return errors.New("booster: unable to register: " + err.Error())
-	}
-
-	return nil
+	return buf, nil
 }
 
 // Hello dials with the remote address, expecting it to be a booster server.
 // Right after having enstablished the connection, it performs a "Hello" request.
-// If the response is successfull, the remote booster is added to the list of
-// helpers.
-func (b *Booster) Hello(ctx context.Context, network, addr string) error {
+// If the response is successfull, it reads the remote proxy address from the response
+// and returns it, together with the connection used to communicate with
+// the remote node.
+func (b *Booster) Hello(ctx context.Context, network, addr string) (Conn, string, error) {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	conn, err := new(net.Dialer).DialContext(_ctx, network, addr)
 	if err != nil {
-		return errors.New("booster: unable to contact remote instance: " + err.Error())
+		return nil, "", errors.New("booster: unable to contact remote instance: " + err.Error())
 	}
 
 	buf := make([]byte, 0, 3)
@@ -258,17 +318,17 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) error {
 	buf = append(buf, BoosterFieldReserved)
 
 	if _, err := conn.Write(buf); err != nil {
-		return errors.New("booster: unable to perform hello request: " + err.Error())
+		return nil, "", errors.New("booster: unable to perform hello request: " + err.Error())
 	}
 
 	buf = make([]byte, 5)
 	if _, err := io.ReadFull(conn, buf); err != nil {
-		return errors.New("booster: unable read hello response: " + err.Error())
+		return nil, "", errors.New("booster: unable read hello response: " + err.Error())
 	}
 
 	v := buf[0] // version
 	if v != BoosterVersion {
-		return errors.New("booster: unsupported version " + strconv.Itoa(int(v)))
+		return nil, "", errors.New("booster: unsupported version " + strconv.Itoa(int(v)))
 	}
 
 	resp := buf[1]                       // response
@@ -276,18 +336,17 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) error {
 	port := int(buf[3])<<8 | int(buf[4]) // proxy listening port
 
 	if resp != BoosterRespAccepted {
-		return errors.New("booster: remote instance refused hello request")
+		return nil, "", errors.New("booster: remote instance refused hello request")
 	}
 
 	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
 	if err != nil {
-		return errors.New("booster: " + err.Error())
+		return nil, "", errors.New("booster: " + err.Error())
 	}
 
 	paddr := net.JoinHostPort(host, strconv.Itoa(port))
-	b.balancer.AddProxy(paddr, conn)
 
-	return nil
+	return conn, paddr, nil
 }
 
 // ServeStatus writes the proxy's status to the connection, whenever it changes.

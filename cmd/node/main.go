@@ -32,9 +32,9 @@ func main() {
 	cmdStart.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	cmdStart.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
-	var cmdRegister = &cobra.Command{
-		Use:   "register host:port",
-		Short: "register a remote booster node",
+	var cmdConnect = &cobra.Command{
+		Use:   "connect host:port",
+		Short: "pair with a remote booster node",
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -42,16 +42,33 @@ func main() {
 			b := new(node.Booster)
 			ctx := context.Background()
 
-			if err := b.Register(ctx, "tcp", boosterAddr, dest); err != nil {
+			if err := b.Pair(ctx, "tcp", boosterAddr, dest); err != nil {
 				log.Fatal(err)
 			}
 		},
 	}
 
-	cmdRegister.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
+	var cmdDisconnect = &cobra.Command{
+		Use:   "disconnect host:port",
+		Short: "disconnect a previously connected remote booster node",
+		Long:  ``,
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			dest := strings.Join(args, " ")
+			b := new(node.Booster)
+			ctx := context.Background()
+
+			if err := b.Unpair(ctx, "tcp", boosterAddr, dest); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+
+	cmdConnect.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
+	cmdDisconnect.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
 
 	var rootCmd = &cobra.Command{Use: "booster"}
-	rootCmd.AddCommand(cmdStart, cmdRegister)
+	rootCmd.AddCommand(cmdStart, cmdConnect, cmdDisconnect)
 
 	rootCmd.Execute()
 }
