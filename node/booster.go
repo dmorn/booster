@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -337,7 +336,6 @@ func (b *Booster) ServeStatus(ctx context.Context, conn Conn) error {
 			buf = buf[:2]
 			buf = append(buf, byte(workload))
 
-			fmt.Printf("[BOOSTER]: status %v\n", buf)
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
 			}

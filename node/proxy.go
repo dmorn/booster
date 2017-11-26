@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -80,9 +79,10 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	lwl := d.workload // local workload
 	d.Unlock()
 
-	paddr, err := d.balancer.GetBalanced(lwl) // lwl: local workload
+	paddr, err := d.balancer.GetBalanced(lwl)
 	if err != nil {
-		fmt.Printf("[DIALER]: no gateway: %v\n", err)
+		d.Printf("dialer: dialing directly: %v", err)
+
 		return new(net.Dialer).DialContext(ctx, network, addr)
 	}
 
@@ -90,7 +90,8 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	cc := make(chan net.Conn, 1)
 
 	go func() {
-		fmt.Printf("[DIALER]: using sock5 gateway %v\n", paddr)
+		d.Printf("dialer: using SOCKS5 gateway @ %v", paddr)
+
 		socksDialer, err := proxy.SOCKS5(network, paddr, nil, new(net.Dialer))
 		if err != nil {
 			ec <- err
