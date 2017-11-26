@@ -19,9 +19,9 @@ const (
 )
 
 const (
-	BoosterCMDPair   = uint8(1)
-	BoosterCMDUnpair = uint8(2)
-	BoosterCMDHello  = uint8(3)
+	BoosterCMDConnect    = uint8(1)
+	BoosterCMDDisconnect = uint8(2)
+	BoosterCMDHello      = uint8(3)
 )
 
 const (
@@ -114,7 +114,7 @@ func (b *Booster) ListenAndServe(port int) error {
 }
 
 // Handle takes care of every connection that booster receives.
-// It expects to receive only "Register" or "Hello" requests.
+// It expects to receive only "Hello", "Connect" or "Disconnect" requests.
 // Ends serving forever the state of the proxy.
 func (b *Booster) Handle(conn Conn) error {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -135,11 +135,11 @@ func (b *Booster) Handle(conn Conn) error {
 	_ = buf[2]    // reserved field
 
 	switch cmd {
-	case BoosterCMDPair:
-		return b.handlePair(ctx, conn)
+	case BoosterCMDConnect:
+		return b.handleConnect(ctx, conn)
 
-	case BoosterCMDUnpair:
-		return b.handleUnpair(ctx, conn)
+	case BoosterCMDDisconnect:
+		return b.handleDisconnect(ctx, conn)
 
 	case BoosterCMDHello:
 		if err := b.handleHello(conn); err != nil {
@@ -171,7 +171,7 @@ func (b *Booster) handleHello(conn Conn) error {
 	return nil
 }
 
-func (b *Booster) handlePair(ctx context.Context, conn Conn) error {
+func (b *Booster) handleConnect(ctx context.Context, conn Conn) error {
 	addr, err := socks5.ReadAddress(conn)
 	if err != nil {
 		return errors.New("booster: " + err.Error())
@@ -186,7 +186,7 @@ func (b *Booster) handlePair(ctx context.Context, conn Conn) error {
 	return nil
 }
 
-func (b *Booster) handleUnpair(ctx context.Context, conn Conn) error {
+func (b *Booster) handleDisconnect(ctx context.Context, conn Conn) error {
 	addr, err := socks5.ReadAddress(conn)
 	if err != nil {
 		return errors.New("booster: " + err.Error())
@@ -201,10 +201,10 @@ func (b *Booster) handleUnpair(ctx context.Context, conn Conn) error {
 	return nil
 }
 
-// Pair performs the steps required to register a remote node.
+// Connect performs the steps required to pair with a remote node.
 // laddr is the local booster address to dial with. raddr is the remote
 // node address that as to be registered.
-func (b *Booster) Pair(ctx context.Context, network, laddr, raddr string) error {
+func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) error {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -220,7 +220,7 @@ func (b *Booster) Pair(ctx context.Context, network, laddr, raddr string) error 
 
 	buf := make([]byte, 0, 3+len(abuf))
 	buf = append(buf, BoosterVersion)
-	buf = append(buf, BoosterCMDPair)
+	buf = append(buf, BoosterCMDConnect)
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, abuf...)
 
@@ -231,10 +231,10 @@ func (b *Booster) Pair(ctx context.Context, network, laddr, raddr string) error 
 	return nil
 }
 
-// Unpair performs the steps required to unpair a remote node.
+// Disconnect performs the steps required to unpair with a remote node.
 // laddr is the local booster address to dial with. raddr is the remote
 // node address that as to be removed.
-func (b *Booster) Unpair(ctx context.Context, network, laddr, raddr string) error {
+func (b *Booster) Disconnect(ctx context.Context, network, laddr, raddr string) error {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -250,7 +250,7 @@ func (b *Booster) Unpair(ctx context.Context, network, laddr, raddr string) erro
 
 	buf := make([]byte, 0, 3+len(abuf))
 	buf = append(buf, BoosterVersion)
-	buf = append(buf, BoosterCMDUnpair)
+	buf = append(buf, BoosterCMDDisconnect)
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, abuf...)
 

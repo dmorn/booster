@@ -42,7 +42,7 @@ func main() {
 			b := new(node.Booster)
 			ctx := context.Background()
 
-			if err := b.Pair(ctx, "tcp", boosterAddr, dest); err != nil {
+			if err := b.Connect(ctx, "tcp", boosterAddr, dest); err != nil {
 				log.Fatal(err)
 			}
 		},
@@ -58,7 +58,7 @@ func main() {
 			b := new(node.Booster)
 			ctx := context.Background()
 
-			if err := b.Unpair(ctx, "tcp", boosterAddr, dest); err != nil {
+			if err := b.Disconnect(ctx, "tcp", boosterAddr, dest); err != nil {
 				log.Fatal(err)
 			}
 		},
