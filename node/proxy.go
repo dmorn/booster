@@ -51,6 +51,7 @@ func PROXY(balancer LoadBalancer) *Proxy {
 	return p
 }
 
+// Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
 	balancer LoadBalancer
@@ -63,6 +64,7 @@ type Dialer struct {
 	workload int
 }
 
+// NewDialer returns a Dialer instance.
 func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.balancer = balancer
@@ -70,6 +72,9 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 	return d
 }
 
+// DialContext uses the underlying load balancer to retrieve a possibile socks5 proxy
+// address to chain the connection to. If none available, dials the connection using
+// the default net.Dialer
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	d.Lock()
 	lwl := d.workload // local workload
