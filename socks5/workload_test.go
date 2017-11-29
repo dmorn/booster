@@ -8,7 +8,7 @@ import (
 
 func TestRegisterWorkloadListener_duplicateID(t *testing.T) {
 	s := new(socks5.Socks5)
-	c := make(chan<- int)
+	c := make(chan int)
 	id := "foo"
 
 	if err := s.RegisterWorkloadListener(id, c); err != nil {
@@ -23,7 +23,7 @@ func TestRegisterWorkloadListener_duplicateID(t *testing.T) {
 
 func TestRemoveWorkloadListener(t *testing.T) {
 	s := new(socks5.Socks5)
-	c := make(chan<- int)
+	c := make(chan int)
 	id := "foo"
 
 	if err := s.RegisterWorkloadListener(id, c); err != nil {

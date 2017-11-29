@@ -9,7 +9,7 @@ import (
 // Connect dials a new connection with target, which must
 // be a canonical address with host and port, according
 // to RFC 1928.
-func (s *Socks5) Connect(ctx context.Context, conn Conn, target string) (Conn, error) {
+func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 
 	s.Printf("connect to %v", target)
 

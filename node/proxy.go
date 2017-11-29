@@ -53,7 +53,7 @@ func PROXY(balancer LoadBalancer) *Proxy {
 // Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
-	balancer LoadBalancer
+	LoadBalancer
 
 	sync.Mutex
 	// local proxy workload.
@@ -66,7 +66,7 @@ type Dialer struct {
 // NewDialer returns a Dialer instance.
 func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
-	d.balancer = balancer
+	d.LoadBalancer = balancer
 
 	return d
 }
@@ -79,10 +79,15 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	lwl := d.workload // local workload
 	d.Unlock()
 
-	paddr, err := d.balancer.GetBalanced(lwl)
+	id, err := d.GetNodeBalanced(lwl)
 	if err != nil {
 		d.Printf("dialer: dialing directly: %v", err)
+		return new(net.Dialer).DialContext(ctx, network, addr)
+	}
 
+	paddr, err := d.GetProxy(id)
+	if err != nil {
+		d.Printf("dialer: dialing directly: %v", err)
 		return new(net.Dialer).DialContext(ctx, network, addr)
 	}
 
@@ -102,7 +107,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		if err != nil {
 			// the node that we tried to chain to is down or unusable.
 			// remove it and fallback to a normal dialer
-			d.balancer.Remove(paddr)
+			d.RemoveNode(id)
 			conn, err = new(net.Dialer).Dial(network, addr)
 			if err != nil {
 				ec <- err

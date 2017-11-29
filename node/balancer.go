@@ -2,25 +2,33 @@ package node
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"sync"
 )
 
 // LoadBalancer is the interface that describes a load balancer object.
-// It exposes methods to add and remove items, referenced by a string identifier.
+// It exposes methods to add and remove nodes.
 type LoadBalancer interface {
-	// GetBalanced should return a previously added item, using internally a
+	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
-	// trg should be used to set a minimum target requirement.
-	GetBalanced(trg int) (addr string, err error)
-	Add(addr string, conn Conn)
-	Remove(addr string)
+	// tr should be used to set a minimum treshold requirement.
+	GetNodeBalanced(tr int) (id string, err error)
+	GetProxy(id string) (addr string, err error)
+	AddNode(host, pport, bport string, conn net.Conn) (string, error)
+	RemoveNode(id string)
 }
 
 type entry struct {
-	conn   Conn
+	id     string // sha1 string representation
+	host   string
+	pport  string
+	bport  string
+	conn   net.Conn
 	cancel context.CancelFunc
 
 	sync.Mutex
@@ -29,129 +37,152 @@ type entry struct {
 
 // Balancer is a LoadBalancer implementation
 type Balancer struct {
+	*log.Logger
+
 	entries map[string]*entry
 }
 
 // NewBalancer returns a new balancer instance.
-func NewBalancer() *Balancer {
+func NewBalancer(log *log.Logger) *Balancer {
 	b := new(Balancer)
+	b.Logger = log
 	b.entries = make(map[string]*entry)
 
 	return b
 }
 
-// GetBalanced collects the workload its registered entries,
-// and compares them to the trg workload, that represents the
-// workload that the remote entry is supposed to beat in order
+// GetProxy returns the proxy address associated with id.
+// Returns an error if no entry with this id is found.
+func (b *Balancer) GetProxy(id string) (addr string, err error) {
+	if e, ok := b.entries[id]; ok {
+		return net.JoinHostPort(e.host, e.pport), nil
+	}
+
+	return "", errors.New("balancer: " + id + " not found")
+}
+
+// GetNodeBalanced collects the workload of its registered nodes,
+// and compares them to the tr workload, that represents the
+// workload that the remote node is supposed to "beat" in order
 // to be used next.
 //
 // Returns an error if no candidate is found, either because
 // none was provided or because no entry's workload was under
-// the target.
-func (b *Balancer) GetBalanced(trg int) (string, error) {
-	var candidate *entry
-	var addr string
-	var twl int // total workload
+// the treshold.
+func (b *Balancer) GetNodeBalanced(tr int) (string, error) {
+	var c *entry // candidate entry
+	var twl int  // total workload
 
-	for key, e := range b.entries {
-		if candidate == nil {
-			candidate = e
-			addr = key
+	for _, e := range b.entries {
+		if c == nil {
+			c = e
 		}
 
 		e.Lock()
-		ewl := e.workload // entry workload
+		ewl := e.workload
 		twl += ewl
 		e.Unlock()
 
-		candidate.Lock()
-		cwl := candidate.workload // candidate workload
-		candidate.Unlock()
+		c.Lock()
+		cwl := c.workload // candidate workload
+		c.Unlock()
 
 		if ewl < cwl {
-			candidate = e
-			addr = key
+			c = e
 		}
 	}
 
-	if candidate == nil {
+	if c == nil {
 		return "", errors.New("booster balancer: no remote boosters connected")
 	}
 
-	// trg is the sum of the local workload and the remote node's workload.
+	// tr is the sum of the local workload and the remote node's workload.
 	// this is why we have to subtract the total remote workload to understand
 	// how is the load on this node.
-	if candidate.workload > (trg - twl) {
+	if c.workload > (tr - twl) {
 		return "", errors.New("booster balancer: use local proxy")
 	}
 
-	return addr, nil
+	return c.id, nil
 }
 
-// Add adds a new entry to the monitored proxies. conn is expected to
-// come from a booster node, addr the proxy address.
-func (b *Balancer) Add(addr string, conn Conn) {
-	fmt.Printf("[BALANCER]: adding proxy %v\n", addr)
-
+// AddNode adds a new entry to the monitored nodes. conn is expected to
+// come from a booster node.
+// Returns the entry identifier.
+func (b *Balancer) AddNode(host, pport, bport string, conn net.Conn) (string, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	e := new(entry)
+	e.host = host
+	e.pport = pport
+	e.bport = bport
 	e.conn = conn
 	e.cancel = cancel
 
-	if _, ok := b.entries[addr]; ok {
+	// id is the sha1 of host + bport + pport
+	h := sha1.New()
+	h.Write([]byte(e.host))
+	h.Write([]byte(e.bport))
+	h.Write([]byte(e.pport))
+	e.id = fmt.Sprintf("%x", h.Sum(nil))
+
+	if _, ok := b.entries[e.id]; ok {
 		// remove it and substitute
-		b.Remove(addr)
+		b.RemoveNode(e.id)
 	}
 
-	b.entries[addr] = e
+	b.Printf("balancer: adding proxy %v (%v)\n", e.id, net.JoinHostPort(e.host, e.pport))
+	b.entries[e.id] = e
 
 	// keep on updating entry's workload
-	go func() {
-		buf := make([]byte, 3)
+	go func(e *entry) {
+		buf := make([]byte, 4)
 		c := make(chan error)
 
-		go func() {
+		go func(e *entry) {
 			for {
-				if _, err := io.ReadFull(conn, buf); err != nil {
+				if _, err := io.ReadFull(e.conn, buf); err != nil {
 					// unable to update status or something. Remove proxy?
-					fmt.Printf("[BALANCER]: unable to update status: %v\n", err)
-					b.Remove(addr)
+					b.Printf("balancer: unable to update status: %v\n", err)
+					b.RemoveNode(e.id)
 					c <- err
 					return
 				}
 
 				_ = buf[0]     // version - already checked in the hello procedure
-				_ = buf[1]     // reserved field
-				load := buf[2] // workload
+				_ = buf[1]     // cmd
+				_ = buf[2]     // reserved field
+				load := buf[3] // workload
 
 				e.Lock()
-				fmt.Printf("[BALANCER]: changing workload (%v) from %v to %v\n", e.conn.RemoteAddr(), e.workload, load)
+				b.Printf("balancer: changing workload (%v) from %v to %v\n", e.conn.RemoteAddr(), e.workload, load)
 				e.workload = int(load)
 				e.Unlock()
 			}
-		}()
+		}(e)
 
 		// in any case we're done
 		select {
 		case <-ctx.Done():
-			b.Remove(addr)
+			b.RemoveNode(e.id)
 			return
 		case <-c:
 			return
 		}
-	}()
+	}(e)
+
+	return e.id, nil
 }
 
-// Remove removes the entry labeled with addr. It expects addr
-// to be the node's proxy address.
-func (b *Balancer) Remove(addr string) {
-	fmt.Printf("[BALANCER]: removing proxy %v\n", addr)
+// RemoveNode removes the entry labeled with id.
+func (b *Balancer) RemoveNode(id string) {
+	if e, ok := b.entries[id]; ok {
+		b.Printf("balancer: removing proxy %v\n", id)
 
-	// first stop updating its workload
-	if e, ok := b.entries[addr]; ok {
 		e.cancel()
 		e.conn.Close()
+		delete(b.entries, id)
+		return
 	}
 
-	delete(b.entries, addr)
+	b.Printf("balancer: %v not found\n", id)
 }

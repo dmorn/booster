@@ -69,16 +69,11 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
-// Conn is a wrapper around io.ReadWriteCloser.
-type Conn interface {
-	io.ReadWriteCloser
-}
-
 // Dialer is the interface that wraps the DialContext function.
 type Dialer interface {
 	// DialContext opens a connection to addr, which should
 	// be a canonical address with host and port.
-	DialContext(ctx context.Context, network, addr string) (c net.Conn, err error)
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 // Socks5 represents a SOCKS5 proxy server implementation.
@@ -95,6 +90,7 @@ type Socks5 struct {
 	workload          int
 }
 
+// NewSOCKS5 returns a new Socks5 instance.
 func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	s := new(Socks5)
 	s.Dialer = dialer
@@ -103,6 +99,7 @@ func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	return s
 }
 
+// SOCKS5 returns a new Socks5 instance with default logger and dialer.
 func SOCKS5() *Socks5 {
 	d := new(net.Dialer)
 	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
@@ -144,7 +141,7 @@ func (s *Socks5) ListenAndServe(port int) error {
 //
 // Should run in its own go routine, closes the connection
 // when returning.
-func (s *Socks5) Handle(conn Conn) error {
+func (s *Socks5) Handle(conn net.Conn) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer conn.Close()
@@ -177,7 +174,7 @@ func (s *Socks5) Handle(conn Conn) error {
 		return err
 	}
 
-	var tconn Conn
+	var tconn net.Conn
 	ctx, cancel = context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 

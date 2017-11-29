@@ -2,24 +2,24 @@ package socks5_test
 
 import (
 	"bytes"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
 type conn struct {
-	buf bytes.Buffer
+	bytes.Buffer
 }
 
-func (c *conn) Read(p []byte) (int, error) {
-	return c.buf.Read(p)
-}
-
-func (c *conn) Write(p []byte) (int, error) {
-	return c.buf.Write(p)
-}
-
-func (c *conn) Close() {}
+// protocol stubs
+func (c *conn) Close() error                       { return nil }
+func (c *conn) LocalAddr() net.Addr                { return nil }
+func (c *conn) RemoteAddr() net.Addr               { return nil }
+func (c *conn) SetDeadline(t time.Time) error      { return nil }
+func (c *conn) SetReadDeadline(t time.Time) error  { return nil }
+func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
 
 func TestReadAddress(t *testing.T) {
 	conn := new(conn)

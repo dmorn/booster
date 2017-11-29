@@ -3,11 +3,12 @@ package socks5
 import (
 	"errors"
 	"io"
+	"net"
 )
 
 // Negotiate performs the very first method subnegotiation when handling
 // a new connection. See RFC 1928.
-func (s *Socks5) Negotiate(conn io.ReadWriter) error {
+func (s *Socks5) Negotiate(conn net.Conn) error {
 
 	// len is just an estimation
 	buf := make([]byte, 7)

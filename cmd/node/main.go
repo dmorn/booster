@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 
@@ -39,28 +40,35 @@ func main() {
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			dest := strings.Join(args, " ")
-			b := new(node.Booster)
+			b := node.BOOSTER()
 			ctx := context.Background()
 
-			if err := b.Connect(ctx, "tcp", boosterAddr, dest); err != nil {
-				log.Fatal(err)
+			id, err := b.Connect(ctx, "tcp", boosterAddr, dest)
+			if err != nil {
+				fmt.Println(err)
+				return
 			}
+
+			fmt.Printf("connected to (%v): %v\n", dest, id)
 		},
 	}
 
 	var cmdDisconnect = &cobra.Command{
-		Use:   "disconnect host:port",
+		Use:   "disconnect id",
 		Short: "disconnect a previously connected remote booster node",
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			dest := strings.Join(args, " ")
-			b := new(node.Booster)
+			id := strings.Join(args, " ")
+			b := node.BOOSTER()
 			ctx := context.Background()
 
-			if err := b.Disconnect(ctx, "tcp", boosterAddr, dest); err != nil {
-				log.Fatal(err)
+			if err := b.Disconnect(ctx, "tcp", boosterAddr, id); err != nil {
+				fmt.Println(err)
+				return
 			}
+
+			fmt.Printf("disconnected from: %v\n", id)
 		},
 	}
 

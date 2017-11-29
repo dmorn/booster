@@ -3,10 +3,11 @@ package socks5
 import (
 	"context"
 	"errors"
+	"net"
 )
 
 // Bind -- not yet implemented. See RFC 1928
-func (s *Socks5) Bind(ctx context.Context, conn Conn, target string) (Conn, error) {
+func (s *Socks5) Bind(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 
 	// cap is just an estimation
 	buf := make([]byte, 0, 6+len(target))
