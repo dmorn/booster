@@ -17,7 +17,7 @@ const (
 	BoosterVersion1 = uint8(1)
 )
 
-// Possible booster commands
+// Possible booster CMD field values
 const (
 	BoosterCMDConnect    = uint8(1)
 	BoosterCMDDisconnect = uint8(2)
@@ -25,15 +25,15 @@ const (
 	BoosterCMDStatus     = uint8(4)
 )
 
-// Reserved field
+// Reserved field value
 const (
 	BoosterFieldReserved = uint8(0xff)
 )
 
-// Possible booster RESP values
+// Possible booster RESP field values
 const (
-	BoosterRespRefused  = uint8(0)
-	BoosterRespAccepted = uint8(1)
+	BoosterRespGeneralFailure = uint8(0)
+	BoosterRespSuccess        = uint8(1)
 )
 
 const (

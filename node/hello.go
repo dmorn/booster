@@ -47,7 +47,7 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, st
 	_ = buf[3]                           // reserved field
 	port := int(buf[4])<<8 | int(buf[5]) // proxy listening port
 
-	if resp != BoosterRespAccepted {
+	if resp != BoosterRespSuccess {
 		return nil, "", errors.New("booster: remote instance refused hello request")
 	}
 
@@ -69,7 +69,7 @@ func (b *Booster) handleHello(conn net.Conn) error {
 	buf := make([]byte, 0, 6)
 	buf = append(buf, BoosterVersion1)
 	buf = append(buf, BoosterCMDHello)
-	buf = append(buf, BoosterRespAccepted)
+	buf = append(buf, BoosterRespSuccess)
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, byte(port>>8), byte(port))
 

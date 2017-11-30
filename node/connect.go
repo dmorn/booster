@@ -54,7 +54,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 
 	_ = buf[1]  // cmd
 	r := buf[2] // response
-	if r != BoosterRespAccepted {
+	if r != BoosterRespSuccess {
 		return "", errors.New("booster: connect request refused")
 	}
 
@@ -97,7 +97,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	buf := make([]byte, 0, len(bid)+4)
 	buf = append(buf, BoosterVersion1)
 	buf = append(buf, BoosterCMDConnect)
-	buf = append(buf, BoosterRespAccepted)
+	buf = append(buf, BoosterRespSuccess)
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, bid...)
 
