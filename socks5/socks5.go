@@ -219,37 +219,35 @@ func (s *Socks5) ProxyData(src net.Conn, dst net.Conn) {
 		dst.Close()
 	})
 
-	for {
-		c := make(chan error, 2)
+	c := make(chan error, 2)
 
-		// proxy in both directions
-		go func(c chan error, src net.Conn, dst net.Conn) {
-			for {
-				_, err := io.CopyN(dst, src, s.ChunkSize)
-				c <- err
-			}
-		}(c, src, dst)
-
-		go func(c chan error, src net.Conn, dst net.Conn) {
-			for {
-				_, err := io.CopyN(dst, src, s.ChunkSize)
-				c <- err
-			}
-		}(c, dst, src)
-
-		for err := range c {
-			if err != nil {
-				// timeout? EOF?
-				// TODO(daniel): check if in some cases is better to keep the connection open.
-				// It could also be useful to add a connection caching mechanism, something like
-				// what http.Transport does.
-				return
-			}
-
-			// io operations did not return any errors. Reset
-			// deadline and keep on transfering data
-			timer.Reset(s.ReadWriteTimeout)
+	// proxy in both directions
+	go func(c chan error, src net.Conn, dst net.Conn) {
+		for {
+			_, err := io.CopyN(dst, src, s.ChunkSize)
+			c <- err
 		}
+	}(c, src, dst)
+
+	go func(c chan error, src net.Conn, dst net.Conn) {
+		for {
+			_, err := io.CopyN(dst, src, s.ChunkSize)
+			c <- err
+		}
+	}(c, dst, src)
+
+	for err := range c {
+		if err != nil {
+			// timeout? EOF?
+			// TODO(daniel): check if in some cases is better to keep the connection open.
+			// It could also be useful to add a connection caching mechanism, something like
+			// what http.Transport does.
+			return
+		}
+
+		// io operations did not return any errors. Reset
+		// deadline and keep on transfering data
+		timer.Reset(s.ReadWriteTimeout)
 	}
 }
 
