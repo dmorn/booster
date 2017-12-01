@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -77,20 +76,6 @@ type Dialer interface {
 	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
-type dialer struct {
-	*http.Transport
-}
-
-func newDialer() *dialer {
-	d := new(dialer)
-	d.Transport = http.DefaultTransport.(*http.Transport)
-	return d
-}
-
-func (d *dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	return d.DialContext(ctx, network, addr)
-}
-
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
 	*log.Logger
@@ -116,7 +101,11 @@ func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 
 // SOCKS5 returns a new Socks5 instance with default logger and dialer.
 func SOCKS5() *Socks5 {
-	d := newDialer()
+	d := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
 	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
 
 	return NewSOCKS5(d, log)
