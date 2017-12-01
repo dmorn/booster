@@ -84,6 +84,9 @@ type Socks5 struct {
 	// be useful when chaining multiple proxies.
 	Dialer
 
+	ReadWriteTimeout time.Duration
+	ChunkSize        int64
+
 	sync.Mutex
 	port              int
 	workloadListeners map[string]chan int
@@ -93,6 +96,8 @@ type Socks5 struct {
 // NewSOCKS5 returns a new Socks5 instance.
 func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	s := new(Socks5)
+	s.ReadWriteTimeout = 5 * time.Second
+	s.ChunkSize = 32 * 1024
 	s.Dialer = dialer
 	s.Logger = log
 
@@ -128,7 +133,7 @@ func (s *Socks5) ListenAndServe(port int) error {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			s.Printf("tcp accept error: %v\n", err)
+			s.Printf("tcp accept error: %v", err)
 			continue
 		}
 
@@ -199,13 +204,53 @@ func (s *Socks5) Handle(conn net.Conn) error {
 
 	// start proxying
 	s.pushLoad()
-
-	go io.Copy(tconn, conn)
-	io.Copy(conn, tconn)
-
+	s.ProxyData(conn, tconn)
 	s.popLoad()
 
 	return nil
+}
+
+// ProxyData copies data from src to dst and the other way around.
+// Closes the connections when they are idle for more than the duration
+// described in ReadWriteTimeout.
+func (s *Socks5) ProxyData(src net.Conn, dst net.Conn) {
+	timer := time.AfterFunc(s.ReadWriteTimeout, func() {
+		src.Close()
+		dst.Close()
+	})
+
+	for {
+		c := make(chan error, 2)
+
+		// proxy in both directions
+		go func(c chan error, src net.Conn, dst net.Conn) {
+			for {
+				_, err := io.CopyN(dst, src, s.ChunkSize)
+				c <- err
+			}
+		}(c, src, dst)
+
+		go func(c chan error, src net.Conn, dst net.Conn) {
+			for {
+				_, err := io.CopyN(dst, src, s.ChunkSize)
+				c <- err
+			}
+		}(c, dst, src)
+
+		for err := range c {
+			if err != nil {
+				// timeout? EOF?
+				// TODO(daniel): check if in some cases is better to keep the connection open.
+				// It could also be useful to add a connection caching mechanism, something like
+				// what http.Transport does.
+				return
+			}
+
+			// io operations did not return any errors. Reset
+			// deadline and keep on transfering data
+			timer.Reset(s.ReadWriteTimeout)
+		}
+	}
 }
 
 // ReadAddress reads hostname and port and converts them
