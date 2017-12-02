@@ -97,7 +97,7 @@ type Socks5 struct {
 func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	s := new(Socks5)
 	s.ReadWriteTimeout = 5 * time.Second
-	s.ChunkSize = 32 * 1024
+	s.ChunkSize = 4 * 1024
 	s.Dialer = dialer
 	s.Logger = log
 
