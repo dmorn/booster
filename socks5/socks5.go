@@ -96,7 +96,7 @@ type Socks5 struct {
 // NewSOCKS5 returns a new Socks5 instance.
 func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	s := new(Socks5)
-	s.ReadWriteTimeout = 5 * time.Second
+	s.ReadWriteTimeout = 15 * time.Second
 	s.ChunkSize = 4 * 1024
 	s.Dialer = dialer
 	s.Logger = log
