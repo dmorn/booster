@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
 	"golang.org/x/net/proxy"
@@ -54,6 +55,7 @@ func PROXY(balancer LoadBalancer) *Proxy {
 type Dialer struct {
 	*log.Logger
 	LoadBalancer
+	Fallback FallbackDialer
 
 	sync.Mutex
 	// local proxy workload.
@@ -63,10 +65,21 @@ type Dialer struct {
 	workload int
 }
 
+// FallbackDialer combines DialContext and Dial methods.
+type FallbackDialer interface {
+	socks5.Dialer
+	proxy.Dialer
+}
+
 // NewDialer returns a Dialer instance.
 func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
+	d.Fallback = &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+		DualStack: true,
+	}
 
 	return d
 }
@@ -82,13 +95,13 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	id, err := d.GetNodeBalanced(lwl)
 	if err != nil {
 		d.Printf("dialer: dialing directly: %v", err)
-		return new(net.Dialer).DialContext(ctx, network, addr)
+		return d.Fallback.DialContext(ctx, network, addr)
 	}
 
 	paddr, err := d.GetProxy(id)
 	if err != nil {
 		d.Printf("dialer: dialing directly: %v", err)
-		return new(net.Dialer).DialContext(ctx, network, addr)
+		return d.Fallback.DialContext(ctx, network, addr)
 	}
 
 	ec := make(chan error, 1)
@@ -97,7 +110,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	go func() {
 		d.Printf("dialer: using SOCKS5 gateway @ %v", paddr)
 
-		socksDialer, err := proxy.SOCKS5(network, paddr, nil, new(net.Dialer))
+		socksDialer, err := proxy.SOCKS5(network, paddr, nil, d.Fallback)
 		if err != nil {
 			ec <- err
 			return
@@ -108,7 +121,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 			// the node that we tried to chain to is down or unusable.
 			// remove it and fallback to a normal dialer
 			d.RemoveNode(id)
-			conn, err = new(net.Dialer).Dial(network, addr)
+			conn, err = d.Fallback.Dial(network, addr)
 			if err != nil {
 				ec <- err
 				return
