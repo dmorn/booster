@@ -1,0 +1,10 @@
+Daniel Morandini
+Dec 2017
+
+booster version 1 - protocol specification
+
+1. Introduction
+2. Procedure
+3. Requests
+4. Addresses
+5. Replies
