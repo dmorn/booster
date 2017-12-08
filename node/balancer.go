@@ -20,7 +20,7 @@ type LoadBalancer interface {
 	GetNodeBalanced(tr int) (id string, err error)
 	GetProxy(id string) (addr string, err error)
 	AddNode(host, pport, bport string, conn net.Conn) (string, error)
-	RemoveNode(id string)
+	RemoveNode(id string) bool
 }
 
 type entry struct {
@@ -28,6 +28,7 @@ type entry struct {
 	host   string
 	pport  string
 	bport  string
+	isActive bool // set to false when connection is nil - for testing purposes only
 	conn   net.Conn
 	cancel context.CancelFunc
 
@@ -87,7 +88,7 @@ func (b *Balancer) GetNodeBalanced(tr int) (string, error) {
 		cwl := c.workload // candidate workload
 		c.Unlock()
 
-		if ewl < cwl {
+		if ewl < cwl && e.isActive {
 			c = e
 		}
 	}
@@ -130,11 +131,20 @@ func (b *Balancer) AddNode(host, pport, bport string, conn net.Conn) (string, er
 		b.RemoveNode(e.id)
 	}
 
-	b.Printf("balancer: adding proxy %v (%v)\n", e.id, net.JoinHostPort(e.host, e.pport))
+	if conn == nil {
+		e.isActive = false
+	} else {
+		e.isActive = true
+	}
+
+	b.Printf("balancer: adding proxy %v (%v) (active: %v)\n", e.id, net.JoinHostPort(e.host, e.pport), e.isActive)
 	b.entries[e.id] = e
 
 	// keep on updating entry's workload
 	go func(e *entry) {
+		if e.conn == nil {
+			return
+		}
 		buf := make([]byte, 4)
 		c := make(chan error)
 
@@ -174,15 +184,17 @@ func (b *Balancer) AddNode(host, pport, bport string, conn net.Conn) (string, er
 }
 
 // RemoveNode removes the entry labeled with id.
-func (b *Balancer) RemoveNode(id string) {
+// Returns false if no entry was found.
+func (b *Balancer) RemoveNode(id string) bool {
 	if e, ok := b.entries[id]; ok {
 		b.Printf("balancer: removing proxy %v\n", id)
 
 		e.cancel()
 		e.conn.Close()
 		delete(b.entries, id)
-		return
+		return ok
 	}
 
 	b.Printf("balancer: %v not found\n", id)
+	return false
 }

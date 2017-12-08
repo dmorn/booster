@@ -1,13 +1,22 @@
 package node_test
 
 import (
-	"bytes"
 	"net"
 	"time"
 )
 
 type conn struct {
-	bytes.Buffer
+	server net.Conn
+	client net.Conn
+}
+
+func newConn() *conn {
+	conn := new(conn)
+	client, server := net.Pipe()
+	conn.client = client
+	conn.server = server
+
+	return conn
 }
 
 // protocol stubs
