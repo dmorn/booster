@@ -24,13 +24,13 @@ type LoadBalancer interface {
 }
 
 type entry struct {
-	id     string // sha1 string representation
-	host   string
-	pport  string
-	bport  string
+	id       string // sha1 string representation
+	host     string
+	pport    string
+	bport    string
 	isActive bool // set to false when connection is nil - for testing purposes only
-	conn   net.Conn
-	cancel context.CancelFunc
+	conn     net.Conn
+	cancel   context.CancelFunc
 
 	sync.Mutex
 	workload int
