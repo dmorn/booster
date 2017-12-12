@@ -13,14 +13,6 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
-type connectDialer struct {
-	net.Conn
-}
-
-func (c *connectDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	return c, nil
-}
-
 func TestConnect(t *testing.T) {
 	mockConn := newConn()
 	d := new(connectDialer)
@@ -45,7 +37,7 @@ func TestConnect(t *testing.T) {
 		}
 
 		if id != trgID {
-			c <- err
+			c <- fmt.Errorf("ids do not match. Wanted %v, found %v", trgID, id)
 			return
 		}
 
