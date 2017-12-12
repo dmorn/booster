@@ -37,13 +37,6 @@ func (s *Socks5) RemoveWorkloadListener(id string) {
 	delete(s.workloadListeners, id)
 }
 
-// Port safely returns proxy's listening port.
-func (s *Socks5) Port() int {
-	s.Lock()
-	defer s.Unlock()
-	return s.port
-}
-
 func (s *Socks5) pushLoad() {
 	s.Lock()
 	s.workload++

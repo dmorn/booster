@@ -312,3 +312,11 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 
 	return addr, nil
 }
+
+// Port safely returns proxy's listening port.
+func (s *Socks5) Port() int {
+	s.Lock()
+	defer s.Unlock()
+
+	return s.port
+}
