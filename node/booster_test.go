@@ -26,3 +26,13 @@ func (c *conn) RemoteAddr() net.Addr               { return nil }
 func (c *conn) SetDeadline(t time.Time) error      { return nil }
 func (c *conn) SetReadDeadline(t time.Time) error  { return nil }
 func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
+
+
+type connectDialer struct {
+	net.Conn
+}
+
+func (c *connectDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return c, nil
+}
+

@@ -71,6 +71,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	bconn, paddr, err := b.Hello(ctx, "tcp", addr)
+
 	if err != nil {
 		return err
 	}
