@@ -1,14 +1,14 @@
 package node_test
 
 import (
+	"context"
 	"net"
 	"time"
-	"context"
 )
 
 type conn struct {
-	server net.Conn
-	client net.Conn
+	server     net.Conn
+	client     net.Conn
 	remoteAddr net.Addr
 }
 
@@ -36,4 +36,3 @@ type connectDialer struct {
 func (c *connectDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	return c, nil
 }
-

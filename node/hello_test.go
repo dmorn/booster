@@ -1,12 +1,12 @@
 package node_test
 
-import(
-	"testing"
+import (
 	"context"
 	"fmt"
-	"net"
 	"io"
+	"net"
 	"strconv"
+	"testing"
 
 	"github.com/danielmorandini/booster-network/node"
 )
@@ -17,7 +17,7 @@ func TestHello(t *testing.T) {
 
 	mockConn := newConn()
 	mockConn.remoteAddr = &net.TCPAddr{
-		IP: ip,
+		IP:   ip,
 		Port: port,
 	}
 	d := new(connectDialer)
