@@ -51,7 +51,7 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, st
 		return nil, "", errors.New("booster: remote instance refused hello request")
 	}
 
-	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, "", errors.New("booster: " + err.Error())
 	}
@@ -62,7 +62,7 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, st
 }
 
 func (b *Booster) handleHello(conn net.Conn) error {
-	// TODO(daniel): there could be some cases where the hello request shuold be refused.
+	// TODO(daniel): there could be some cases where the hello request should be refused.
 	// Atm we always reply ok to this request.
 	port := b.Proxy.Port()
 

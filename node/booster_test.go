@@ -3,11 +3,13 @@ package node_test
 import (
 	"net"
 	"time"
+	"context"
 )
 
 type conn struct {
 	server net.Conn
 	client net.Conn
+	remoteAddr net.Addr
 }
 
 func newConn() *conn {
@@ -22,11 +24,10 @@ func newConn() *conn {
 // protocol stubs
 func (c *conn) Close() error                       { return nil }
 func (c *conn) LocalAddr() net.Addr                { return nil }
-func (c *conn) RemoteAddr() net.Addr               { return nil }
+func (c *conn) RemoteAddr() net.Addr               { return c.remoteAddr }
 func (c *conn) SetDeadline(t time.Time) error      { return nil }
 func (c *conn) SetReadDeadline(t time.Time) error  { return nil }
 func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
-
 
 type connectDialer struct {
 	net.Conn
