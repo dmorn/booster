@@ -105,7 +105,7 @@ func (b *Balancer) AddNode(node *RemoteNode) error {
 		b.RemoveNode(node.ID)
 	}
 
-	b.Printf("balancer: adding proxy %v (%v) (active: %v)\n", node.ID, net.JoinHostPort(node.Host, node.Pport), node.IsActive)
+	b.Printf("balancer: adding proxy %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
 	b.nodes[node.ID] = node
 
 	return nil
