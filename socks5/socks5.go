@@ -260,9 +260,23 @@ func (s *Socks5) ProxyData(src net.Conn, dst net.Conn) {
 //
 // addr == "" only when err != nil.
 func ReadAddress(r io.Reader) (addr string, err error) {
+	host, err := ReadHost(r)
+	if err != nil {
+		return "", err
+	}
 
+	port, err := ReadPort(r)
+	if err != nil {
+		return "", err
+	}
+
+	return net.JoinHostPort(host, port), nil
+}
+
+// ReadHost deals with the host part of ReadAddress.
+func ReadHost(r io.Reader) (string, error) {
 	// cap is just an estimantion
-	buf := make([]byte, 0, 2+net.IPv6len)
+	buf := make([]byte, 0, 1+net.IPv6len)
 	buf = buf[:1]
 
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -303,14 +317,18 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 		host = net.IP(buf).String()
 	}
 
-	if _, err := io.ReadFull(r, buf[:2]); err != nil {
+	return host, nil
+}
+
+// ReadPort deals with the port part of ReadAddress.
+func ReadPort(r io.Reader) (string, error) {
+	buf := make([]byte, 2)
+	if _, err := io.ReadFull(r, buf); err != nil {
 		return "", errors.New("failed to read port: " + err.Error())
 	}
 
 	port := int(buf[0])<<8 | int(buf[1])
-	addr = net.JoinHostPort(host, strconv.Itoa(port))
-
-	return addr, nil
+	return strconv.Itoa(port), nil
 }
 
 // EncodeAddressBinary expects as input a canonical host:port address and
