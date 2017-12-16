@@ -55,16 +55,16 @@ const (
 type Booster struct {
 	*log.Logger
 	socks5.Dialer
-	NodeBalancer
+	LoadBalancer
 
 	Proxy *Proxy
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer NodeBalancer, log *log.Logger) *Booster {
+func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
-	b.NodeBalancer= balancer
+	b.LoadBalancer = balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
 

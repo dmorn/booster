@@ -30,7 +30,7 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func PROXY(balancer NodeBalancer) *Proxy {
+func PROXY(balancer LoadBalancer) *Proxy {
 	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log)
@@ -54,7 +54,7 @@ func PROXY(balancer NodeBalancer) *Proxy {
 // Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
-	NodeBalancer
+	LoadBalancer
 	Fallback FallbackDialer
 
 	sync.Mutex
@@ -72,9 +72,9 @@ type FallbackDialer interface {
 }
 
 // NewDialer returns a Dialer instance.
-func NewDialer(balancer NodeBalancer) *Dialer {
+func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
-	d.NodeBalancer = balancer
+	d.LoadBalancer = balancer
 	d.Fallback = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,

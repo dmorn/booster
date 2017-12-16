@@ -11,9 +11,9 @@ import (
 	"sync"
 )
 
-// NodeBalancer is the interface that describes a load balancer object.
-// It exposes methods to add and remove nodes.
-type NodeBalancer interface {
+// LoadBalancer is the interface that describes a load balancer object.
+// It exposes methods to add, get and remove nodes.
+type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
 	// tr should be used to set a minimum treshold requirement.
