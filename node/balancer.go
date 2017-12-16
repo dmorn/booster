@@ -11,16 +11,29 @@ import (
 	"sync"
 )
 
-// LoadBalancer is the interface that describes a load balancer object.
+// NodeBalancer is the interface that describes a load balancer object.
 // It exposes methods to add and remove nodes.
-type LoadBalancer interface {
+type NodeBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
 	// tr should be used to set a minimum treshold requirement.
 	GetNodeBalanced(tr int) (id string, err error)
-	GetProxy(id string) (addr string, err error)
+	GetNode(id string) (node *Node, err error)
+	GetNodes() []*Node
 	AddNode(host, pport, bport string, conn net.Conn) (string, error)
 	RemoveNode(id string) bool
+}
+
+type Node struct {
+	ID string
+	ProxyAddr string
+	BoosterAddr string
+	IsActive bool
+	Workload int
+}
+
+func (n *Node) String() string {
+	return fmt.Sprintf("node (%v): proxy @ [%v], booster @ [%v], active: %v", n.ID, n.ProxyAddr, n.BoosterAddr, n.IsActive)
 }
 
 type entry struct {
@@ -52,14 +65,24 @@ func NewBalancer(log *log.Logger) *Balancer {
 	return b
 }
 
-// GetProxy returns the proxy address associated with id.
-// Returns an error if no entry with this id is found.
-func (b *Balancer) GetProxy(id string) (addr string, err error) {
+// GetNode returns the node associated with id.
+// Returns an error if no node with this id is found.
+func (b *Balancer) GetNode(id string) (node *Node, err error) {
 	if e, ok := b.entries[id]; ok {
-		return net.JoinHostPort(e.host, e.pport), nil
+		e.Lock()
+		load := e.workload
+		e.Unlock()
+
+		return &Node{
+			ID: e.id,
+			ProxyAddr: net.JoinHostPort(e.host, e.pport),
+			BoosterAddr: net.JoinHostPort(e.host, e.bport),
+			Workload: load,
+			IsActive: e.isActive,
+		}, nil
 	}
 
-	return "", errors.New("balancer: " + id + " not found")
+	return nil, errors.New("balancer: " + id + " not found")
 }
 
 // GetNodeBalanced collects the workload of its registered nodes,
@@ -105,6 +128,28 @@ func (b *Balancer) GetNodeBalanced(tr int) (string, error) {
 	}
 
 	return c.id, nil
+}
+
+// GetNodes returns the list of all connected nodes.
+func (b *Balancer) GetNodes() []*Node {
+	nodes := make([]*Node, len(b.entries))
+
+	for _, e := range b.entries {
+		e.Lock()
+		load := e.workload
+		e.Unlock()
+		node := &Node{
+			ID: e.id,
+			ProxyAddr: net.JoinHostPort(e.host, e.pport),
+			BoosterAddr: net.JoinHostPort(e.host, e.bport),
+			Workload: load,
+			IsActive: e.isActive,
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes
 }
 
 // AddNode adds a new entry to the monitored nodes. conn is expected to
