@@ -135,7 +135,7 @@ func (n *RemoteNode) StartUpdating(conn net.Conn) error {
 	n.cancel = cancel
 
 	go func() {
-		buf := make([]byte, 4)
+		buf := make([]byte, 3)
 		c := make(chan error)
 
 		go func() {
