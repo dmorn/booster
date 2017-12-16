@@ -23,6 +23,7 @@ const (
 	BoosterCMDDisconnect = uint8(2)
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
+	BoosterCMDNode       = uint8(5)
 )
 
 // Reserved field value
@@ -54,16 +55,16 @@ const (
 type Booster struct {
 	*log.Logger
 	socks5.Dialer
-	LoadBalancer
+	NodeBalancer
 
 	Proxy *Proxy
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
+func NewBooster(proxy *Proxy, balancer NodeBalancer, log *log.Logger) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
-	b.LoadBalancer = balancer
+	b.NodeBalancer= balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
 

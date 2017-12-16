@@ -73,7 +73,7 @@ func (s *Socks5) workloadChanged() {
 			wl := s.workload
 			s.Unlock()
 
-			s.Printf("workload: %v", wl)
+			s.Printf("proxy: local workload: %v", wl)
 
 			select {
 			case ch <- wl: // could cause panic
@@ -83,6 +83,5 @@ func (s *Socks5) workloadChanged() {
 				s.RemoveWorkloadListener(k)
 			}
 		}(key, c)
-
 	}
 }

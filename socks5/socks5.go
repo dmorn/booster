@@ -195,7 +195,7 @@ func (s *Socks5) Handle(conn net.Conn) error {
 	case socks5CmdBind:
 		tconn, err = s.Bind(ctx, conn, target)
 	default:
-		return errors.New("unexpected CMD(" + strconv.Itoa(int(cmd)) + ")")
+		return errors.New("socks5: unexpected CMD(" + strconv.Itoa(int(cmd)) + ")")
 	}
 	if err != nil {
 		return err
@@ -311,6 +311,73 @@ func ReadAddress(r io.Reader) (addr string, err error) {
 	addr = net.JoinHostPort(host, strconv.Itoa(port))
 
 	return addr, nil
+}
+
+// EncodeAddressBinary expects as input a canonical host:port address and
+// returns the binary representation as speccified in the socks5 protocol (RFC1928).
+// Booster uses the same encoding.
+func EncodeAddressBinary(addr string) ([]byte, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, errors.New("booster: unrecognised address format : " + addr + " : " + err.Error())
+	}
+
+	hbuf, err := EncodeHostBinary(host)
+	if err != nil {
+		return nil, err
+	}
+
+	pbuf, err := EncodePortBinary(port)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, 0, len(hbuf)+len(pbuf))
+	buf = append(buf, hbuf...)
+	buf = append(buf, pbuf...)
+
+	return buf, nil
+}
+
+// EncodeHostBinary encodes a canonical host (IPv4, IPv6, FQDN) into a
+// byte slice. Format follows RFC1928.
+func EncodeHostBinary(host string) ([]byte, error) {
+	buf := make([]byte, 0, 1+len(host)) // 1 if fqdn (address size)
+
+	if ip := net.ParseIP(host); ip != nil {
+		if ip4 := ip.To4(); ip4 != nil {
+			buf = append(buf, socks5IP4)
+			ip = ip4
+		} else {
+			buf = append(buf, socks5IP6)
+		}
+		buf = append(buf, ip...)
+	} else {
+		if len(host) > 255 {
+			return nil, errors.New("socks5: destination host name too long: " + host)
+		}
+		buf = append(buf, socks5FQDN)
+		buf = append(buf, byte(len(host)))
+		buf = append(buf, host...)
+	}
+
+	return buf, nil
+}
+
+// EncodePortBinary encodes a canonical port into 2 bytes.
+// Format follows RFC1928.
+func EncodePortBinary(port string) ([]byte, error) {
+	buf := make([]byte, 0, 2)
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, errors.New("socks5: failed to parse port number: " + port)
+	}
+	if p < 1 || p > 0xffff {
+		return nil, errors.New("socks5: port number out of range: " + port)
+	}
+
+	buf = append(buf, byte(p>>8), byte(p))
+	return buf, nil
 }
 
 // Port safely returns proxy's listening port.

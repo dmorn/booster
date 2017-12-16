@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
@@ -27,7 +26,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 		return "", errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
 	}
 
-	abuf, err := EncodeAddressBinary(raddr)
+	abuf, err := socks5.EncodeAddressBinary(raddr)
 	if err != nil {
 		return "", err
 	}
@@ -107,44 +106,4 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	return nil
-}
-
-// EncodeAddressBinary expects as input a canonical host:port address and
-// returns the binary representation as speccified in the socks5 protocol (RFC1928).
-// Booster uses the same encoding.
-func EncodeAddressBinary(addr string) ([]byte, error) {
-	host, portStr, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, errors.New("booster: unrecognised address format : " + addr + " : " + err.Error())
-	}
-
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return nil, errors.New("booster: failed to parse port number: " + portStr)
-	}
-	if port < 1 || port > 0xffff {
-		return nil, errors.New("booster: port number out of range: " + portStr)
-	}
-
-	buf := make([]byte, 0, 3+len(host)) // 2 for the port, 1 if fqdn (address size)
-
-	if ip := net.ParseIP(host); ip != nil {
-		if ip4 := ip.To4(); ip4 != nil {
-			buf = append(buf, BoosterAddrIP4)
-			ip = ip4
-		} else {
-			buf = append(buf, BoosterAddrIP6)
-		}
-		buf = append(buf, ip...)
-	} else {
-		if len(host) > 255 {
-			return nil, errors.New("booster: destination host name too long: " + host)
-		}
-		buf = append(buf, BoosterAddrFQDN)
-		buf = append(buf, byte(len(host)))
-		buf = append(buf, host...)
-	}
-	buf = append(buf, byte(port>>8), byte(port))
-
-	return buf, nil
 }
