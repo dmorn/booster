@@ -92,19 +92,13 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	lwl := d.workload // local workload
 	d.Unlock()
 
-	id, err := d.GetNodeBalanced(lwl)
+	node, err := d.GetNodeBalanced(lwl)
 	if err != nil {
 		d.Printf("dialer: dialing directly: %v", err)
 		return d.Fallback.DialContext(ctx, network, addr)
 	}
 
-	node, err := d.GetNode(id)
-	if err != nil {
-		d.Printf("dialer: dialing directly: %v", err)
-		return d.Fallback.DialContext(ctx, network, addr)
-	}
-
-	paddr := node.ProxyAddr
+	paddr := net.JoinHostPort(node.Host, node.Pport)
 	ec := make(chan error, 1)
 	cc := make(chan net.Conn, 1)
 
@@ -121,7 +115,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		if err != nil {
 			// the node that we tried to chain to is down or unusable.
 			// remove it and fallback to a normal dialer
-			d.RemoveNode(id)
+			d.RemoveNode(node.ID)
 			conn, err = d.Fallback.Dial(network, addr)
 			if err != nil {
 				ec <- err

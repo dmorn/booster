@@ -84,15 +84,17 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 		return errors.New("booster: unable to handle connect: " + err.Error())
 	}
 
-	id, err := b.AddNode(host, pport, bport, bconn) // node sha1 representation
-	if err != nil {
+	rn := NewRemoteNode(host, pport, bport)
+	if err := b.AddNode(rn); err != nil {
 		return err
 	}
 
-	bid, err := hex.DecodeString(id)
+	bid, err := hex.DecodeString(rn.ID)
 	if err != nil {
 		return errors.New("booster: " + err.Error())
 	}
+
+	rn.StartUpdating(bconn)
 
 	buf := make([]byte, 0, len(bid)+4)
 	buf = append(buf, BoosterVersion1)

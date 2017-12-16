@@ -23,7 +23,6 @@ const (
 	BoosterCMDDisconnect = uint8(2)
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
-	BoosterCMDNode       = uint8(5)
 )
 
 // Reserved field value
@@ -55,16 +54,16 @@ const (
 type Booster struct {
 	*log.Logger
 	socks5.Dialer
-	LoadBalancer
+	*Balancer
 
 	Proxy *Proxy
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer LoadBalancer, log *log.Logger) *Booster {
+func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
-	b.LoadBalancer = balancer
+	b.Balancer = balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
 
@@ -172,12 +171,11 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	}
 
 	go func() {
-		buf := make([]byte, 0, 4)
+		buf := make([]byte, 0, 3)
 		buf = append(buf, BoosterVersion1)
-		buf = append(buf, BoosterCMDStatus)
 		buf = append(buf, BoosterFieldReserved)
 		for workload := range wc {
-			buf = buf[:3]
+			buf = buf[:2]
 			buf = append(buf, byte(workload))
 
 			if _, err := conn.Write(buf); err != nil {
