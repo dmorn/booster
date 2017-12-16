@@ -14,6 +14,7 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
+// RemoteNode represents a remote booster node.
 type RemoteNode struct {
 	ID     string // sha1 string representation
 	Host   string
@@ -26,6 +27,7 @@ type RemoteNode struct {
 	workload int
 }
 
+// NewRemoteNode create a new RemoteNode instance.
 func NewRemoteNode(host, pport, bport string) *RemoteNode {
 	n := new(RemoteNode)
 	n.Host = host
@@ -115,6 +117,14 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	return buf, nil
 }
 
+// StartUpdating expects conn to produce booster status messages. It then
+// uses that data to update the workload's value of the node.
+// It also adds a cancel function to the node, that can be used to make
+// the updating stop.
+//
+// If the connection is closed, the data is somehow corrupted or a cancel
+// signal is received, it closes the connection and sets the IsActive value
+// of the node to false.
 func (n *RemoteNode) StartUpdating(conn net.Conn) error {
 	if conn == nil {
 		return errors.New("remote node: found nil connection. Unable to update node status")
