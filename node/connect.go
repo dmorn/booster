@@ -25,6 +25,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	if err != nil {
 		return "", errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
 	}
+	defer conn.Close()
 
 	abuf, err := socks5.EncodeAddressBinary(raddr)
 	if err != nil {
@@ -70,6 +71,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	bconn, paddr, err := b.Hello(ctx, "tcp", addr)
+	defer bconn.Close()
 
 	if err != nil {
 		return err

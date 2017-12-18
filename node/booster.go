@@ -23,6 +23,7 @@ const (
 	BoosterCMDDisconnect = uint8(2)
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
+	BoosterCMDInspect    = uint8(5)
 )
 
 // Reserved field value
@@ -148,6 +149,9 @@ func (b *Booster) Handle(conn net.Conn) error {
 	case BoosterCMDDisconnect:
 		return b.handleDisconnect(ctx, conn)
 
+	case BoosterCMDInspect:
+		return b.handleInspect(ctx, conn)
+
 	case BoosterCMDHello:
 		if err := b.handleHello(conn); err != nil {
 			return err
@@ -171,11 +175,12 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	}
 
 	go func() {
-		buf := make([]byte, 0, 3)
+		buf := make([]byte, 0, 4)
 		buf = append(buf, BoosterVersion1)
+		buf = append(buf, BoosterCMDStatus)
 		buf = append(buf, BoosterFieldReserved)
 		for workload := range wc {
-			buf = buf[:2]
+			buf = buf[:3]
 			buf = append(buf, byte(workload))
 
 			if _, err := conn.Write(buf); err != nil {

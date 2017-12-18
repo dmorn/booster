@@ -53,6 +53,29 @@ func main() {
 		},
 	}
 
+	var cmdInspect = &cobra.Command{
+		Use:   "inspect",
+		Short: "inspect the remote nodes connected to the target node",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			b := node.BOOSTER()
+			ctx := context.Background()
+			c := make(chan *node.RemoteNode)
+
+			go func() {
+				for n := range c {
+					fmt.Printf("%v", n)
+				}
+			}()
+
+			err := b.InspectSub(ctx, "tcp", boosterAddr, c)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		},
+	}
+
 	var cmdDisconnect = &cobra.Command{
 		Use:   "disconnect id",
 		Short: "disconnect a previously connected remote booster node",
@@ -73,10 +96,11 @@ func main() {
 	}
 
 	cmdConnect.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
+	cmdInspect.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
 	cmdDisconnect.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
 
 	var rootCmd = &cobra.Command{Use: "booster"}
-	rootCmd.AddCommand(cmdStart, cmdConnect, cmdDisconnect)
+	rootCmd.AddCommand(cmdStart, cmdConnect, cmdDisconnect, cmdInspect)
 
 	rootCmd.Execute()
 }

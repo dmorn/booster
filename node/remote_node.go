@@ -135,9 +135,8 @@ func (n *RemoteNode) StartUpdating(conn net.Conn) error {
 	n.cancel = cancel
 
 	go func() {
-		buf := make([]byte, 3)
+		buf := make([]byte, 4)
 		c := make(chan error)
-
 		go func() {
 			for {
 				if _, err := io.ReadFull(conn, buf); err != nil {
@@ -146,8 +145,9 @@ func (n *RemoteNode) StartUpdating(conn net.Conn) error {
 				}
 
 				_ = buf[0]     // version - already checked in the hello procedure
-				_ = buf[1]     // reserved field
-				load := buf[2] // workload
+				_ = buf[1]     // command
+				_ = buf[2]     // reserved field
+				load := buf[3] // workload
 
 				n.Lock()
 				n.workload = int(load)

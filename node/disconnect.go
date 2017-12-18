@@ -21,6 +21,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, laddr, id string) err
 	if err != nil {
 		return errors.New("booster: unable to contact booster " + laddr + " : " + err.Error())
 	}
+	defer conn.Close()
 
 	bid, err := hex.DecodeString(id)
 	if err != nil {
@@ -62,7 +63,6 @@ func (b *Booster) Disconnect(ctx context.Context, network, laddr, id string) err
 
 func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 	buf := make([]byte, 20) // sha1 length
-
 	if _, err := io.ReadFull(conn, buf); err != nil {
 		return errors.New("booster: unable to read disconnect request id: " + err.Error())
 	}

@@ -6,15 +6,6 @@ import (
 	"net"
 )
 
-// LoadBalancer is a wrapper around the GetNodeBalanced function.
-type LoadBalancer interface {
-	// GetNodeBalanced should returns a node id, using internally a
-	// balancing algorithm.
-	// tr should be used to set a minimum treshold requirement.
-	GetNodeBalanced(tr int) (*RemoteNode, error)
-	RemoveNode(id string) bool
-}
-
 // Balancer is a LoadBalancer implementation
 type Balancer struct {
 	*log.Logger
