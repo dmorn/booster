@@ -7,12 +7,11 @@ import (
 	"net"
 )
 
-func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *RemoteNode) error {
+func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *RemoteNode, errc chan error) error {
 	conn, err := b.DialContext(ctx, network, baddr)
 	if err != nil {
 		return errors.New("booster: unable to contact node: " + err.Error())
 	}
-	defer conn.Close()
 
 	buf := make([]byte, 0, 3)
 	buf = append(buf, BoosterVersion1)
@@ -84,12 +83,18 @@ func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stre
 		}
 	}(conn)
 
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-c:
-		return err
-	}
+	go func() {
+		select {
+		case <-ctx.Done():
+			errc <- ctx.Err()
+			conn.Close()
+		case err := <-c:
+			errc <- err
+			conn.Close()
+		}
+	}()
+
+	return nil
 }
 
 func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {

@@ -61,17 +61,22 @@ func main() {
 			b := node.NewBoosterDefault()
 			ctx := context.Background()
 			stream := make(chan *node.RemoteNode)
+			errc := make(chan error)
 
-			go func() {
-				for n := range stream {
-					fmt.Printf("%v", n)
-				}
-			}()
-
-			err := b.InspectStream(ctx, "tcp", boosterAddr, stream)
+			err := b.InspectStream(ctx, "tcp", boosterAddr, stream, errc)
 			if err != nil {
 				fmt.Println(err)
 				return
+			}
+
+			for {
+				select {
+				case err := <-errc:
+					fmt.Println(err)
+					return
+				case node := <-stream:
+					fmt.Println(node)
+				}
 			}
 		},
 	}
