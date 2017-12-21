@@ -39,6 +39,11 @@ func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
 			c = e
 		}
 
+		// do not condider non active nodes
+		if !e.IsActive {
+			continue
+		}
+
 		e.Lock()
 		ewl := e.workload
 		twl += ewl
@@ -48,7 +53,7 @@ func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
 		cwl := c.workload // candidate workload
 		c.Unlock()
 
-		if ewl < cwl && e.IsActive {
+		if ewl < cwl {
 			c = e
 		}
 	}
