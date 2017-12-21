@@ -35,11 +35,11 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 	return p
 }
 
-// PROXY returns a new proxy instance. balancer is passed as
+// NewProxyBalancer returns a new proxy instance. balancer is passed as
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func PROXY(balancer LoadBalancer) *Proxy {
+func NewProxyBalancer(balancer LoadBalancer) *Proxy {
 	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log)

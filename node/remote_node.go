@@ -47,33 +47,35 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 func (n *RemoteNode) String() string {
 	baddr := net.JoinHostPort(n.Host, n.Bport)
 	paddr := net.JoinHostPort(n.Host, n.Pport)
-	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, active: %v", n.ID, baddr, paddr, n.IsActive)
+	n.Lock()
+	wl := n.workload
+	n.Unlock()
+	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v", n.ID, baddr, paddr, wl, n.IsActive)
 }
 
 func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	buf := make([]byte, 20) // sha1 len
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
 	}
 
 	id := fmt.Sprintf("%x", buf)
-
 	host, err := socks5.ReadHost(r)
 	if err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to decode host: " + err.Error())
 	}
 	pport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to decode p port: " + err.Error())
 	}
 	bport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to decode b port: " + err.Error())
 	}
 
 	buf = buf[:2]
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to decode state: " + err.Error())
 	}
 
 	isActive := buf[0]
@@ -90,12 +92,16 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 }
 
 func (n *RemoteNode) EncodeBinary() ([]byte, error) {
+	if n == nil {
+		return nil, errors.New("remote node: trying to encode nil")
+	}
+
 	idbuf, err := hex.DecodeString(n.ID)
 	hbuf, err := socks5.EncodeHostBinary(n.Host)   // host buffer
 	ppbuf, err := socks5.EncodePortBinary(n.Pport) // proxy port buffer
 	bpbuf, err := socks5.EncodePortBinary(n.Bport) // booster port buffer
 	if err != nil {
-		return nil, errors.New("remote node: " + err.Error())
+		return nil, errors.New("remote node: unable to encode: " + err.Error())
 	}
 
 	n.Lock()

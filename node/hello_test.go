@@ -23,7 +23,7 @@ func TestHello(t *testing.T) {
 	d := new(connectDialer)
 	d.Conn = mockConn.client
 
-	br := node.BOOSTER()
+	br := node.NewBoosterDefault()
 	br.Dialer = d
 
 	c := make(chan error)

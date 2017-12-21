@@ -26,6 +26,13 @@ const (
 	BoosterCMDInspect    = uint8(5)
 )
 
+// Possible stream instructions
+const (
+	BoosterStreamStart = uint8(2)
+	BoosterStreamStop  = uint8(3)
+	BoosterStreamNext  = uint8(1)
+)
+
 // Reserved field value
 const (
 	BoosterFieldReserved = uint8(0xff)
@@ -71,11 +78,11 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger) *Booster {
 	return b
 }
 
-// BOOSTER returns a new booster instance with initialized logger, balancer and proxy.
-func BOOSTER() *Booster {
+// NewBoosterDefault returns a new booster instance with initialized logger, balancer and proxy.
+func NewBoosterDefault() *Booster {
 	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 	balancer := NewBalancer(log)
-	proxy := PROXY(balancer)
+	proxy := NewProxyBalancer(balancer)
 
 	return NewBooster(proxy, balancer, log)
 }

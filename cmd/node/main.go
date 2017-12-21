@@ -22,7 +22,7 @@ func main() {
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			b := node.BOOSTER()
+			b := node.NewBoosterDefault()
 
 			if err := b.Start(pport, bport); err != nil {
 				log.Fatal(err)
@@ -40,7 +40,7 @@ func main() {
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			dest := strings.Join(args, " ")
-			b := node.BOOSTER()
+			b := node.NewBoosterDefault()
 			ctx := context.Background()
 
 			id, err := b.Connect(ctx, "tcp", boosterAddr, dest)
@@ -58,17 +58,17 @@ func main() {
 		Short: "inspect the remote nodes connected to the target node",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-			b := node.BOOSTER()
+			b := node.NewBoosterDefault()
 			ctx := context.Background()
-			c := make(chan *node.RemoteNode)
+			stream := make(chan *node.RemoteNode)
 
 			go func() {
-				for n := range c {
+				for n := range stream {
 					fmt.Printf("%v", n)
 				}
 			}()
 
-			err := b.InspectSub(ctx, "tcp", boosterAddr, c)
+			err := b.InspectStream(ctx, "tcp", boosterAddr, stream)
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -83,7 +83,7 @@ func main() {
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			id := strings.Join(args, " ")
-			b := node.BOOSTER()
+			b := node.NewBoosterDefault()
 			ctx := context.Background()
 
 			if err := b.Disconnect(ctx, "tcp", boosterAddr, id); err != nil {

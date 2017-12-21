@@ -79,7 +79,7 @@ func (b *Balancer) GetNode(id string) (*RemoteNode, error) {
 
 // GetNodes returns all stored nodes.
 func (b *Balancer) GetNodes() []*RemoteNode {
-	nodes := make([]*RemoteNode, len(b.nodes))
+	nodes := []*RemoteNode{}
 	for _, val := range b.nodes {
 		nodes = append(nodes, val)
 	}
@@ -107,7 +107,9 @@ func (b *Balancer) AddNode(node *RemoteNode) error {
 func (b *Balancer) RemoveNode(id string) bool {
 	if e, ok := b.nodes[id]; ok {
 		b.Printf("balancer: removing proxy %v\n", id)
-		e.cancel()
+		if e.cancel != nil {
+			e.cancel()
+		}
 		delete(b.nodes, id)
 
 		return ok

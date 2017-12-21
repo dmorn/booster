@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-func (b *Booster) InspectSub(ctx context.Context, network, baddr string, nodec chan *RemoteNode) error {
+func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *RemoteNode) error {
 	conn, err := b.DialContext(ctx, network, baddr)
 	if err != nil {
 		return errors.New("booster: unable to contact node: " + err.Error())
@@ -44,45 +44,56 @@ func (b *Booster) InspectSub(ctx context.Context, network, baddr string, nodec c
 		return errors.New("booster: inspect request failed")
 	}
 
-	errc := make(chan error)
-	go func() {
+	// stream starts
+	if _, err := io.ReadFull(conn, buf[:1]); err != nil {
+		return errors.New("booster: unable to read stream start signal " + err.Error())
+	}
+
+	m := buf[0]
+	if m != BoosterStreamStart {
+		return errors.New("booster: stream did not start")
+	}
+
+	c := make(chan error)
+	go func(conn net.Conn) {
 		for {
-			node, err := ReadRemoteNode(conn)
-			if err != nil {
-				errc <- err
+			// ask for a node
+			if _, err := conn.Write([]byte{BoosterStreamNext}); err != nil {
+				c <- errors.New("booster: unable to write next message: " + err.Error())
 				return
 			}
-			nodec <- node
+
+			// check if there is one
+			if _, err := io.ReadFull(conn, buf[:1]); err != nil {
+				c <- errors.New("booster: unable to read step message: " + err.Error())
+				return
+			}
+			m := buf[0]
+			if m != BoosterStreamNext {
+				c <- errors.New("booster: stream finished")
+				return
+			}
+
+			// read the node
+			node, err := ReadRemoteNode(conn)
+			if err != nil {
+				c <- err
+				return
+			}
+			stream <- node
 		}
-	}()
+	}(conn)
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case err := <-errc:
+	case err := <-c:
 		return err
 	}
 }
 
 func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
-	buf := make([]byte, 3)
-	if _, err := io.ReadFull(conn, buf); err != nil {
-		return errors.New("booster: unable to read inspect request: " + err.Error())
-	}
-
-	v := buf[0]   // version
-	cmd := buf[1] // command
-	_ = buf[2]    // reserved field
-
-	if v != BoosterVersion1 {
-		return errors.New("booster: unsupported version " + string(v))
-	}
-
-	if cmd != BoosterCMDInspect {
-		return errors.New("booster: unexpected command: " + string(cmd))
-	}
-
-	buf = make([]byte, 0, 4)
+	buf := make([]byte, 0, 4)
 	buf = append(buf, BoosterVersion1)
 	buf = append(buf, BoosterCMDInspect)
 	buf = append(buf, BoosterVersion1)
@@ -91,8 +102,37 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		return errors.New("booster: unable to write inspect response: " + err.Error())
 	}
 
+	// send streaming start signal
+	if _, err := conn.Write([]byte{BoosterStreamStart}); err != nil {
+		return errors.New("booster: unable to send start stream signal: " + err.Error())
+	}
+
+	defer func() {
+		//discard step message
+		_, _ = io.ReadFull(conn, buf[:1])
+
+		// send streaming stop signal
+		_, _ = conn.Write([]byte{BoosterStreamStop})
+	}()
+
 	// TODO(daniel): nedd to keep on sending nodes when their workload (or others) value gets updated.
 	for _, n := range b.GetNodes() {
+		buf = make([]byte, 1)
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			return errors.New("booster: unable to read stream step message: " + err.Error())
+		}
+
+		m := buf[0] // next or stop message
+		if m == BoosterStreamStop || m != BoosterStreamNext {
+			_, err := conn.Write(buf) // send the stop message back and return
+			return err
+		}
+
+		// say that we have something to send
+		if _, err := conn.Write([]byte{BoosterStreamNext}); err != nil {
+			return errors.New("booster: unable to write next message: " + err.Error())
+		}
+
 		buf, err := n.EncodeBinary()
 		if err != nil {
 			return errors.New("booster: unable to encode node: " + err.Error())
@@ -102,6 +142,7 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 			return errors.New("booster: unable to write inspect response: " + err.Error())
 		}
 	}
+
 
 	return nil
 }
