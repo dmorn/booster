@@ -33,6 +33,7 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 	n.Host = host
 	n.Pport = pport
 	n.Bport = bport
+	n.workload = 0
 
 	// id is the sha1 of host + bport + pport
 	h := sha1.New()
@@ -50,6 +51,7 @@ func (n *RemoteNode) String() string {
 	n.Lock()
 	wl := n.workload
 	n.Unlock()
+
 	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v", n.ID, baddr, paddr, wl, n.IsActive)
 }
 
@@ -79,15 +81,16 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	}
 
 	isActive := buf[0]
-	workload := buf[1]
+	workload := int(buf[1])
 
+	fmt.Printf("remote node: buffer: %v\n", buf)
 	return &RemoteNode{
 		ID:       id,
 		Host:     host,
 		Pport:    pport,
 		Bport:    bport,
 		IsActive: int(isActive) != 0,
-		workload: int(workload),
+		workload: workload,
 	}, nil
 }
 
@@ -107,9 +110,13 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	n.Lock()
 	load := n.workload
 	n.Unlock()
-
 	if load > 0xff {
 		return nil, errors.New("remote node: load out of range: " + strconv.Itoa(load))
+	}
+
+	isActive := 0
+	if n.IsActive {
+		isActive = 1
 	}
 
 	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf))
@@ -117,7 +124,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	buf = append(buf, hbuf...)
 	buf = append(buf, ppbuf...)
 	buf = append(buf, bpbuf...)
-	buf = strconv.AppendBool(buf, n.IsActive)
+	buf = append(buf, byte(isActive))
 	buf = append(buf, byte(load))
 
 	return buf, nil

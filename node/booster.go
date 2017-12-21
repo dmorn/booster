@@ -198,6 +198,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 
 	select {
 	case <-ctx.Done():
+		b.Proxy.RemoveWorkloadListener(id)
 		return ctx.Err()
 	case err := <-ec:
 		b.Proxy.RemoveWorkloadListener(id)
