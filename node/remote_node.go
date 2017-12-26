@@ -83,7 +83,6 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	isActive := buf[0]
 	workload := int(buf[1])
 
-	fmt.Printf("remote node: buffer: %v\n", buf)
 	return &RemoteNode{
 		ID:       id,
 		Host:     host,

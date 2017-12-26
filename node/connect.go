@@ -71,8 +71,6 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	bconn, paddr, err := b.Hello(ctx, "tcp", addr)
-	defer bconn.Close()
-
 	if err != nil {
 		return err
 	}
@@ -96,7 +94,9 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 		return errors.New("booster: " + err.Error())
 	}
 
-	rn.StartUpdating(bconn)
+	if err := rn.StartUpdating(bconn); err != nil {
+		b.Printf("booster: connect: unable to update node: %v", err)
+	}
 
 	buf := make([]byte, 0, len(bid)+4)
 	buf = append(buf, BoosterVersion1)
