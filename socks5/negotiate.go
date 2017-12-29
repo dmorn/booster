@@ -7,7 +7,7 @@ import (
 )
 
 // Negotiate performs the very first method subnegotiation when handling
-// a new connection. See RFC 1928.
+// a new connection.
 func (s *Socks5) Negotiate(conn net.Conn) error {
 
 	// len is just an estimation

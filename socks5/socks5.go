@@ -1,4 +1,4 @@
-// Package socks5 provides a SOCKS5 server implementation. See RFC 1928
+// Package socks5 provides a SOCKS5 server implementation. See RFC1928
 // for protocol specification.
 package socks5
 
@@ -71,6 +71,7 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
+// TopicWorkload is the topic where the workload updates are published
 const TopicWorkload = "topic_wl"
 
 // Dialer is the interface that wraps the DialContext function.

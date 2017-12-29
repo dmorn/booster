@@ -6,9 +6,8 @@ import (
 	"net"
 )
 
-// Connect dials a new connection with target, which must
-// be a canonical address with host and port, according
-// to RFC 1928.
+// Connect dials a new connection with target, which must be a canonical
+// address with host and port.
 func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 	s.Printf("connect to %v", target)
 
