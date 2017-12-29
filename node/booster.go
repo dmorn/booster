@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/danielmorandini/booster-network/pubsub"
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
@@ -57,12 +58,17 @@ const (
 	BoosterAddrIP6 = uint8(4)
 )
 
+const (
+	TopicRemoteNodes = "topic_rn"
+)
+
 // Booster is capable of handling tcp connections that follow booster-network
 // protocol. It can be initialized with a custom logger and load balancer.
 type Booster struct {
 	*log.Logger
 	socks5.Dialer
 	*Balancer
+	*pubsub.PubSub
 
 	Proxy *Proxy
 }
@@ -74,6 +80,7 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger) *Booster {
 	b.Balancer = balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
+	b.PubSub = pubsub.New()
 
 	return b
 }
@@ -173,22 +180,18 @@ func (b *Booster) Handle(conn net.Conn) error {
 
 // ServeStatus writes the proxy's status to the connection, whenever it changes.
 func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
-	wc := make(chan int)
 	ec := make(chan error)
-	id := conn.RemoteAddr().String()
-
-	if err := b.Proxy.RegisterWorkloadListener(id, wc); err != nil {
-		return err
-	}
+	wc := b.Proxy.Sub(socks5.TopicWorkload)
 
 	go func() {
 		buf := make([]byte, 0, 4)
 		buf = append(buf, BoosterVersion1)
 		buf = append(buf, BoosterCMDStatus)
 		buf = append(buf, BoosterFieldReserved)
-		for workload := range wc {
+		for i := range wc {
+			wl, _ := i.(int)
 			buf = buf[:3]
-			buf = append(buf, byte(workload))
+			buf = append(buf, byte(wl))
 
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
@@ -198,10 +201,10 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 
 	select {
 	case <-ctx.Done():
-		b.Proxy.RemoveWorkloadListener(id)
+		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 		return ctx.Err()
 	case err := <-ec:
-		b.Proxy.RemoveWorkloadListener(id)
+		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 		return err
 	}
 }

@@ -69,7 +69,7 @@ func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stre
 			}
 			m := buf[0]
 			if m != BoosterStreamNext {
-				c <- errors.New("booster: stream finished")
+				c <- errors.New("booster: stream closed")
 				return
 			}
 
@@ -120,8 +120,11 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		_, _ = conn.Write([]byte{BoosterStreamStop})
 	}()
 
-	// TODO(daniel): nedd to keep on sending nodes when their workload (or others) value gets updated.
-	for _, n := range b.GetNodes() {
+	// TODO(daniel): need to keep on sending nodes when their workload (or others) value gets updated.
+	stream := b.Sub(TopicRemoteNodes)
+	for i := range stream {
+		n := i.(*RemoteNode)
+
 		buf = make([]byte, 1)
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return errors.New("booster: unable to read stream step message: " + err.Error())

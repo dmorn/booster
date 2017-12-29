@@ -88,13 +88,14 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	if err := b.AddNode(rn); err != nil {
 		return err
 	}
+	b.Pub(rn, TopicRemoteNodes)
 
 	bid, err := hex.DecodeString(rn.ID)
 	if err != nil {
 		return errors.New("booster: " + err.Error())
 	}
 
-	if err := rn.StartUpdating(bconn); err != nil {
+	if err := b.UpdateStatus(context.Background(), rn, bconn); err != nil {
 		b.Printf("booster: connect: unable to update node: %v", err)
 	}
 
@@ -108,6 +109,61 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	if _, err := conn.Write(buf); err != nil {
 		return errors.New("booster: unable to write connect response: " + err.Error())
 	}
+
+	return nil
+}
+
+// UpdateStatus expects conn to produce booster status messages. It then
+// uses that data to update the workload's value of the node.
+// It also adds a cancel function to the node, that can be used to make
+// the updating stop.
+//
+// If the connection is closed, the data is somehow corrupted or a cancel
+// signal is received, it closes the connection and sets the IsActive value
+// of the node to false.
+func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.Conn) error {
+	if conn == nil {
+		return errors.New("remote node: found nil connection. Unable to update node status")
+	}
+
+	node.IsActive = true
+
+	go func() {
+		buf := make([]byte, 4)
+		c := make(chan error)
+		go func() {
+			for {
+				if _, err := io.ReadFull(conn, buf); err != nil {
+					c <- err
+					return
+				}
+
+				_ = buf[0]     // version - already checked in the hello procedure
+				_ = buf[1]     // command
+				_ = buf[2]     // reserved field
+				load := buf[3] // workload
+
+				node.Lock()
+				node.workload = int(load)
+				b.Pub(node, TopicRemoteNodes)
+				node.Unlock()
+			}
+		}()
+
+		fail := func() {
+			conn.Close()
+			node.IsActive = false
+		}
+
+		select {
+		case <-ctx.Done():
+			fail()
+			return
+		case <-c:
+			fail()
+			return
+		}
+	}()
 
 	return nil
 }

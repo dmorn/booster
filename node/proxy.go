@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -43,19 +42,19 @@ func NewProxyBalancer(balancer LoadBalancer) *Proxy {
 	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log)
+	d.Logger = log
 
 	// keep track of local proxy usage
-	c := make(chan int)
-	p.RegisterWorkloadListener(":"+strconv.Itoa(p.Port()), c)
+	c := p.Sub(socks5.TopicWorkload)
 	go func() {
-		for w := range c {
+		for i := range c {
 			d.Lock()
-			d.workload = w
+			wl := i.(int)
+			d.workload = wl
+			p.Printf("proxy: local workload: %v\n", wl)
 			d.Unlock()
 		}
 	}()
-
-	d.Logger = log
 
 	return p
 }

@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/danielmorandini/booster-network/pubsub"
 )
 
 const (
@@ -69,6 +71,8 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
+const TopicWorkload = "topic_wl"
+
 // Dialer is the interface that wraps the DialContext function.
 type Dialer interface {
 	// DialContext opens a connection to addr, which should
@@ -79,6 +83,7 @@ type Dialer interface {
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
 	*log.Logger
+	*pubsub.PubSub
 
 	// Dialer is used when connecting to a remote host. Could
 	// be useful when chaining multiple proxies.
@@ -88,9 +93,8 @@ type Socks5 struct {
 	ChunkSize        int64
 
 	sync.Mutex
-	port              int
-	workloadListeners map[string]chan int
-	workload          int
+	port     int
+	workload int
 }
 
 // NewSOCKS5 returns a new Socks5 instance.
@@ -100,6 +104,7 @@ func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
 	s.ChunkSize = 4 * 1024
 	s.Dialer = dialer
 	s.Logger = log
+	s.PubSub = pubsub.New()
 
 	return s
 }
@@ -404,4 +409,22 @@ func (s *Socks5) Port() int {
 	defer s.Unlock()
 
 	return s.port
+}
+
+func (s *Socks5) pushLoad() {
+	s.Lock()
+	s.workload++
+	s.Pub(s.workload, TopicWorkload)
+	s.Unlock()
+}
+
+func (s *Socks5) popLoad() {
+	s.Lock()
+	s.workload--
+	// should never become negative
+	if s.workload < 0 {
+		s.workload = 0
+	}
+	s.Pub(s.workload, TopicWorkload)
+	s.Unlock()
 }

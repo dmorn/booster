@@ -1,7 +1,6 @@
 package node
 
 import (
-	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -20,7 +19,6 @@ type RemoteNode struct {
 	Host   string
 	Pport  string // Proxy port
 	Bport  string // Booster port
-	cancel context.CancelFunc
 
 	sync.Mutex
 	IsActive bool // set to false when connection is nil
@@ -129,60 +127,3 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	return buf, nil
 }
 
-// StartUpdating expects conn to produce booster status messages. It then
-// uses that data to update the workload's value of the node.
-// It also adds a cancel function to the node, that can be used to make
-// the updating stop.
-//
-// If the connection is closed, the data is somehow corrupted or a cancel
-// signal is received, it closes the connection and sets the IsActive value
-// of the node to false.
-func (n *RemoteNode) StartUpdating(conn net.Conn) error {
-	if conn == nil {
-		return errors.New("remote node: found nil connection. Unable to update node status")
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	n.IsActive = true
-	n.cancel = cancel
-
-	go func() {
-		buf := make([]byte, 4)
-		c := make(chan error)
-		go func() {
-			for {
-				if _, err := io.ReadFull(conn, buf); err != nil {
-					c <- err
-					return
-				}
-
-				_ = buf[0]     // version - already checked in the hello procedure
-				_ = buf[1]     // command
-				_ = buf[2]     // reserved field
-				load := buf[3] // workload
-
-				n.Lock()
-				n.workload = int(load)
-				n.Unlock()
-			}
-		}()
-
-		fail := func() {
-			conn.Close()
-			n.IsActive = false
-			n.cancel = nil
-		}
-
-		// in any case we're done
-		select {
-		case <-ctx.Done():
-			fail()
-			return
-		case <-c:
-			fail()
-			return
-		}
-	}()
-
-	return nil
-}

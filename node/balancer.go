@@ -110,11 +110,8 @@ func (b *Balancer) AddNode(node *RemoteNode) error {
 // RemoveNode removes the entry labeled with id.
 // Returns false if no entry was found.
 func (b *Balancer) RemoveNode(id string) bool {
-	if e, ok := b.nodes[id]; ok {
+	if _, ok := b.nodes[id]; ok {
 		b.Printf("balancer: removing proxy %v\n", id)
-		if e.cancel != nil {
-			e.cancel()
-		}
 		delete(b.nodes, id)
 
 		return ok
