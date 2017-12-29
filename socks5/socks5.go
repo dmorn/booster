@@ -71,8 +71,10 @@ var (
 	supportedMethods = []uint8{socks5MethodNoAuth}
 )
 
-// TopicWorkload is the topic where the workload updates are published
-const TopicWorkload = "topic_wl"
+const (
+	// TopicWorkload is the topic where the workload updates are published
+	TopicWorkload = "topic_wl"
+)
 
 // Dialer is the interface that wraps the DialContext function.
 type Dialer interface {
