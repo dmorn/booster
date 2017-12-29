@@ -115,12 +115,12 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 
 // UpdateStatus expects conn to produce booster status messages. It then
 // uses that data to update the workload's value of the node.
-// It also adds a cancel function to the node, that can be used to make
-// the updating stop.
 //
 // If the connection is closed, the data is somehow corrupted or a cancel
 // signal is received, it closes the connection and sets the IsActive value
 // of the node to false.
+//
+// Publishes a TopicRemoteNodes message when a node is updated.
 func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.Conn) error {
 	if conn == nil {
 		return errors.New("remote node: found nil connection. Unable to update node status")
@@ -153,6 +153,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 		fail := func() {
 			conn.Close()
 			node.IsActive = false
+			b.Pub(node, TopicRemoteNodes)
 		}
 
 		select {

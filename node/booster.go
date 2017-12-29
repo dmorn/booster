@@ -59,6 +59,8 @@ const (
 )
 
 const (
+	// TopicRemoteNodes is the topic where the remote node updates
+	// will be published. Use Sub with it to the the messages.
 	TopicRemoteNodes = "topic_rn"
 )
 
@@ -136,7 +138,7 @@ func (b *Booster) ListenAndServe(port int) error {
 }
 
 // Handle takes care of every connection that booster receives.
-// It expects to receive only "Hello", "Connect", "inspect" or "Disconnect" requests.
+// It expects to receive only "Hello", "Connect", "Inspect" or "Disconnect" requests.
 // Ends serving forever the state of the proxy.
 func (b *Booster) Handle(conn net.Conn) error {
 	ctx, cancel := context.WithCancel(context.Background())

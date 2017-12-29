@@ -15,10 +15,10 @@ import (
 
 // RemoteNode represents a remote booster node.
 type RemoteNode struct {
-	ID     string // sha1 string representation
-	Host   string
-	Pport  string // Proxy port
-	Bport  string // Booster port
+	ID    string // sha1 string representation
+	Host  string
+	Pport string // Proxy port
+	Bport string // Booster port
 
 	sync.Mutex
 	IsActive bool // set to false when connection is nil
@@ -53,6 +53,7 @@ func (n *RemoteNode) String() string {
 	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v", n.ID, baddr, paddr, wl, n.IsActive)
 }
 
+// ReadRemoteNode reads from reader expecting it to contain a remote node.
 func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	buf := make([]byte, 20) // sha1 len
 	if _, err := io.ReadFull(r, buf); err != nil {
@@ -91,6 +92,8 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	}, nil
 }
 
+// EncodeBinary encodes the remote node into its binary
+// representation.
 func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	if n == nil {
 		return nil, errors.New("remote node: trying to encode nil")
@@ -126,4 +129,3 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	return buf, nil
 }
-

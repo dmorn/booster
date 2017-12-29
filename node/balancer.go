@@ -92,9 +92,8 @@ func (b *Balancer) GetNodes() []*RemoteNode {
 	return nodes
 }
 
-// AddNode adds a new entry to the monitored nodes. conn is expected to
-// come from a booster node.
-// Returns the remote node identifier.
+// AddNode adds a new entry to the monitored nodes. If a node with the same
+// id is already present, it removes it.
 func (b *Balancer) AddNode(node *RemoteNode) error {
 	if _, ok := b.nodes[node.ID]; ok {
 		// remove it and substitute

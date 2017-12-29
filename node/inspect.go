@@ -7,6 +7,9 @@ import (
 	"net"
 )
 
+// InspectStream dials with the booster node, performs an "Inspect" procedure and,
+// if successfull, creates a stream of RemoteNode, which are remote nodes that are added
+// or updated to the inspected node.
 func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *RemoteNode, errc chan error) error {
 	conn, err := b.DialContext(ctx, network, baddr)
 	if err != nil {
@@ -120,7 +123,6 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		_, _ = conn.Write([]byte{BoosterStreamStop})
 	}()
 
-	// TODO(daniel): need to keep on sending nodes when their workload (or others) value gets updated.
 	stream := b.Sub(TopicRemoteNodes)
 	for i := range stream {
 		n := i.(*RemoteNode)
@@ -150,7 +152,6 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 			return errors.New("booster: unable to write inspect response: " + err.Error())
 		}
 	}
-
 
 	return nil
 }
