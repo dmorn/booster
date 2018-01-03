@@ -88,6 +88,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	if err := b.AddNode(rn); err != nil {
 		return err
 	}
+	rn.lastOperation = OpCreated
 	b.Pub(rn, TopicRemoteNodes)
 
 	bid, err := hex.DecodeString(rn.ID)
@@ -145,6 +146,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 
 				node.Lock()
 				node.workload = int(load)
+				node.lastOperation = OpUpdated
 				b.Pub(node, TopicRemoteNodes)
 				node.Unlock()
 			}
@@ -153,6 +155,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 		fail := func() {
 			conn.Close()
 			node.IsActive = false
+			node.lastOperation = OpUpdated
 			b.Pub(node, TopicRemoteNodes)
 		}
 

@@ -13,6 +13,13 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
+// Operations on RemoteNode
+const (
+	OpUpdated = iota
+	OpRemoved
+	OpCreated
+)
+
 // RemoteNode represents a remote booster node.
 type RemoteNode struct {
 	ID    string // sha1 string representation
@@ -21,8 +28,9 @@ type RemoteNode struct {
 	Bport string // Booster port
 
 	sync.Mutex
-	IsActive bool // set to false when connection is nil
-	workload int
+	IsActive      bool // set to false when connection is nil
+	workload      int
+	lastOperation int // last operation made on this node
 }
 
 // NewRemoteNode create a new RemoteNode instance.
@@ -50,7 +58,7 @@ func (n *RemoteNode) String() string {
 	wl := n.workload
 	n.Unlock()
 
-	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v", n.ID, baddr, paddr, wl, n.IsActive)
+	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.lastOperation)
 }
 
 // ReadRemoteNode reads from reader expecting it to contain a remote node.
@@ -74,21 +82,23 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 		return nil, errors.New("remote node: unable to decode b port: " + err.Error())
 	}
 
-	buf = buf[:2]
+	buf = buf[:3]
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, errors.New("remote node: unable to decode state: " + err.Error())
 	}
 
 	isActive := buf[0]
 	workload := int(buf[1])
+	lastOp := int(buf[2])
 
 	return &RemoteNode{
-		ID:       id,
-		Host:     host,
-		Pport:    pport,
-		Bport:    bport,
-		IsActive: int(isActive) != 0,
-		workload: workload,
+		ID:            id,
+		Host:          host,
+		Pport:         pport,
+		Bport:         bport,
+		IsActive:      int(isActive) != 0,
+		workload:      workload,
+		lastOperation: lastOp,
 	}, nil
 }
 
@@ -109,6 +119,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	n.Lock()
 	load := n.workload
+	lastOp := n.lastOperation
 	n.Unlock()
 	if load > 0xff {
 		return nil, errors.New("remote node: load out of range: " + strconv.Itoa(load))
@@ -119,13 +130,14 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 		isActive = 1
 	}
 
-	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf))
+	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3)
 	buf = append(buf, idbuf...)
 	buf = append(buf, hbuf...)
 	buf = append(buf, ppbuf...)
 	buf = append(buf, bpbuf...)
 	buf = append(buf, byte(isActive))
 	buf = append(buf, byte(load))
+	buf = append(buf, byte(lastOp))
 
 	return buf, nil
 }

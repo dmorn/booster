@@ -68,6 +68,13 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	id := fmt.Sprintf("%x", buf)
+	node, err := b.GetNode(id)
+	if err != nil {
+		return err
+	}
+
+	node.lastOperation = OpRemoved
+	b.Pub(node, TopicRemoteNodes)
 	b.RemoveNode(id)
 
 	buf = make([]byte, 0, len(id)+4)
