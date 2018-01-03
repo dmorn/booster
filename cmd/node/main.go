@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/danielmorandini/booster-network/node"
-	"github.com/buger/goterm"
 	"github.com/spf13/cobra"
 )
 
