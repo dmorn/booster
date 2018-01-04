@@ -111,7 +111,7 @@ func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
 
 	node.Lock()
 	node.workload = workload
-	node.lastOperation = BoosterNodeUpdated
+	node.LastOperation = BoosterNodeUpdated
 	node.Unlock()
 
 	b.Pub(node, TopicRemoteNodes)
@@ -143,7 +143,7 @@ func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 
 	b.Printf("balancer: adding proxy %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
 	node.Lock()
-	node.lastOperation = BoosterNodeAdded
+	node.LastOperation = BoosterNodeAdded
 	node.Unlock()
 	b.nodes[node.ID] = node
 
@@ -158,7 +158,7 @@ func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
 	if node, ok := b.nodes[id]; ok {
 		b.Printf("balancer: removing proxy %v\n", id)
 		node.Lock()
-		node.lastOperation = BoosterNodeRemoved
+		node.LastOperation = BoosterNodeRemoved
 		node.Unlock()
 		delete(b.nodes, id)
 

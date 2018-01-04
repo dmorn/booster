@@ -25,7 +25,7 @@ type RemoteNode struct {
 	cancel        context.CancelFunc // added when some goroutin is updating its workload.
 	IsActive      bool               // set to false when connection is nil
 	workload      int
-	lastOperation uint8 // last operation made on this node
+	LastOperation uint8 // last operation made on this node
 }
 
 // NewRemoteNode create a new RemoteNode instance.
@@ -53,7 +53,7 @@ func (n *RemoteNode) String() string {
 	wl := n.workload
 	n.Unlock()
 
-	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.lastOperation)
+	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.LastOperation)
 }
 
 // Close calls the cancel function if present, then sets active state to false.
@@ -65,7 +65,7 @@ func (n *RemoteNode) Close() error {
 		n.cancel = nil
 	}
 	n.IsActive = false
-	n.lastOperation = BoosterNodeClosed
+	n.LastOperation = BoosterNodeClosed
 
 	return nil
 }
@@ -107,7 +107,7 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 		Bport:         bport,
 		IsActive:      int(isActive) != 0,
 		workload:      workload,
-		lastOperation: lastOp,
+		LastOperation: lastOp,
 	}, nil
 }
 
@@ -128,7 +128,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	n.Lock()
 	load := n.workload
-	lastOp := n.lastOperation
+	lastOp := n.LastOperation
 	n.Unlock()
 	if load > 0xff {
 		return nil, errors.New("remote node: load out of range: " + strconv.Itoa(load))

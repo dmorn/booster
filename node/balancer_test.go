@@ -27,3 +27,39 @@ func TestGetNodes(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 }
+
+func TestRemoveNode(t *testing.T) {
+	b := node.NewBoosterDefault()
+	n := node.NewRemoteNode("host", "port", "port")
+	b.AddNode(n)
+
+	nodes := b.GetNodes()
+	if len(nodes) != 1 {
+		t.Logf("nodes: %v", nodes)
+		t.Fatalf("unexpected node list size: %v", len(nodes))
+	}
+
+	stream := b.Sub(node.TopicRemoteNodes)
+	defer func() {
+		b.Unsub(stream, node.TopicRemoteNodes)
+	}()
+
+	n, err := b.RemoveNode(n.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i := <-stream
+	n, ok := i.(*node.RemoteNode)
+	if !ok {
+		t.Fatalf("unexpected value from stream: %v type %T", i, i)
+	}
+
+	if n.IsActive == true {
+		t.Fatal("node not properly closed")
+	}
+
+	if n.LastOperation != node.BoosterNodeRemoved {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation, node.BoosterNodeRemoved)
+	}
+}
