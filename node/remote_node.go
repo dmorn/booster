@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
@@ -13,13 +14,6 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
-// Operations on RemoteNode
-const (
-	OpUpdated = iota
-	OpRemoved
-	OpCreated
-)
-
 // RemoteNode represents a remote booster node.
 type RemoteNode struct {
 	ID    string // sha1 string representation
@@ -28,9 +22,10 @@ type RemoteNode struct {
 	Bport string // Booster port
 
 	sync.Mutex
-	IsActive      bool // set to false when connection is nil
+	cancel        context.CancelFunc // added when some goroutin is updating its workload.
+	IsActive      bool               // set to false when connection is nil
 	workload      int
-	lastOperation int // last operation made on this node
+	lastOperation uint8 // last operation made on this node
 }
 
 // NewRemoteNode create a new RemoteNode instance.
@@ -61,6 +56,20 @@ func (n *RemoteNode) String() string {
 	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.lastOperation)
 }
 
+// Close calls the cancel function if present, then sets active state to false.
+func (n *RemoteNode) Close() error {
+	n.Lock()
+	defer n.Unlock()
+	if n.cancel != nil {
+		n.cancel()
+		n.cancel = nil
+	}
+	n.IsActive = false
+	n.lastOperation = BoosterNodeClosed
+
+	return nil
+}
+
 // ReadRemoteNode reads from reader expecting it to contain a remote node.
 func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	buf := make([]byte, 20) // sha1 len
@@ -89,7 +98,7 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 
 	isActive := buf[0]
 	workload := int(buf[1])
-	lastOp := int(buf[2])
+	lastOp := buf[2]
 
 	return &RemoteNode{
 		ID:            id,

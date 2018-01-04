@@ -4,19 +4,27 @@ import (
 	"errors"
 	"log"
 	"net"
+
+	"github.com/danielmorandini/booster-network/pubsub"
 )
 
-// Balancer is a LoadBalancer implementation
+// Balancer is a LoadBalancer implementation. It manages nodes, providing
+// functionalities to store and manage a set of RemoteNodes. Uses PubSub
+// as a notification mechanism to let others know which operations are
+// performed.
+// (check inspect.go for an example)
 type Balancer struct {
 	*log.Logger
+	*pubsub.PubSub
 
 	nodes map[string]*RemoteNode
 }
 
 // NewBalancer returns a new balancer instance.
-func NewBalancer(log *log.Logger) *Balancer {
+func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
 	b := new(Balancer)
 	b.Logger = log
+	b.PubSub = ps
 	b.nodes = make(map[string]*RemoteNode)
 
 	return b
@@ -92,30 +100,71 @@ func (b *Balancer) GetNodes() []*RemoteNode {
 	return nodes
 }
 
+// UpdateNode updates the workload of a node. Returns error if no
+// node is found related to id. Publishes the updated node to the pubsub
+// with topic TopicRemoteNodes.
+func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
+	node, err := b.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	node.Lock()
+	node.workload = workload
+	node.lastOperation = BoosterNodeUpdated
+	node.Unlock()
+
+	b.Pub(node, TopicRemoteNodes)
+	return node, nil
+}
+
+// CloseNode calls Close on the node with id. Publishes the updated node to the pubsub
+// with topic TopicRemoteNodes.
+func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
+	node, err := b.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	node.Close()
+
+	b.Pub(node, TopicRemoteNodes)
+	return node, nil
+}
+
 // AddNode adds a new entry to the monitored nodes. If a node with the same
-// id is already present, it removes it.
-func (b *Balancer) AddNode(node *RemoteNode) error {
+// id is already present, it removes it. Publishes the updated node to the pubsub
+// with topic TopicRemoteNodes.
+func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 	if _, ok := b.nodes[node.ID]; ok {
 		// remove it and substitute
 		b.RemoveNode(node.ID)
 	}
 
 	b.Printf("balancer: adding proxy %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
+	node.Lock()
+	node.lastOperation = BoosterNodeAdded
+	node.Unlock()
 	b.nodes[node.ID] = node
 
-	return nil
+	b.Pub(node, TopicRemoteNodes)
+	return node, nil
 }
 
 // RemoveNode removes the entry labeled with id.
-// Returns false if no entry was found.
-func (b *Balancer) RemoveNode(id string) bool {
-	if _, ok := b.nodes[id]; ok {
+// Returns false if no entry was found. Publishes the updated node to the pubsub
+// with topic TopicRemoteNodes.
+func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
+	if node, ok := b.nodes[id]; ok {
 		b.Printf("balancer: removing proxy %v\n", id)
+		node.Lock()
+		node.lastOperation = BoosterNodeRemoved
+		node.Unlock()
 		delete(b.nodes, id)
 
-		return ok
+		b.Pub(node, TopicRemoteNodes)
+		return node, nil
 	}
 
-	b.Printf("balancer: %v not found\n", id)
-	return false
+	return nil, errors.New("balancer: " + id + " not found")
 }

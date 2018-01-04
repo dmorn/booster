@@ -66,27 +66,36 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 	if _, err := io.ReadFull(conn, buf); err != nil {
 		return errors.New("booster: unable to read disconnect request id: " + err.Error())
 	}
-
 	id := fmt.Sprintf("%x", buf)
-	node, err := b.GetNode(id)
-	if err != nil {
+
+	respWriter := func(err error) error {
+		resp := BoosterRespSuccess
+		if err != nil {
+			resp = BoosterRespGeneralFailure
+		}
+
+		buf = make([]byte, 0, len(id)+4)
+		buf = append(buf, BoosterVersion1)
+		buf = append(buf, BoosterCMDDisconnect)
+		buf = append(buf, resp)
+		buf = append(buf, BoosterFieldReserved)
+		buf = append(buf, id...)
+
+		if _, err := conn.Write(buf); err != nil {
+			return errors.New("booster: unable to write connect response: " + err.Error())
+		}
+
 		return err
 	}
 
-	node.lastOperation = OpRemoved
-	b.Pub(node, TopicRemoteNodes)
-	b.RemoveNode(id)
-
-	buf = make([]byte, 0, len(id)+4)
-	buf = append(buf, BoosterVersion1)
-	buf = append(buf, BoosterCMDDisconnect)
-	buf = append(buf, BoosterRespSuccess)
-	buf = append(buf, BoosterFieldReserved)
-	buf = append(buf, id...)
-
-	if _, err := conn.Write(buf); err != nil {
-		return errors.New("booster: unable to write connect response: " + err.Error())
+	// first deactivate the node...
+	if _, err := b.CloseNode(id); err != nil {
+		return respWriter(err)
+	}
+	// ...then remove it
+	if _, err := b.RemoveNode(id); err != nil {
+		return respWriter(err)
 	}
 
-	return nil
+	return respWriter(nil)
 }

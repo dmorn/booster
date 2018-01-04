@@ -123,11 +123,8 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		_, _ = conn.Write([]byte{BoosterStreamStop})
 	}()
 
-	stream := b.Sub(TopicRemoteNodes)
-	for i := range stream {
-		n := i.(*RemoteNode)
-
-		buf = make([]byte, 1)
+	respWriter := func(n *RemoteNode, conn net.Conn) error {
+		buf := make([]byte, 1)
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return errors.New("booster: unable to read stream step message: " + err.Error())
 		}
@@ -150,6 +147,31 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 
 		if _, err := conn.Write(buf); err != nil {
 			return errors.New("booster: unable to write inspect response: " + err.Error())
+		}
+
+		return nil
+	}
+
+	// first send the nodes that we have at the moment, then stream
+	// the updates
+	for _, n := range b.GetNodes() {
+		err := respWriter(n, conn)
+		if err != nil {
+			return err
+		}
+	}
+
+	stream := b.Sub(TopicRemoteNodes)
+	defer func() {
+		b.Unsub(stream, TopicRemoteNodes)
+	}()
+
+	for i := range stream {
+		n := i.(*RemoteNode)
+
+		err := respWriter(n, conn)
+		if err != nil {
+			return err
 		}
 	}
 

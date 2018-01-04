@@ -18,6 +18,7 @@ type LoadBalancer interface {
 	// balancing algorithm.
 	// tr should be used to set a minimum treshold requirement.
 	GetNodeBalanced(tr int) (*RemoteNode, error)
+	CloseNode(id string) (*RemoteNode, error)
 }
 
 // Proxy is a SOCK5 server.
@@ -53,6 +54,8 @@ func NewProxyBalancer(balancer LoadBalancer) *Proxy {
 			p.Printf("proxy: local workload: %v\n", wl)
 			d.Unlock()
 		}
+
+		p.Unsub(c, socks5.TopicWorkload)
 	}()
 
 	return p
@@ -121,7 +124,10 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		conn, err := socksDialer.Dial(network, addr)
 		if err != nil {
 			// the node that we tried to chain to is down or unusable.
-			// fallback to a normal dialer.
+			// fallback to a normal dialer and close this node.
+			if _, err := d.CloseNode(node.ID); err != nil {
+				d.Printf("dialer: unable to close node (%v)", node.ID)
+			}
 			conn, err = d.Fallback.Dial(network, addr)
 			if err != nil {
 				ec <- err

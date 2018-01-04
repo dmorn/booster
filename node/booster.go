@@ -34,6 +34,14 @@ const (
 	BoosterStreamNext  = uint8(1)
 )
 
+// Possible node operations
+const (
+	BoosterNodeAdded   = uint8(0)
+	BoosterNodeClosed  = uint8(1)
+	BoosterNodeUpdated = uint8(2)
+	BoosterNodeRemoved = uint8(3)
+)
+
 // Reserved field value
 const (
 	BoosterFieldReserved = uint8(0xff)
@@ -76,13 +84,13 @@ type Booster struct {
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger) *Booster {
+func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
 	b.Balancer = balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
-	b.PubSub = pubsub.New()
+	b.PubSub = ps
 
 	return b
 }
@@ -90,10 +98,11 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger) *Booster {
 // NewBoosterDefault returns a new booster instance with initialized logger, balancer and proxy.
 func NewBoosterDefault() *Booster {
 	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
-	balancer := NewBalancer(log)
+	pubsub := pubsub.New()
+	balancer := NewBalancer(log, pubsub)
 	proxy := NewProxyBalancer(balancer)
 
-	return NewBooster(proxy, balancer, log)
+	return NewBooster(proxy, balancer, log, pubsub)
 }
 
 // Start starts a booster node. It is made by a booster compliant tcp server
@@ -199,6 +208,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
 			}
 		}
+
+		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 	}()
 
 	select {
@@ -209,4 +220,60 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 		return err
 	}
+}
+
+// UpdateStatus expects conn to produce booster status messages. It then
+// uses that data to update the workload's value of the node.
+//
+// If the connection is closed, the data is somehow corrupted or a cancel
+// signal is received, it closes the connection and sets the IsActive value
+// of the node to false.
+//
+// Publishes a TopicRemoteNodes message when a node is updated.
+func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.Conn) error {
+	if conn == nil {
+		return errors.New("remote node: found nil connection. Unable to update node status")
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	node.Lock()
+	node.IsActive = true
+	node.cancel = cancel
+	node.Unlock()
+
+	go func() {
+		buf := make([]byte, 4)
+		c := make(chan error)
+		go func() {
+			for {
+				if _, err := io.ReadFull(conn, buf); err != nil {
+					c <- err
+					return
+				}
+
+				_ = buf[0]     // version - already checked in the hello procedure
+				_ = buf[1]     // command
+				_ = buf[2]     // reserved field
+				load := buf[3] // workload
+
+				b.UpdateNode(node.ID, int(load))
+			}
+		}()
+
+		fail := func() {
+			conn.Close()
+			b.CloseNode(node.ID)
+			b.Printf("booster: update status: deactivating remote node %v", node.ID)
+		}
+
+		select {
+		case <-ctx.Done():
+			fail()
+			return
+		case <-c:
+			fail()
+			return
+		}
+	}()
+
+	return nil
 }
