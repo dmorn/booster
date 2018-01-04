@@ -245,6 +245,11 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 		c := make(chan error)
 		go func() {
 			for {
+				// check if the node is active before trying to read from the connection
+				if !node.IsActive {
+					return
+				}
+
 				if _, err := io.ReadFull(conn, buf); err != nil {
 					c <- err
 					return

@@ -43,13 +43,13 @@ func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
 	var twl int       // total workload
 
 	for _, e := range b.nodes {
-		if c == nil {
-			c = e
-		}
-
 		// do not condider non active nodes
 		if !e.IsActive {
 			continue
+		}
+
+		if c == nil {
+			c = e
 		}
 
 		e.Lock()

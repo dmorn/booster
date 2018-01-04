@@ -28,6 +28,41 @@ func TestGetNodes(t *testing.T) {
 	}
 }
 
+func TestCloseNode(t *testing.T) {
+	b := node.NewBoosterDefault()
+	n := node.NewRemoteNode("host", "port", "port")
+	b.AddNode(n)
+
+	nodes := b.GetNodes()
+	if len(nodes) != 1 {
+		t.Logf("nodes: %v", nodes)
+		t.Fatalf("unexpected node list size: %v", len(nodes))
+	}
+
+	n1, err := b.CloseNode(n.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n1.IsActive {
+		t.Fatal("node should not be active")
+	}
+
+	if n1.LastOperation != node.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation, node.BoosterNodeClosed)
+	}
+
+	// now let's check if the node in the list was actually updated
+	n, err = b.GetNode(n1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if n.LastOperation != node.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.LastOperation, node.BoosterNodeClosed)
+	}
+}
+
 func TestRemoveNode(t *testing.T) {
 	b := node.NewBoosterDefault()
 	n := node.NewRemoteNode("host", "port", "port")

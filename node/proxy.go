@@ -86,7 +86,7 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
 	d.Fallback = &net.Dialer{
-		Timeout:   30 * time.Second,
+		Timeout:   5 * time.Second,
 		KeepAlive: 30 * time.Second,
 		DualStack: true,
 	}
