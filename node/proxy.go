@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"os"
@@ -152,7 +153,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, errors.New("dialer: dial context: " + ctx.Err().Error())
 	case err := <-ec:
 		return nil, err
 	case conn := <-cc:

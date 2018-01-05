@@ -246,7 +246,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	select {
 	case <-ctx.Done():
 		b.Proxy.Unsub(wc, socks5.TopicWorkload)
-		return ctx.Err()
+		return errors.New("booster: serve status: " + ctx.Err().Error())
 	case err := <-ec:
 		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 		return err

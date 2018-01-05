@@ -89,7 +89,7 @@ func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stre
 	go func() {
 		select {
 		case <-ctx.Done():
-			errc <- ctx.Err()
+			errc <- errors.New("booster: inspect stream: " + ctx.Err().Error())
 			conn.Close()
 		case err := <-c:
 			errc <- err
