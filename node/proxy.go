@@ -86,7 +86,7 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
 	d.Fallback = &net.Dialer{
-		Timeout:   5 * time.Second,
+		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 		DualStack: true,
 	}
@@ -125,6 +125,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		if err != nil {
 			// the node that we tried to chain to is down or unusable.
 			// fallback to a normal dialer and close this node.
+			d.Printf("dialer: unable to Dial using gateway @ %v. Fallback", node.ID)
 			if _, err := d.CloseNode(node.ID); err != nil {
 				d.Printf("dialer: unable to close node (%v)", node.ID)
 			}

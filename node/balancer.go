@@ -118,30 +118,17 @@ func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
 	return node, nil
 }
 
-// CloseNode calls Close on the node with id. Publishes the updated node to the pubsub
-// with topic TopicRemoteNodes.
-func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
-	node, err := b.GetNode(id)
-	if err != nil {
-		return nil, err
-	}
-
-	node.Close()
-
-	b.Pub(node, TopicRemoteNodes)
-	return node, nil
-}
-
 // AddNode adds a new entry to the monitored nodes. If a node with the same
 // id is already present, it removes it. Publishes the updated node to the pubsub
 // with topic TopicRemoteNodes.
 func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 	if _, ok := b.nodes[node.ID]; ok {
-		// remove it and substitute
+		// close, remove it and substitute
+		b.CloseNode(node.ID)
 		b.RemoveNode(node.ID)
 	}
 
-	b.Printf("balancer: adding proxy %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
+	b.Printf("balancer: adding node %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
 	node.Lock()
 	node.LastOperation = BoosterNodeAdded
 	node.Unlock()
@@ -151,20 +138,50 @@ func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 	return node, nil
 }
 
+// CloseNode calls Close on the node with id. Publishes the updated node to the pubsub
+// with topic TopicRemoteNodes.
+func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
+	node, err := b.GetNode(id)
+	if err != nil {
+		return nil, err
+	}
+
+	node.Lock()
+	lastOp := node.LastOperation
+	node.Unlock()
+	if lastOp == BoosterNodeClosed {
+		return nil, errors.New("balancer: node (" + node.ID + ") already closed")
+	}
+
+	b.Printf("balancer: closing node %v\n", id)
+	node.Close()
+
+	b.Pub(node, TopicRemoteNodes)
+	return node, nil
+}
+
 // RemoveNode removes the entry labeled with id.
 // Returns false if no entry was found. Publishes the updated node to the pubsub
 // with topic TopicRemoteNodes.
 func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
-	if node, ok := b.nodes[id]; ok {
-		b.Printf("balancer: removing proxy %v\n", id)
-		node.Lock()
-		node.LastOperation = BoosterNodeRemoved
-		node.Unlock()
-		delete(b.nodes, id)
-
-		b.Pub(node, TopicRemoteNodes)
-		return node, nil
+	node, err := b.GetNode(id)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.New("balancer: " + id + " not found")
+	node.Lock()
+	lastOp := node.LastOperation
+	node.Unlock()
+	if lastOp == BoosterNodeRemoved {
+		return nil, errors.New("balancer: node (" + node.ID + ") already removed")
+	}
+
+	b.Printf("balancer: removing node %v\n", id)
+	node.Lock()
+	node.LastOperation = BoosterNodeRemoved
+	node.Unlock()
+	delete(b.nodes, id)
+
+	b.Pub(node, TopicRemoteNodes)
+	return node, nil
 }

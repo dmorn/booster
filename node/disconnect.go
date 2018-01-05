@@ -89,10 +89,8 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 	}
 
 	// first deactivate the node...
-	if _, err := b.CloseNode(id); err != nil {
-		return respWriter(err)
-	}
-	// ...then remove it
+	b.CloseNode(id) // do not check for errors (maybe the node wasy already closed)
+	// ...then remove it (this is important)
 	if _, err := b.RemoveNode(id); err != nil {
 		return respWriter(err)
 	}
