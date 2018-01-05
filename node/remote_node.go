@@ -47,6 +47,14 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 }
 
 func (n *RemoteNode) String() string {
+	return net.JoinHostPort(n.Host, n.Bport)
+}
+
+func (n *RemoteNode) Network() string {
+	return "tcp"
+}
+
+func (n *RemoteNode) StringPretty() string {
 	baddr := net.JoinHostPort(n.Host, n.Bport)
 	paddr := net.JoinHostPort(n.Host, n.Pport)
 	n.Lock()
@@ -150,3 +158,4 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	return buf, nil
 }
+

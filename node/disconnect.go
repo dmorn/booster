@@ -88,6 +88,9 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 		return err
 	}
 
+	// do not check if the node is up anymore
+	b.Untrace(id)
+
 	// first deactivate the node...
 	b.CloseNode(id) // do not check for errors (maybe the node wasy already closed)
 	// ...then remove it (this is important)

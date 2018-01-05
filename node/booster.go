@@ -11,6 +11,7 @@ import (
 
 	"github.com/danielmorandini/booster-network/pubsub"
 	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster-network/tracer"
 )
 
 // Booster versions
@@ -79,18 +80,20 @@ type Booster struct {
 	socks5.Dialer
 	*Balancer
 	*pubsub.PubSub
+	*tracer.Tracer
 
 	Proxy *Proxy
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub) *Booster {
+func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub, tr *tracer.Tracer) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
 	b.Balancer = balancer
 	b.Logger = log
 	b.Dialer = new(net.Dialer)
 	b.PubSub = ps
+	b.Tracer = tr
 
 	return b
 }
@@ -99,16 +102,44 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.Pu
 func NewBoosterDefault() *Booster {
 	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
 	pubsub := pubsub.New()
+	tracer := tracer.New(log, pubsub)
 	balancer := NewBalancer(log, pubsub)
-	proxy := NewProxyBalancer(balancer)
+	proxy := NewProxyBalancer(balancer, tracer)
 
-	return NewBooster(proxy, balancer, log, pubsub)
+	return NewBooster(proxy, balancer, log, pubsub, tracer)
 }
 
 // Start starts a booster node. It is made by a booster compliant tcp server
 // and a socks5 compliant tcp server.
 func (b *Booster) Start(pport, bport int) error {
 	c := make(chan error)
+
+	go func() {
+		stream := b.Sub(tracer.TopicConnDiscovered)
+
+		for i := range stream {
+			id := i.(string)
+			rn, err := b.GetNode(id)
+			if err != nil {
+				b.Printf("booster: found unresolved id from tracer: %v", err)
+				continue
+			}
+
+			// do not reactivate a node that is already doing its job
+			if rn.IsActive {
+				continue
+			}
+
+			laddr := net.JoinHostPort("localhost", strconv.Itoa(bport))
+			raddr := net.JoinHostPort(rn.Host, rn.Bport)
+
+			if _, err := b.Connect(context.Background(), "tcp", laddr, raddr); err != nil {
+				b.Print(err)
+			}
+		}
+
+		b.Unsub(stream, tracer.TopicConnDiscovered)
+	}()
 
 	go func() {
 		c <- b.Proxy.ListenAndServe(pport)
@@ -267,6 +298,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 		fail := func() {
 			conn.Close()
 			b.CloseNode(node.ID)
+			b.Trace(node, node.ID)
 			b.Printf("booster: update status: deactivating remote node %v", node.ID)
 		}
 

@@ -157,6 +157,7 @@ func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
 	node.Close()
 
 	b.Pub(node, TopicRemoteNodes)
+
 	return node, nil
 }
 

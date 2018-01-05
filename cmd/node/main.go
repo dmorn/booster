@@ -75,7 +75,7 @@ func main() {
 					fmt.Println(err)
 					return
 				case node := <-stream:
-					fmt.Println(node)
+					fmt.Println(node.StringPretty())
 				}
 			}
 		},

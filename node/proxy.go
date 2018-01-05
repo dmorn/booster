@@ -21,6 +21,11 @@ type LoadBalancer interface {
 	CloseNode(id string) (*RemoteNode, error)
 }
 
+// Tracer is a wrapper around the basic Trace function.
+type Tracer interface {
+	Trace(addr net.Addr, id string) error
+}
+
 // Proxy is a SOCK5 server.
 type Proxy struct {
 	*socks5.Socks5
@@ -38,8 +43,8 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer) *Proxy {
-	d := NewDialer(balancer)
+func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
+	d := NewDialer(balancer, tracer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log)
 	d.Logger = log
@@ -64,6 +69,7 @@ func NewProxyBalancer(balancer LoadBalancer) *Proxy {
 // Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
+	Tracer
 	LoadBalancer
 	Fallback FallbackDialer
 
@@ -82,9 +88,10 @@ type FallbackDialer interface {
 }
 
 // NewDialer returns a Dialer instance.
-func NewDialer(balancer LoadBalancer) *Dialer {
+func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
+	d.Tracer = tracer
 	d.Fallback = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -129,6 +136,10 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 			if _, err := d.CloseNode(node.ID); err != nil {
 				d.Printf("dialer: unable to close node (%v)", node.ID)
 			}
+			if d.Tracer != nil {
+				d.Trace(node, node.ID)
+			}
+
 			conn, err = d.Fallback.Dial(network, addr)
 			if err != nil {
 				ec <- err
