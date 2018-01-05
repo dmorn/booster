@@ -1,3 +1,5 @@
+// Package tracer provides basic functionalities to monitor a network address
+// until it is online.
 package tracer
 
 import (
@@ -9,6 +11,7 @@ import (
 	"github.com/danielmorandini/booster-network/pubsub"
 )
 
+// Topic used to publish connectin discovery messgages.
 const (
 	TopicConnDiscovered = "topic_conn_disc"
 )
@@ -18,11 +21,13 @@ const (
 	connStatusDiscovered
 )
 
+// Possible Tracer status value.
 const (
 	TrackerStatusRunning = iota
 	TrackerStatusStopped
 )
 
+// Tracer can monitor remote interfaces until they're up.
 type Tracer struct {
 	*pubsub.PubSub
 	*log.Logger
@@ -45,6 +50,9 @@ func New(lg *log.Logger, ps *pubsub.PubSub) *Tracer {
 	return t
 }
 
+// Run makes the tracer listen for refresh calls and perform ping operations
+// on each connection that is labeled with pending.
+// Quits immediately when Close is called.
 func (t *Tracer) Run() error {
 	t.status = TrackerStatusRunning
 
@@ -104,13 +112,14 @@ func (t *Tracer) Run() error {
 	return nil
 }
 
+// Trace makes the tracer keep track of the entity at addr.
 func (t *Tracer) Trace(addr net.Addr, id string) error {
 	t.Printf("tracer: tracing connection @ %v (%v)", addr.String(), id)
 
 	c := &connection{
 		id:     id,
 		addr:   addr,
-		status: TrackerStatusRunning,
+		status: connStatusPending,
 	}
 	t.conns[id] = c
 	t.refresh()
@@ -118,6 +127,8 @@ func (t *Tracer) Trace(addr net.Addr, id string) error {
 	return nil
 }
 
+// Untrace removes the entity stored with id from the monitored
+// entities.
 func (t *Tracer) Untrace(id string) {
 	t.Printf("tracer: untracing connection %v", id)
 
@@ -130,6 +141,7 @@ func (t *Tracer) refresh() {
 	t.refreshc <- struct{}{}
 }
 
+// Close makes the tracer pass from status running to status stopped.
 func (t *Tracer) Close() {
 	t.stopc <- struct{}{}
 }
