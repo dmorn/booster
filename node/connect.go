@@ -89,7 +89,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 		return err
 	}
 
-	bid, err := hex.DecodeString(rn.ID)
+	bid, err := hex.DecodeString(rn.ID())
 	if err != nil {
 		return errors.New("booster: " + err.Error())
 	}

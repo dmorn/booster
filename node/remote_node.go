@@ -10,13 +10,14 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
 // RemoteNode represents a remote booster node.
 type RemoteNode struct {
-	ID    string // sha1 string representation
+	id    string // sha1 string representation
 	Host  string
 	Pport string // Proxy port
 	Bport string // Booster port
@@ -41,7 +42,7 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 	h.Write([]byte(host))
 	h.Write([]byte(bport))
 	h.Write([]byte(pport))
-	n.ID = fmt.Sprintf("%x", h.Sum(nil))
+	n.id = fmt.Sprintf("%x", h.Sum(nil))
 
 	return n
 }
@@ -62,6 +63,27 @@ func (n *RemoteNode) StringPretty() string {
 	n.Unlock()
 
 	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.LastOperation)
+}
+
+// Ping dials with the remote node with little timeout. Returns an error
+// if the endpoint is not reachable, nil otherwise.
+func (n *RemoteNode) Ping(ctx context.Context) error {
+	if n.IsActive {
+		return errors.New("connection already enstablished")
+	}
+
+	d := net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 0 * time.Second,
+	}
+	_, err := d.DialContext(ctx, n.Network(), n.String())
+
+	return err
+}
+
+// ID returns the id of the node.
+func (n *RemoteNode) ID() string {
+	return n.id
 }
 
 // Close calls the cancel function if present, then sets active state to false.
@@ -109,7 +131,7 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	lastOp := buf[2]
 
 	return &RemoteNode{
-		ID:            id,
+		id:            id,
 		Host:          host,
 		Pport:         pport,
 		Bport:         bport,
@@ -126,7 +148,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 		return nil, errors.New("remote node: trying to encode nil")
 	}
 
-	idbuf, err := hex.DecodeString(n.ID)
+	idbuf, err := hex.DecodeString(n.ID())
 	hbuf, err := socks5.EncodeHostBinary(n.Host)   // host buffer
 	ppbuf, err := socks5.EncodePortBinary(n.Pport) // proxy port buffer
 	bpbuf, err := socks5.EncodePortBinary(n.Bport) // booster port buffer
@@ -158,4 +180,3 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	return buf, nil
 }
-

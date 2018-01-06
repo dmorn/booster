@@ -75,7 +75,7 @@ const (
 
 // Tracer is a wrapper around the basic Trace function.
 type Tracer interface {
-	Trace(addr net.Addr, id string) error
+	Trace(p tracer.Pinger) error
 	Untrace(id string)
 }
 
@@ -297,15 +297,15 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				_ = buf[2]     // reserved field
 				load := buf[3] // workload
 
-				b.UpdateNode(node.ID, int(load))
+				b.UpdateNode(node.ID(), int(load))
 			}
 		}()
 
 		fail := func() {
 			conn.Close()
-			b.CloseNode(node.ID)
-			b.Trace(node, node.ID)
-			b.Printf("booster: update status: deactivating remote node %v", node.ID)
+			b.CloseNode(node.ID())
+			b.Trace(node)
+			b.Printf("booster: update status: deactivating remote node %v", node.ID())
 		}
 
 		select {

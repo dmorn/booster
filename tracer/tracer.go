@@ -4,8 +4,11 @@ package tracer
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster-network/pubsub"
@@ -16,64 +19,73 @@ const (
 	TopicConnDiscovered = "topic_conn_disc"
 )
 
-const (
-	connStatusPending = iota
-	connStatusDiscovered
-)
-
 // Possible Tracer status value.
 const (
 	TrackerStatusRunning = iota
 	TrackerStatusStopped
 )
 
+// Pinger wraps the basic Ping function.
+type Pinger interface {
+	net.Addr
+	Ping(ctx context.Context) error
+	ID() string
+}
+
 // Tracer can monitor remote interfaces until they're up.
 type Tracer struct {
 	*pubsub.PubSub
 	*log.Logger
 
-	status   int
 	refreshc chan struct{}
 	stopc    chan struct{}
-	conns    map[string]*connection
+	conns    map[string]Pinger
+
+	sync.Mutex
+	status int
 }
 
 // New returns a new instance of Tracer. Calls Run before returning.
 func New(lg *log.Logger, ps *pubsub.PubSub) *Tracer {
 	t := &Tracer{
-		Logger: lg,
-		PubSub: ps,
-		conns:  make(map[string]*connection),
+		Logger:   lg,
+		PubSub:   ps,
+		conns:    make(map[string]Pinger),
+		refreshc: make(chan struct{}),
+		stopc:    make(chan struct{}),
+		status:   TrackerStatusStopped,
 	}
-	go t.Run()
+	t.Run()
 
 	return t
 }
 
+// NewDefault instantiates a new Tracer with default pubsub and logger.
+func NewDefault() *Tracer {
+	log := log.New(os.Stdout, "", log.LstdFlags)
+	return New(log, pubsub.New())
+}
+
 // Run makes the tracer listen for refresh calls and perform ping operations
 // on each connection that is labeled with pending.
-// Quits immediately when Close is called.
+// Quits immediately when Close is called, should run in its own gorountine.
 func (t *Tracer) Run() error {
-	t.status = TrackerStatusRunning
+	if t.Status() == TrackerStatusRunning {
+		return errors.New("tracer: already running")
+	}
+	t.setStatus(TrackerStatusRunning)
 
-	done := make(chan struct{})
 	ping := func() context.CancelFunc {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		for _, c := range t.conns {
-			go func(c *connection) {
-				// do not consider non pending connections
-				if c.status != connStatusPending {
-					return
-				}
-
-				if err := c.ping(ctx); err == nil {
+			go func(c Pinger) {
+				if err := c.Ping(ctx); err == nil {
 					// this connection resolves to an active connection
-					c.status = connStatusDiscovered
-					t.Printf("tracer: found active connection @ %v (%v)", c.addr.String(), c.id)
+					t.Printf("tracer: found active connection @ %v (%v)", c.String(), c.ID())
 
 					if t.PubSub != nil {
-						t.Pub(c.id, TopicConnDiscovered)
+						t.Pub(c.ID(), TopicConnDiscovered)
 					}
 				}
 			}(c)
@@ -83,8 +95,8 @@ func (t *Tracer) Run() error {
 	}
 
 	go func() {
+		var cancel context.CancelFunc
 		for {
-			var cancel context.CancelFunc
 			refresh := func() {
 				if cancel != nil {
 					cancel()
@@ -93,38 +105,42 @@ func (t *Tracer) Run() error {
 			}
 
 			select {
-			case <-time.After(15 * time.Second):
-				refresh()
 			case <-t.refreshc:
 				refresh()
 			case <-t.stopc:
 				if cancel != nil {
 					cancel()
 				}
-				done <- struct{}{}
+				return
+			case <-time.After(15 * time.Second):
+				refresh()
 			}
 		}
 	}()
-
-	<-done
-	t.status = TrackerStatusStopped
 
 	return nil
 }
 
 // Trace makes the tracer keep track of the entity at addr.
-func (t *Tracer) Trace(addr net.Addr, id string) error {
-	t.Printf("tracer: tracing connection @ %v (%v)", addr.String(), id)
-
-	c := &connection{
-		id:     id,
-		addr:   addr,
-		status: connStatusPending,
-	}
-	t.conns[id] = c
+func (t *Tracer) Trace(p Pinger) error {
+	t.Printf("tracer: tracing connection @ %v (%v)", p.String(), p.ID())
+	t.conns[p.ID()] = p
 	t.refresh()
 
 	return nil
+}
+
+// Status returns the status of tracer.
+func (t *Tracer) Status() int {
+	t.Lock()
+	defer t.Unlock()
+	return t.status
+}
+
+func (t *Tracer) setStatus(status int) {
+	t.Lock()
+	defer t.Unlock()
+	t.status = status
 }
 
 // Untrace removes the entity stored with id from the monitored
@@ -143,21 +159,7 @@ func (t *Tracer) refresh() {
 
 // Close makes the tracer pass from status running to status stopped.
 func (t *Tracer) Close() {
+	t.Printf("tracer: stopping.")
+	t.setStatus(TrackerStatusStopped)
 	t.stopc <- struct{}{}
-}
-
-type connection struct {
-	id     string
-	addr   net.Addr
-	status int
-}
-
-func (c *connection) ping(ctx context.Context) error {
-	d := net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 0 * time.Second,
-	}
-	_, err := d.DialContext(ctx, c.addr.Network(), c.addr.String())
-
-	return err
 }

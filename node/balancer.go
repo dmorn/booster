@@ -122,17 +122,17 @@ func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
 // id is already present, it removes it. Publishes the updated node to the pubsub
 // with topic TopicRemoteNodes.
 func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
-	if _, ok := b.nodes[node.ID]; ok {
+	if _, ok := b.nodes[node.ID()]; ok {
 		// close, remove it and substitute
-		b.CloseNode(node.ID)
-		b.RemoveNode(node.ID)
+		b.CloseNode(node.ID())
+		b.RemoveNode(node.ID())
 	}
 
-	b.Printf("balancer: adding node %v (%v)", node.ID, net.JoinHostPort(node.Host, node.Pport))
+	b.Printf("balancer: adding node %v (%v)", node.ID(), net.JoinHostPort(node.Host, node.Pport))
 	node.Lock()
 	node.LastOperation = BoosterNodeAdded
 	node.Unlock()
-	b.nodes[node.ID] = node
+	b.nodes[node.ID()] = node
 
 	b.Pub(node, TopicRemoteNodes)
 	return node, nil
@@ -150,7 +150,7 @@ func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
 	lastOp := node.LastOperation
 	node.Unlock()
 	if lastOp == BoosterNodeClosed {
-		return nil, errors.New("balancer: node (" + node.ID + ") already closed")
+		return nil, errors.New("balancer: node (" + node.ID() + ") already closed")
 	}
 
 	b.Printf("balancer: closing node %v\n", id)
@@ -174,7 +174,7 @@ func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
 	lastOp := node.LastOperation
 	node.Unlock()
 	if lastOp == BoosterNodeRemoved {
-		return nil, errors.New("balancer: node (" + node.ID + ") already removed")
+		return nil, errors.New("balancer: node (" + node.ID() + ") already removed")
 	}
 
 	b.Printf("balancer: removing node %v\n", id)
