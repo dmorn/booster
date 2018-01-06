@@ -73,6 +73,12 @@ const (
 	TopicRemoteNodes = "topic_rn"
 )
 
+// Tracer is a wrapper around the basic Trace function.
+type Tracer interface {
+	Trace(addr net.Addr, id string) error
+	Untrace(id string)
+}
+
 // Booster is capable of handling tcp connections that follow booster-network
 // protocol. It can be initialized with a custom logger and load balancer.
 type Booster struct {
@@ -80,13 +86,13 @@ type Booster struct {
 	socks5.Dialer
 	*Balancer
 	*pubsub.PubSub
-	*tracer.Tracer
+	Tracer
 
 	Proxy *Proxy
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub, tr *tracer.Tracer) *Booster {
+func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub, tr Tracer) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
 	b.Balancer = balancer

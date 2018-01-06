@@ -22,11 +22,6 @@ type LoadBalancer interface {
 	CloseNode(id string) (*RemoteNode, error)
 }
 
-// Tracer is a wrapper around the basic Trace function.
-type Tracer interface {
-	Trace(addr net.Addr, id string) error
-}
-
 // Proxy is a SOCK5 server.
 type Proxy struct {
 	*socks5.Socks5
