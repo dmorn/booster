@@ -13,7 +13,6 @@ import (
 func main() {
 	var pport int
 	var bport int
-
 	var boosterAddr string
 
 	var cmdStart = &cobra.Command{
