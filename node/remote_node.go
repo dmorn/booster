@@ -62,7 +62,7 @@ func (n *RemoteNode) StringPretty() string {
 	wl := n.workload
 	n.Unlock()
 
-	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID, baddr, paddr, wl, n.IsActive, n.LastOperation)
+	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID(), baddr, paddr, wl, n.IsActive, n.LastOperation)
 }
 
 // Ping dials with the remote node with little timeout. Returns an error

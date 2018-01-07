@@ -320,3 +320,4 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 
 	return nil
 }
+
