@@ -142,6 +142,9 @@ func (b *Booster) Start(pport, bport int) error {
 			if _, err := b.Connect(context.Background(), "tcp", laddr, raddr); err != nil {
 				b.Print(err)
 			}
+
+			// do not trace this node anymore
+			b.Untrace(id)
 		}
 
 		b.Unsub(stream, tracer.TopicConnDiscovered)

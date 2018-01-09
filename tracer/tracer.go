@@ -68,7 +68,7 @@ func NewDefault() *Tracer {
 
 // Run makes the tracer listen for refresh calls and perform ping operations
 // on each connection that is labeled with pending.
-// Quits immediately when Close is called, should run in its own gorountine.
+// Quits immediately when Close is called, runs in its own gorountine.
 func (t *Tracer) Run() error {
 	if t.Status() == TrackerStatusRunning {
 		return errors.New("tracer: already running")
