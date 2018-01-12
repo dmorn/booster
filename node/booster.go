@@ -289,12 +289,13 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 
 	go func() {
 		fail := func() {
-			// Do not fail multiple times
+			conn.Close() // be sure that the connection gets closed.
+
+			// Do not fail multiple times.
 			if !node.IsActive {
 				return
 			}
 
-			conn.Close()
 			b.CloseNode(node.ID())
 			b.Trace(node)
 			b.Printf("booster: update status: deactivating remote node %v", node.ID())
