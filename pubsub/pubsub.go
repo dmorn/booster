@@ -68,13 +68,23 @@ func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
 	links := m.links
 	for i, l := range links {
 		if l == c {
-			close(m.links[i])                               // close the unsubscribed channel
+			ps.closeChanSafe(l)
 			m.links = append(m.links[:i], m.links[i+1:]...) // remove it from the list
 			return nil
 		}
 	}
 
 	return errors.New("pubsub: unsub error: unable to find channel")
+}
+
+func (ps *PubSub) closeChanSafe(c chan interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			// tried to close c, which was already closed.
+		}
+	}()
+
+	close(c)
 }
 
 // Close removes a topic and closes its related channels.

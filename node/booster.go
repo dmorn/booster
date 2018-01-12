@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 	"strconv"
 
 	"github.com/danielmorandini/booster-network/pubsub"
@@ -89,6 +90,8 @@ type Booster struct {
 	Tracer
 
 	Proxy *Proxy
+
+	RemoteNodeIdleTimeout time.Duration
 }
 
 // NewBooster returns a booster instance.
@@ -100,6 +103,8 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.Pu
 	b.Dialer = new(net.Dialer)
 	b.PubSub = ps
 	b.Tracer = tr
+
+	b.RemoteNodeIdleTimeout = 60*5*time.Second // time before closing an idle remote node
 
 	return b
 }
@@ -128,11 +133,13 @@ func (b *Booster) Start(pport, bport int) error {
 			rn, err := b.GetNode(id)
 			if err != nil {
 				b.Printf("booster: found unresolved id from tracer: %v", err)
+				b.Untrace(id)
 				continue
 			}
 
 			// do not reactivate a node that is already doing its job
 			if rn.IsActive {
+				b.Untrace(id)
 				continue
 			}
 
@@ -281,8 +288,28 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 	node.Unlock()
 
 	go func() {
+		fail := func() {
+			// Do not fail multiple times
+			if !node.IsActive {
+				return
+			}
+
+			conn.Close()
+			b.CloseNode(node.ID())
+			b.Trace(node)
+			b.Printf("booster: update status: deactivating remote node %v", node.ID())
+		}
+
+		// this function will be fired after RemoteNodeIdleTimeout
+		timer := time.AfterFunc(b.RemoteNodeIdleTimeout, func() {
+			fail()
+		})
+
 		buf := make([]byte, 4)
-		c := make(chan error)
+		statusc := make(chan error)
+		demuxc := make(chan error)
+
+		// keep on reading status messages until the node is closed.
 		go func() {
 			for {
 				// check if the node is active before trying to read from the connection
@@ -291,7 +318,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				}
 
 				if _, err := io.ReadFull(conn, buf); err != nil {
-					c <- err
+					statusc <- err
 					return
 				}
 
@@ -301,24 +328,37 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				load := buf[3] // workload
 
 				b.UpdateNode(node.ID(), int(load))
+				statusc <- nil
 			}
 		}()
 
-		fail := func() {
-			conn.Close()
-			b.CloseNode(node.ID())
-			b.Trace(node)
-			b.Printf("booster: update status: deactivating remote node %v", node.ID())
+		// demux the messages from ctx and statusc into one channel
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					demuxc <- ctx.Err()
+					return
+				case err := <-statusc:
+					demuxc <- err
+					if err != nil {
+						return
+					}
+				}
+			}
+		}()
+
+		// read demultiplexed messages and act accordingly.
+		for err := range demuxc {
+			if err != nil {
+				fail()
+				return
+			}
+
+			// Reset the timer if no errors occurred.
+			timer.Reset(b.RemoteNodeIdleTimeout)
 		}
 
-		select {
-		case <-ctx.Done():
-			fail()
-			return
-		case <-c:
-			fail()
-			return
-		}
 	}()
 
 	return nil

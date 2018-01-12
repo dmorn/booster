@@ -39,7 +39,7 @@ func TestCloseNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	n1, err := b.CloseNode(n.ID)
+	n1, err := b.CloseNode(n.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestCloseNode(t *testing.T) {
 	}
 
 	// now let's check if the node in the list was actually updated
-	n, err = b.GetNode(n1.ID)
+	n, err = b.GetNode(n1.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestRemoveNode(t *testing.T) {
 		b.Unsub(stream, node.TopicRemoteNodes)
 	}()
 
-	n, err := b.RemoveNode(n.ID)
+	n, err := b.RemoveNode(n.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
