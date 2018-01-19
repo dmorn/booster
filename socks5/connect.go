@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-// Connect dials a new connection with target, which must be a canonical
+// connect dials a new connection with target, which must be a canonical
 // address with host and port.
 func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 	s.Printf("connect to %v", target)
@@ -17,7 +17,7 @@ func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net
 
 	tconn, err := s.DialContext(ctx, "tcp", target)
 	if err != nil {
-		// TODO(daniel): Responde with proper code
+		// TODO(daniel): Respond with proper code
 		buf = append(buf, socks5RespHostUnreachable, socks5FieldReserved)
 		if _, err := conn.Write(buf); err != nil {
 			return nil, errors.New("socks5: unable to write connect response: " + err.Error())
