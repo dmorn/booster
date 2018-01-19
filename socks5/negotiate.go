@@ -6,8 +6,8 @@ import (
 	"net"
 )
 
-// Negotiate performs the very first method subnegotiation when handling
-// a new connection.
+// negotiate performs the very first method subnegotiation when handling a new
+// connection.
 func (s *Socks5) Negotiate(conn net.Conn) error {
 
 	// len is just an estimation
@@ -35,7 +35,7 @@ func (s *Socks5) Negotiate(conn net.Conn) error {
 		return errors.New("proxy: failed to read methods: " + err.Error())
 	}
 
-	// select one method - could also be socksV5MethodNoAcceptableMethods
+	// select one method; could also be socksV5MethodNoAcceptableMethods
 	m := acceptMethod(buf)
 
 	buf = buf[:0]

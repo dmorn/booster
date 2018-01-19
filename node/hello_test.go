@@ -30,7 +30,7 @@ func TestHello(t *testing.T) {
 	go func() {
 		ctx := context.Background()
 		// usually the port here should be the booster listening port.
-		// does not matter here.
+		// does not matter here. Andrea: I love such comments
 		addr := net.JoinHostPort(mockConn.remoteAddr.String(), strconv.Itoa(port))
 		_, paddr, err := br.Hello(ctx, "fakenet", addr)
 		if err != nil {
