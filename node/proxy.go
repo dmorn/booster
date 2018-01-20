@@ -60,7 +60,7 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 				return
 			}
 			d.workload = wm.Load
-			p.Printf("proxy: local workload: %v, event: %v\n", wm.Load, wm.Target)
+			p.Printf("proxy: local workload: %v, event: %v\n", wm.Load, wm.ID)
 			d.Unlock()
 		}
 	}()

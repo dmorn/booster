@@ -262,14 +262,14 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 				return
 			}
 
-			fmt.Printf("serve load: %v, target %v\n", wm.Load, wm.Target)
-			idbuf, err := hex.DecodeString(wm.target)
+			fmt.Printf("serve load: %v, target %v\n", wm.Load, wm.ID)
+			idbuf, err := hex.DecodeString(wm.ID)
 			if err != nil {
-				ec <- errors.New("booster: unable to parse target: " + wm.Target + ": " + err.Error())
+				ec <- errors.New("booster: unable to parse target: " + wm.ID + ": " + err.Error())
 				return
 			}
 			if len(idbuf) != 20 {
-				ec <- errors.New("booster: unexpected status target length: " + strconv.Itoa(len(idbuf))
+				ec <- errors.New("booster: unexpected status target length: " + strconv.Itoa(len(idbuf)))
 				return
 			}
 
