@@ -421,20 +421,22 @@ type WorkloadMessage struct {
 
 func (s *Socks5) pushLoad(event string) {
 	s.Lock()
+	defer s.Unlock()
+
 	s.workload++
 	s.pub(s.workload, event)
-	s.Unlock()
 }
 
 func (s *Socks5) popLoad(event string) {
 	s.Lock()
+	defer s.Unlock()
+
 	s.workload--
 	// should never become negative
 	if s.workload < 0 {
 		s.workload = 0
 	}
 	s.pub(s.workload, event)
-	s.Unlock()
 }
 
 func (s *Socks5) pub(load int, target string) {
