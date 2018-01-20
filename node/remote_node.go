@@ -71,14 +71,17 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 
 // Desc returns the description of the node in a multiline string.
 func (n *RemoteNode) Desc() string {
-	baddr := net.JoinHostPort(n.Host, n.Bport)
-	paddr := net.JoinHostPort(n.Host, n.Pport)
 	n.Lock()
 	wl := n.workload
 	op := n.lastOperation
 	n.Unlock()
 
-	return fmt.Sprintf("[node (%v), b@ %v, p@ %v]: \nworkload: %v\nactive: %v\nlast operation: %v", n.ID(), baddr, paddr, wl, n.IsActive, op.String())
+	activeStr := "inactive"
+	if n.IsActive {
+		activeStr = "active"
+	}
+
+	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v, lastop: %v", n.ID(), n.Host, n.Bport, n.Pport, activeStr, wl, op.String())
 }
 
 // ID returns the id of the node. Required by tracer.Pinger in this case.
@@ -172,13 +175,11 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	n.Unlock()
 
 	if err != nil {
-		opidbuf = make([]byte, 20)
-		// return nil, errors.New("remote node: unable to encode lastop: " + err.Error())
+		opidbuf = make([]byte, 20) // just put a fake hash
 	}
 	// It could happen that we do not have any operation id
 	if len(opidbuf) != 20 {
-		fmt.Printf("len found -> %v\n", len(opidbuf))
-		opidbuf = make([]byte, 20)
+		opidbuf = make([]byte, 20) // just put a fake hash
 	}
 
 	if load > 0xff {
