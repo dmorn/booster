@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"errors"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -262,9 +263,19 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 			}
 
 			fmt.Printf("serve load: %v, target %v\n", wm.Load, wm.Target)
+			idbuf, err := hex.DecodeString(wm.target)
+			if err != nil {
+				ec <- errors.New("booster: unable to parse target: " + wm.Target + ": " + err.Error())
+				return
+			}
+			if len(idbuf) != 20 {
+				ec <- errors.New("booster: unexpected status target length: " + strconv.Itoa(len(idbuf))
+				return
+			}
+
 			buf = buf[:3]
 			buf = append(buf, byte(wm.Load))
-			buf = append(buf, sha1Hash([]byte(wm.Target))...)
+			buf = append(buf, idbuf...)
 
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())

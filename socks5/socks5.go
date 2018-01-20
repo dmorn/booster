@@ -4,7 +4,9 @@ package socks5
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -416,7 +418,7 @@ func (s *Socks5) Port() int {
 
 type WorkloadMessage struct {
 	Load int
-	Target string
+	ID string
 }
 
 func (s *Socks5) pushLoad(event string) {
@@ -442,8 +444,16 @@ func (s *Socks5) popLoad(event string) {
 func (s *Socks5) pub(load int, target string) {
 	wm := WorkloadMessage{
 		Load: load,
-		Target: target,
+		ID: sha1Hash([]byte(target)),
 	}
 	s.Pub(wm, TopicWorkload)
 }
 
+func sha1Hash(images ...[]byte) string {
+	h := sha1.New()
+	for _, image := range images {
+		h.Write(image)
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil))
+}

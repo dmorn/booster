@@ -112,7 +112,7 @@ func (b *Balancer) UpdateNode(id string, workload int, target string) (*RemoteNo
 	node.Lock()
 	node.workload = workload
 	node.lastOperation.op = BoosterNodeUpdated
-	node.lastOperation.id = sha1Hash([]byte(target))
+	node.lastOperation.id = target
 	node.Unlock()
 
 	b.Pub(node, TopicRemoteNodes)
