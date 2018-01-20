@@ -59,8 +59,8 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 				p.Printf("proxy: unable to recognise workload message: %v", wm)
 				return
 			}
+
 			d.workload = wm.Load
-			p.Printf("proxy: local workload: %v, event: %v\n", wm.Load, wm.ID)
 			d.Unlock()
 		}
 	}()

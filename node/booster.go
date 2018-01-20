@@ -262,7 +262,6 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 				return
 			}
 
-			fmt.Printf("serve load: %v, target %v\n", wm.Load, wm.ID)
 			idbuf, err := hex.DecodeString(wm.ID)
 			if err != nil {
 				ec <- errors.New("booster: unable to parse target: " + wm.ID + ": " + err.Error())
@@ -352,8 +351,6 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				_ = buf[2]     // reserved field
 				load := buf[3] // workload
 				target := fmt.Sprintf("%x", buf[3:]) // target
-
-				fmt.Printf("receive load: %v, target %v\n", int(load), target)
 
 				b.UpdateNode(node.ID(), int(load), target)
 				statusc <- nil

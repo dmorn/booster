@@ -169,6 +169,11 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	load := n.workload
 	lastOp := n.lastOperation.op
 	opidbuf, err := hex.DecodeString(n.lastOperation.id)
+	// It could happen that we do not have any operation id
+	if len(opidbuf) != 20 {
+		opidbuf = make([]byte, 20)
+	}
+
 	n.Unlock()
 	if err != nil {
 		return nil, errors.New("remote node: unable to encode lastop: " + err.Error())
