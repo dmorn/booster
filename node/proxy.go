@@ -56,7 +56,7 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 			d.Lock()
 			wm, ok := i.(socks5.WorkloadMessage)
 			if !ok {
-				p.Printf("proxy: unable to recognise workload message")
+				p.Printf("proxy: unable to recognise workload message: %v", wm)
 				return
 			}
 			d.workload = wm.Load

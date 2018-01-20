@@ -438,7 +438,7 @@ func (s *Socks5) popLoad(event string) {
 }
 
 func (s *Socks5) pub(load int, target string) {
-	wm := &WorkloadMessage{
+	wm := WorkloadMessage{
 		Load: load,
 		Target: target,
 	}

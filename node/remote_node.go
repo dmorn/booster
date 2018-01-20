@@ -61,6 +61,7 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 	n.Pport = pport
 	n.Bport = bport
 	n.workload = 0
+	n.lastOperation = new(operation)
 
 	// id is the sha1 of host + bport + pport
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
