@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-// Associate -- not yet implemented. See RFC 1928
+// associate -- not yet implemented. See RFC 1928
 func (s *Socks5) Associate(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 
 	// cap is just an estimation

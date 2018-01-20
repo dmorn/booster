@@ -12,11 +12,11 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
-// Connect performs the steps required to pair with a remote node.
+// connect performs the steps required to pair with a remote node.
 // laddr is the local booster address to dial with. raddr is the remote
 // node address that as to be registered.
 //
-// Returns the id of the connected node.
+// returns the id of the connected node.
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

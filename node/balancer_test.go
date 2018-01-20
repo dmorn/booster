@@ -10,7 +10,7 @@ func TestGetNodes(t *testing.T) {
 	b := node.NewBoosterDefault()
 	nodes := b.GetNodes()
 
-	// fisrt check that there are no nodes at the beginning
+	// first, check that there are no nodes at the beginning
 	if len(nodes) != 0 {
 		t.Fatalf("unexpected nodes list (wanted []): %v", nodes)
 	}

@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-// Bind -- not yet implemented. See RFC 1928
+// bind, not yet implemented. See RFC 1928
 func (s *Socks5) Bind(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
 
 	// cap is just an estimation
