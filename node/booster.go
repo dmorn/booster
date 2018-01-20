@@ -246,12 +246,21 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	wc := b.Proxy.Sub(socks5.TopicWorkload)
 
 	go func() {
+		defer func() {
+			b.Proxy.Unsub(wc, socks5.TopicWorkload)
+		}()
+
 		buf := make([]byte, 0, 4+20)
 		buf = append(buf, BoosterVersion1)
 		buf = append(buf, BoosterCMDStatus)
 		buf = append(buf, BoosterFieldReserved)
 		for i := range wc {
-			wm, _ := i.(socks5.WorkloadMessage)
+			wm, ok := i.(socks5.WorkloadMessage)
+			if !ok {
+				ec <- errors.New("booster: unable to recognise workload message")
+				return
+			}
+
 			buf = buf[:3]
 			buf = append(buf, byte(wm.Load))
 			buf = append(buf, sha1Hash([]byte(wm.Target))...)
@@ -260,8 +269,6 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
 			}
 		}
-
-		b.Proxy.Unsub(wc, socks5.TopicWorkload)
 	}()
 
 	select {
@@ -333,6 +340,8 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				_ = buf[2]     // reserved field
 				load := buf[3] // workload
 				target := fmt.Sprintf("%x", buf[3:]) // target
+
+				fmt.Printf("load: %v, target %v\n", load, target)
 
 				b.UpdateNode(node.ID(), int(load), target)
 				statusc <- nil
