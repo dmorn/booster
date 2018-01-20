@@ -261,6 +261,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 				return
 			}
 
+			fmt.Printf("serve load: %v, target %v\n", wm.Load, wm.Target)
 			buf = buf[:3]
 			buf = append(buf, byte(wm.Load))
 			buf = append(buf, sha1Hash([]byte(wm.Target))...)
@@ -341,7 +342,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				load := buf[3] // workload
 				target := fmt.Sprintf("%x", buf[3:]) // target
 
-				fmt.Printf("load: %v, target %v\n", load, target)
+				fmt.Printf("receive load: %v, target %v\n", int(load), target)
 
 				b.UpdateNode(node.ID(), int(load), target)
 				statusc <- nil
