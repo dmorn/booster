@@ -350,7 +350,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				_ = buf[1]     // command
 				_ = buf[2]     // reserved field
 				load := buf[3] // workload
-				target := fmt.Sprintf("%x", buf[3:]) // target
+				target := fmt.Sprintf("%x", buf[4:]) // target
 
 				b.UpdateNode(node.ID(), int(load), target)
 				statusc <- nil
