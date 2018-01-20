@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"errors"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -255,13 +254,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 			wm, _ := i.(socks5.WorkloadMessage)
 			buf = buf[:3]
 			buf = append(buf, byte(wm.Load))
-
-			idbuf, err := hex.DecodeString(wm.Target)
-			if err != nil {
-				ec <- errors.New("booster: unable to encode " + wm.Target + ": " + err.Error())
-				return
-			}
-			buf = append(buf, idbuf...)
+			buf = append(buf, sha1Hash([]byte(wm.Target))...)
 
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
