@@ -211,9 +211,9 @@ func (s *Socks5) Handle(conn net.Conn) error {
 	defer tconn.Close()
 
 	// start proxying
-	s.pushLoad()
+	s.pushLoad(target)
 	s.ProxyData(conn, tconn)
-	s.popLoad()
+	s.popLoad(target)
 
 	return nil
 }
@@ -414,20 +414,34 @@ func (s *Socks5) Port() int {
 	return s.port
 }
 
-func (s *Socks5) pushLoad() {
+type WorkloadMessage struct {
+	Load int
+	Target string
+}
+
+func (s *Socks5) pushLoad(event string) {
 	s.Lock()
 	s.workload++
-	s.Pub(s.workload, TopicWorkload)
+	s.pub(s.workload, event)
 	s.Unlock()
 }
 
-func (s *Socks5) popLoad() {
+func (s *Socks5) popLoad(event string) {
 	s.Lock()
 	s.workload--
 	// should never become negative
 	if s.workload < 0 {
 		s.workload = 0
 	}
-	s.Pub(s.workload, TopicWorkload)
+	s.pub(s.workload, event)
 	s.Unlock()
 }
+
+func (s *Socks5) pub(load int, target string) {
+	wm := &WorkloadMessage{
+		Load: load,
+		Target: target,
+	}
+	s.Pub(wm, TopicWorkload)
+}
+

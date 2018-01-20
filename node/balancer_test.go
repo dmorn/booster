@@ -48,8 +48,8 @@ func TestCloseNode(t *testing.T) {
 		t.Fatal("node should not be active")
 	}
 
-	if n1.LastOperation != node.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation, node.BoosterNodeClosed)
+	if n1.lastOperation.op != node.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.lastOperation.op, node.BoosterNodeClosed)
 	}
 
 	// now let's check if the node in the list was actually updated
@@ -58,8 +58,8 @@ func TestCloseNode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if n.LastOperation != node.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.LastOperation, node.BoosterNodeClosed)
+	if n.lastOperation.op != node.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.lastOperation.op, node.BoosterNodeClosed)
 	}
 }
 
@@ -94,7 +94,7 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatal("node not properly closed")
 	}
 
-	if n.LastOperation != node.BoosterNodeRemoved {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation, node.BoosterNodeRemoved)
+	if n.lastOperation.op != node.BoosterNodeRemoved {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.lastOperation.op, node.BoosterNodeRemoved)
 	}
 }

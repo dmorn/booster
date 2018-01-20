@@ -72,7 +72,7 @@ func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
 
 	// tr is the sum of the local workload and the remote node's workload.
 	// this is why we have to subtract the total remote workload to understand
-	// how is the load on this node.
+	// how the load on this node is.
 	if c.workload > (tr - twl) {
 		return nil, errors.New("booster balancer: use local proxy")
 	}
@@ -103,7 +103,7 @@ func (b *Balancer) GetNodes() []*RemoteNode {
 // UpdateNode updates the workload of a node. Returns error if no
 // node is found related to id. Publishes the updated node to the pubsub
 // with topic TopicRemoteNodes.
-func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
+func (b *Balancer) UpdateNode(id string, workload int, target string) (*RemoteNode, error) {
 	node, err := b.GetNode(id)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,8 @@ func (b *Balancer) UpdateNode(id string, workload int) (*RemoteNode, error) {
 
 	node.Lock()
 	node.workload = workload
-	node.LastOperation = BoosterNodeUpdated
+	node.lastOperation.op = BoosterNodeUpdated
+	node.lastOperation.id = sha1Hash([]byte(target))
 	node.Unlock()
 
 	b.Pub(node, TopicRemoteNodes)
@@ -130,7 +131,7 @@ func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 
 	b.Printf("balancer: adding node %v (%v)", node.ID(), net.JoinHostPort(node.Host, node.Pport))
 	node.Lock()
-	node.LastOperation = BoosterNodeAdded
+	node.lastOperation.op = BoosterNodeAdded
 	node.Unlock()
 	b.nodes[node.ID()] = node
 
@@ -147,7 +148,7 @@ func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
 	}
 
 	node.Lock()
-	lastOp := node.LastOperation
+	lastOp := node.lastOperation.op
 	node.Unlock()
 	if lastOp == BoosterNodeClosed {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already closed")
@@ -171,7 +172,7 @@ func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
 	}
 
 	node.Lock()
-	lastOp := node.LastOperation
+	lastOp := node.lastOperation.op
 	node.Unlock()
 	if lastOp == BoosterNodeRemoved {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already removed")
@@ -179,7 +180,7 @@ func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
 
 	b.Printf("balancer: removing node %v\n", id)
 	node.Lock()
-	node.LastOperation = BoosterNodeRemoved
+	node.lastOperation.op = BoosterNodeRemoved
 	node.Unlock()
 	delete(b.nodes, id)
 

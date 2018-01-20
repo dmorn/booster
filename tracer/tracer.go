@@ -163,3 +163,4 @@ func (t *Tracer) Close() {
 	t.setStatus(TrackerStatusStopped)
 	t.stopc <- struct{}{}
 }
+

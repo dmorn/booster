@@ -48,15 +48,21 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 	// keep track of local proxy usage
 	c := p.Sub(socks5.TopicWorkload)
 	go func() {
+		defer func() {
+			p.Unsub(c, socks5.TopicWorkload)
+		}()
+
 		for i := range c {
 			d.Lock()
-			wl := i.(int)
-			d.workload = wl
-			p.Printf("proxy: local workload: %v\n", wl)
+			wm, ok := i.(socks5.WorkloadMessage)
+			if !ok {
+				p.Printf("proxy: unable to recognise workload message")
+				return
+			}
+			d.workload = wm.Load
+			p.Printf("proxy: local workload: %v, event: %v\n", wm.Load, wm.Target)
 			d.Unlock()
 		}
-
-		p.Unsub(c, socks5.TopicWorkload)
 	}()
 
 	return p

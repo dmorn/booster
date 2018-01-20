@@ -3,6 +3,8 @@ package node
 import (
 	"context"
 	"errors"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -74,7 +76,7 @@ const (
 	TopicRemoteNodes = "topic_rn"
 )
 
-// Tracer is a wrapper around the basic Trace function.
+// Tracer is a wrapper around the basic Trace and Untrace functions.
 type Tracer interface {
 	Trace(p tracer.Pinger) error
 	Untrace(id string)
@@ -147,10 +149,13 @@ func (b *Booster) Start(pport, bport int) error {
 			raddr := net.JoinHostPort(rn.Host, rn.Bport)
 
 			if _, err := b.Connect(context.Background(), "tcp", laddr, raddr); err != nil {
+				// the node is up but we cannot open a proper Booster connection
+				// to it.
 				b.Print(err)
+				continue
 			}
 
-			// do not trace this node anymore
+			// do not trace this node anymore, as we managed to connect to it
 			b.Untrace(id)
 		}
 
@@ -242,14 +247,21 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	wc := b.Proxy.Sub(socks5.TopicWorkload)
 
 	go func() {
-		buf := make([]byte, 0, 4)
+		buf := make([]byte, 0, 4+20)
 		buf = append(buf, BoosterVersion1)
 		buf = append(buf, BoosterCMDStatus)
 		buf = append(buf, BoosterFieldReserved)
 		for i := range wc {
-			wl, _ := i.(int)
+			wm, _ := i.(socks5.WorkloadMessage)
 			buf = buf[:3]
-			buf = append(buf, byte(wl))
+			buf = append(buf, byte(wm.Load))
+
+			idbuf, err := hex.DecodeString(wm.Target)
+			if err != nil {
+				ec <- errors.New("booster: unable to encode " + wm.Target + ": " + err.Error())
+				return
+			}
+			buf = append(buf, idbuf...)
 
 			if _, err := conn.Write(buf); err != nil {
 				ec <- errors.New("booster: unable to write status: " + err.Error())
@@ -306,7 +318,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 			fail()
 		})
 
-		buf := make([]byte, 4)
+		buf := make([]byte, 4+20)
 		statusc := make(chan error)
 		demuxc := make(chan error)
 
@@ -327,8 +339,9 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				_ = buf[1]     // command
 				_ = buf[2]     // reserved field
 				load := buf[3] // workload
+				target := fmt.Sprintf("%x", buf[3:]) // target
 
-				b.UpdateNode(node.ID(), int(load))
+				b.UpdateNode(node.ID(), int(load), target)
 				statusc <- nil
 			}
 		}()
@@ -359,7 +372,6 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 			// Reset the timer if no errors occurred.
 			timer.Reset(b.RemoteNodeIdleTimeout)
 		}
-
 	}()
 
 	return nil

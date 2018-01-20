@@ -26,7 +26,32 @@ type RemoteNode struct {
 	cancel        context.CancelFunc // added when some goroutin is updating its workload.
 	IsActive      bool               // set to false when connection is nil
 	workload      int
-	LastOperation uint8 // last operation made on this node
+
+	lastOperation *operation // last operation made on this node
+}
+
+type operation struct {
+	id string // sha1 identifier
+	op uint8
+}
+
+// BoosterNodeAdded   = uint8(0)
+// BoosterNodeClosed  = uint8(1)
+// BoosterNodeUpdated = uint8(2)
+// BoosterNodeRemoved = uint8(3)
+func (o *operation) String() string {
+	switch o.op {
+	case BoosterNodeAdded:
+		return "added"
+	case BoosterNodeClosed:
+		return "closed"
+	case BoosterNodeRemoved:
+		return "removed"
+	case BoosterNodeUpdated:
+		return fmt.Sprintf("updated (%v)", o.id)
+	default:
+		return "unknown"
+	}
 }
 
 // NewRemoteNode create a new RemoteNode instance.
@@ -38,50 +63,24 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 	n.workload = 0
 
 	// id is the sha1 of host + bport + pport
-	h := sha1.New()
-	h.Write([]byte(host))
-	h.Write([]byte(bport))
-	h.Write([]byte(pport))
-	n.id = fmt.Sprintf("%x", h.Sum(nil))
+	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
 
 	return n
 }
 
-func (n *RemoteNode) String() string {
-	return net.JoinHostPort(n.Host, n.Bport)
-}
-
-func (n *RemoteNode) Network() string {
-	return "tcp"
-}
-
-func (n *RemoteNode) StringPretty() string {
+// Desc returns the description of the node in a multiline string.
+func (n *RemoteNode) Desc() string {
 	baddr := net.JoinHostPort(n.Host, n.Bport)
 	paddr := net.JoinHostPort(n.Host, n.Pport)
 	n.Lock()
 	wl := n.workload
+	op := n.lastOperation
 	n.Unlock()
 
-	return fmt.Sprintf("node (%v): booster @ %v, proxy @ %v, workload: %v, active: %v, lastOp: %v", n.ID(), baddr, paddr, wl, n.IsActive, n.LastOperation)
+	return fmt.Sprintf("[node (%v), b@ %v, p@ %v]: \nworkload: %v\nactive: %v\nlast operation: %v", n.ID(), baddr, paddr, wl, n.IsActive, op.String())
 }
 
-// Ping dials with the remote node with little timeout. Returns an error
-// if the endpoint is not reachable, nil otherwise.
-func (n *RemoteNode) Ping(ctx context.Context) error {
-	if n.IsActive {
-		return errors.New("connection already enstablished")
-	}
-
-	d := net.Dialer{
-		Timeout:   5 * time.Second,
-		KeepAlive: 0 * time.Second,
-	}
-	_, err := d.DialContext(ctx, n.Network(), n.String())
-
-	return err
-}
-
-// ID returns the id of the node.
+// ID returns the id of the node. Required by tracer.Pinger in this case.
 func (n *RemoteNode) ID() string {
 	return n.id
 }
@@ -95,7 +94,7 @@ func (n *RemoteNode) Close() error {
 		n.cancel = nil
 	}
 	n.IsActive = false
-	n.LastOperation = BoosterNodeClosed
+	n.lastOperation.op = BoosterNodeClosed
 
 	return nil
 }
@@ -130,6 +129,12 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	workload := int(buf[1])
 	lastOp := buf[2]
 
+	buf = buf[:20]
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return nil, errors.New("remote node: unable to decode last operation id: " + err.Error())
+	}
+	lastOpID := fmt.Sprintf("%x", buf)
+
 	return &RemoteNode{
 		id:            id,
 		Host:          host,
@@ -137,7 +142,10 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 		Bport:         bport,
 		IsActive:      int(isActive) != 0,
 		workload:      workload,
-		LastOperation: lastOp,
+		lastOperation: &operation{
+			id: lastOpID,
+			op: lastOp,
+		},
 	}, nil
 }
 
@@ -158,8 +166,13 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 	n.Lock()
 	load := n.workload
-	lastOp := n.LastOperation
+	lastOp := n.lastOperation.op
+	opidbuf, err := hex.DecodeString(n.lastOperation.id)
 	n.Unlock()
+	if err != nil {
+		return nil, errors.New("remote node: unable to encode lastop: " + err.Error())
+	}
+
 	if load > 0xff {
 		return nil, errors.New("remote node: load out of range: " + strconv.Itoa(load))
 	}
@@ -169,7 +182,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 		isActive = 1
 	}
 
-	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3)
+	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3+len(opidbuf))
 	buf = append(buf, idbuf...)
 	buf = append(buf, hbuf...)
 	buf = append(buf, ppbuf...)
@@ -177,6 +190,42 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 	buf = append(buf, byte(isActive))
 	buf = append(buf, byte(load))
 	buf = append(buf, byte(lastOp))
+	buf = append(buf, opidbuf...)
 
 	return buf, nil
+}
+
+// Ping dials with the remote node with little timeout. Returns an error
+// if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
+func (n *RemoteNode) Ping(ctx context.Context) error {
+	if n.IsActive {
+		return errors.New("connection already enstablished")
+	}
+
+	d := net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 0 * time.Second,
+	}
+	_, err := d.DialContext(ctx, n.Network(), n.String())
+
+	return err
+}
+
+// String is an implementation of net.Addr.
+func (n *RemoteNode) String() string {
+	return net.JoinHostPort(n.Host, n.Bport)
+}
+
+// Network is an implementation of net.Addr.
+func (n *RemoteNode) Network() string {
+	return "tcp"
+}
+
+func sha1Hash(images ...[]byte) string {
+	h := sha1.New()
+	for _, image := range images {
+		h.Write(image)
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
