@@ -58,6 +58,7 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 		node, err := NewNode("localhost", "1080", "4884")
 		if err != nil {
 			p.Printf("proxy: unable to create local node: " + err.Error())
+			return
 		}
 		d.localNode = node
 		d.localNode.IsActive = true
