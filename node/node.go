@@ -252,4 +252,3 @@ func sha1Hash(images ...[]byte) string {
 
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
-
