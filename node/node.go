@@ -99,6 +99,11 @@ func (n *Node) Close() error {
 	return nil
 }
 
+// LastOperation returns the last operation code of the node.
+func (n *Node) LastOperation() uint8 {
+	return n.lastOperation.op
+}
+
 // ReadNode reads from reader expecting it to contain a remote node.
 func ReadNode(r io.Reader) (*Node, error) {
 	buf := make([]byte, 20) // sha1 len
