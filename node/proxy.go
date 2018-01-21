@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"strconv"
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
@@ -55,7 +54,8 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 			p.Unsub(c, socks5.TopicWorkload)
 		}()
 
-		d.localNode = NewNode("localhost", strconv.Itoa(p.Port()), "4884") // TODO(daniel): booster port is hardcoded and not reliable!
+		// TODO(daniel): proxy and booster ports are to be substituted with the real values.
+		d.localNode = NewNode("localhost", "1080", "4884")
 		d.localNode.IsActive = true
 		for i := range c {
 			d.Lock()
