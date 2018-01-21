@@ -27,7 +27,7 @@ const (
 
 // Pinger wraps the basic Ping function.
 type Pinger interface {
-	net.Addr
+	Addr() net.Addr
 	Ping(ctx context.Context) error
 	ID() string
 }
@@ -82,7 +82,7 @@ func (t *Tracer) Run() error {
 			go func(c Pinger) {
 				if err := c.Ping(ctx); err == nil {
 					// this connection resolves to an active connection
-					t.Printf("tracer: found active connection @ %v (%v)", c.String(), c.ID())
+					t.Printf("tracer: found active connection @ %v (%v)", c.Addr().String(), c.ID())
 
 					if t.PubSub != nil {
 						t.Pub(c.ID(), TopicConnDiscovered)
@@ -123,7 +123,7 @@ func (t *Tracer) Run() error {
 
 // Trace makes the tracer keep track of the entity at addr.
 func (t *Tracer) Trace(p Pinger) error {
-	t.Printf("tracer: tracing connection @ %v (%v)", p.String(), p.ID())
+	t.Printf("tracer: tracing connection @ %v (%v)", p.Addr().String(), p.ID())
 	t.conns[p.ID()] = p
 	t.refresh()
 

@@ -3,7 +3,6 @@ package node
 import (
 	"errors"
 	"log"
-	"net"
 
 	"github.com/danielmorandini/booster-network/pubsub"
 )
@@ -123,7 +122,7 @@ func (b *Balancer) AddNode(node *Node) (*Node, error) {
 		b.RemoveNode(node.ID())
 	}
 
-	b.Printf("balancer: adding node %v (%v)", node.ID(), net.JoinHostPort(node.Host, node.Pport))
+	b.Printf("balancer: adding node (%v)", node.ID())
 	node.Lock()
 	node.lastOperation.op = BoosterNodeAdded
 	node.Unlock()

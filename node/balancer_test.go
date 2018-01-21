@@ -15,8 +15,8 @@ func TestGetNodes(t *testing.T) {
 		t.Fatalf("unexpected nodes list (wanted []): %v", nodes)
 	}
 
-	n1 := node.NewNode("host", "port1", "bport")
-	n2 := node.NewNode("host", "port2", "bport")
+	n1, _ := node.NewNode("localhost", "1111", "1111")
+	n2, _ := node.NewNode("localhost", "1112", "1112")
 
 	b.AddNode(n1)
 	b.AddNode(n2)
@@ -30,7 +30,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestCloseNode(t *testing.T) {
 	b := node.NewBoosterDefault()
-	n := node.NewNode("host", "port", "port")
+	n, _ := node.NewNode("localhost", "1111", "1111")
 	b.AddNode(n)
 
 	nodes := b.GetNodes()
@@ -65,7 +65,7 @@ func TestCloseNode(t *testing.T) {
 
 func TestRemoveNode(t *testing.T) {
 	b := node.NewBoosterDefault()
-	n := node.NewNode("host", "port", "port")
+	n, _ := node.NewNode("localhost", "1111", "1111")
 	b.AddNode(n)
 
 	nodes := b.GetNodes()

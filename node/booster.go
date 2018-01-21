@@ -146,7 +146,7 @@ func (b *Booster) Start(pport, bport int) error {
 			}
 
 			laddr := net.JoinHostPort("localhost", strconv.Itoa(bport))
-			raddr := net.JoinHostPort(rn.Host, rn.Bport)
+			raddr := rn.BAddr.String()
 
 			if _, err := b.Connect(context.Background(), "tcp", laddr, raddr); err != nil {
 				// the node is up but we cannot open a proper Booster connection

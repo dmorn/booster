@@ -55,7 +55,11 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 		}()
 
 		// TODO(daniel): proxy and booster ports are to be substituted with the real values.
-		d.localNode = NewNode("localhost", "1080", "4884")
+		node, err := NewNode("localhost", "1080", "4884")
+		if err != nil {
+			p.Printf("proxy: unable to create local node: " + err.Error())
+		}
+		d.localNode = node
 		d.localNode.IsActive = true
 		for i := range c {
 			d.Lock()
@@ -122,7 +126,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		return d.Fallback.DialContext(ctx, network, addr)
 	}
 
-	paddr := net.JoinHostPort(node.Host, node.Pport)
+	paddr := node.PAddr.String()
 	ec := make(chan error, 1)
 	cc := make(chan net.Conn, 1)
 

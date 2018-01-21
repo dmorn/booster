@@ -18,9 +18,8 @@ import (
 // Node represents a remote booster node.
 type Node struct {
 	id    string // sha1 string representation
-	Host  string
-	Pport string // Proxy port
-	Bport string // Booster port
+	BAddr net.Addr
+	PAddr net.Addr
 
 	sync.Mutex
 	cancel   context.CancelFunc // added when some goroutin is updating its workload.
@@ -51,22 +50,31 @@ func (o *operation) String() string {
 }
 
 // NewNode create a new Node instance.
-func NewNode(host, pport, bport string) *Node {
+func NewNode(host, pport, bport string) (*Node, error) {
 	n := new(Node)
-	n.Host = host
-	n.Pport = pport
-	n.Bport = bport
+	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
+	if err != nil {
+		return nil, errors.New("node: unable to create baddr: " + err.Error())
+	}
+	n.BAddr = baddr
+
+	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
+	if err != nil {
+		return nil, errors.New("node: unable to create paddr: " + err.Error())
+	}
+	n.PAddr = paddr
+
 	n.workload = 0
 	n.lastOperation = new(operation)
 
 	// id is the sha1 of host + bport + pport
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
 
-	return n
+	return n, nil
 }
 
 // Desc returns the description of the node in a multiline string.
-func (n *Node) Desc() string {
+func (n *Node) String() string {
 	n.Lock()
 	wl := n.workload
 	op := n.lastOperation
@@ -77,7 +85,10 @@ func (n *Node) Desc() string {
 		activeStr = "active"
 	}
 
-	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v, lastop: %v", n.ID(), n.Host, n.Bport, n.Pport, activeStr, wl, op.String())
+	host, bport, _ := net.SplitHostPort(n.BAddr.String())
+	_, pport, _ := net.SplitHostPort(n.PAddr.String())
+
+	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v, lastop: %v", n.ID(), host, bport, pport, activeStr, wl, op.String())
 }
 
 // ID returns the id of the node. Required by tracer.Pinger in this case.
@@ -104,30 +115,30 @@ func (n *Node) LastOperation() uint8 {
 	return n.lastOperation.op
 }
 
-// ReadNode reads from reader expecting it to contain a remote node.
+// ReadNode reads from reader expecting it to contain a node.
 func ReadNode(r io.Reader) (*Node, error) {
 	buf := make([]byte, 20) // sha1 len
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("remote node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
+		return nil, errors.New("node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
 	}
 
 	id := fmt.Sprintf("%x", buf)
 	host, err := socks5.ReadHost(r)
 	if err != nil {
-		return nil, errors.New("remote node: unable to decode host: " + err.Error())
+		return nil, errors.New("node: unable to decode host: " + err.Error())
 	}
 	pport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("remote node: unable to decode p port: " + err.Error())
+		return nil, errors.New("node: unable to decode p port: " + err.Error())
 	}
 	bport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("remote node: unable to decode b port: " + err.Error())
+		return nil, errors.New("node: unable to decode b port: " + err.Error())
 	}
 
 	buf = buf[:3]
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("remote node: unable to decode state: " + err.Error())
+		return nil, errors.New("node: unable to decode state: " + err.Error())
 	}
 
 	isActive := buf[0]
@@ -136,37 +147,45 @@ func ReadNode(r io.Reader) (*Node, error) {
 
 	buf = buf[:20]
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("remote node: unable to decode last operation id: " + err.Error())
+		return nil, errors.New("node: unable to decode last operation id: " + err.Error())
 	}
 	lastOpID := fmt.Sprintf("%x", buf)
 
-	return &Node{
-		id:       id,
-		Host:     host,
-		Pport:    pport,
-		Bport:    bport,
-		IsActive: int(isActive) != 0,
-		workload: workload,
-		lastOperation: &operation{
-			id: lastOpID,
-			op: lastOp,
-		},
-	}, nil
+	node, err := NewNode(host, pport, bport)
+	if err != nil {
+		return nil, err
+	}
+
+	node.id = id
+	node.IsActive = int(isActive) != 0
+	node.workload = workload
+	node.lastOperation = &operation{
+		id: lastOpID,
+		op: lastOp,
+	}
+
+	return node, nil
 }
 
-// EncodeBinary encodes the remote node into its binary
+// EncodeBinary encodes the node into its binary
 // representation.
 func (n *Node) EncodeBinary() ([]byte, error) {
 	if n == nil {
-		return nil, errors.New("remote node: trying to encode nil")
+		return nil, errors.New("node: trying to encode nil")
+	}
+
+	host, bport, err := net.SplitHostPort(n.BAddr.String())
+	_, pport, err := net.SplitHostPort(n.PAddr.String())
+	if err != nil {
+		return nil, errors.New("node: unable to split address: " + err.Error())
 	}
 
 	idbuf, err := hex.DecodeString(n.ID())
-	hbuf, err := socks5.EncodeHostBinary(n.Host)   // host buffer
-	ppbuf, err := socks5.EncodePortBinary(n.Pport) // proxy port buffer
-	bpbuf, err := socks5.EncodePortBinary(n.Bport) // booster port buffer
+	hbuf, err := socks5.EncodeHostBinary(host)   // host buffer
+	ppbuf, err := socks5.EncodePortBinary(pport) // proxy port buffer
+	bpbuf, err := socks5.EncodePortBinary(bport) // booster port buffer
 	if err != nil {
-		return nil, errors.New("remote node: unable to encode: " + err.Error())
+		return nil, errors.New("node: unable to encode: " + err.Error())
 	}
 
 	n.Lock()
@@ -184,7 +203,7 @@ func (n *Node) EncodeBinary() ([]byte, error) {
 	}
 
 	if load > 0xff {
-		return nil, errors.New("remote node: load out of range: " + strconv.Itoa(load))
+		return nil, errors.New("node: load out of range: " + strconv.Itoa(load))
 	}
 
 	isActive := 0
@@ -205,7 +224,7 @@ func (n *Node) EncodeBinary() ([]byte, error) {
 	return buf, nil
 }
 
-// Ping dials with the remote node with little timeout. Returns an error
+// Ping dials with the node with little timeout. Returns an error
 // if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
 func (n *Node) Ping(ctx context.Context) error {
 	if n.IsActive {
@@ -216,19 +235,13 @@ func (n *Node) Ping(ctx context.Context) error {
 		Timeout:   5 * time.Second,
 		KeepAlive: 0 * time.Second,
 	}
-	_, err := d.DialContext(ctx, n.Network(), n.String())
+	_, err := d.DialContext(ctx, n.BAddr.Network(), n.BAddr.String())
 
 	return err
 }
 
-// String is an implementation of net.Addr.
-func (n *Node) String() string {
-	return net.JoinHostPort(n.Host, n.Bport)
-}
-
-// Network is an implementation of net.Addr.
-func (n *Node) Network() string {
-	return "tcp"
+func (n *Node) Addr() net.Addr {
+	return n.BAddr
 }
 
 func sha1Hash(images ...[]byte) string {
@@ -239,3 +252,4 @@ func sha1Hash(images ...[]byte) string {
 
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
