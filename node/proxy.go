@@ -18,8 +18,10 @@ type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
 	// tr should be used to set a minimum treshold requirement.
-	GetNodeBalanced(tr int) (*RemoteNode, error)
-	CloseNode(id string) (*RemoteNode, error)
+	GetNodeBalanced(tr int) (*Node, error)
+
+	CloseNode(id string) (*Node, error)
+	UpdateNode(node *Node, workload int, target string) (*Node, error)
 }
 
 // Proxy is a SOCK5 server.
@@ -52,6 +54,8 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 			p.Unsub(c, socks5.TopicWorkload)
 		}()
 
+		d.localNode = NewNode("localhost", "1111", "1111")
+		d.localNode.IsActive = true
 		for i := range c {
 			d.Lock()
 			wm, ok := i.(socks5.WorkloadMessage)
@@ -60,7 +64,7 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 				return
 			}
 
-			d.workload = wm.Load
+			d.localNode, _ = balancer.UpdateNode(d.localNode, wm.Load, wm.ID)
 			d.Unlock()
 		}
 	}()
@@ -76,11 +80,11 @@ type Dialer struct {
 	Fallback FallbackDialer
 
 	sync.Mutex
-	// local proxy workload.
-	// Be careful that this value will be updated each time that the underlying
+	// local proxy node.
+	// Be careful that its workload will be updated each time that the underlying
 	// socks5 proxy is tunneling some data, so it is updated either when
 	// we directly dial with the remote host AND when we chain with other proxies.
-	workload int
+	localNode *Node
 }
 
 // FallbackDialer combines DialContext and Dial methods.
@@ -108,7 +112,7 @@ func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
 // the default net.Dialer.
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	d.Lock()
-	lwl := d.workload // local workload
+	lwl := d.localNode.workload // local proxy workload
 	d.Unlock()
 
 	node, err := d.GetNodeBalanced(lwl)

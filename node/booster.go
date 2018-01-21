@@ -71,9 +71,9 @@ const (
 )
 
 const (
-	// TopicRemoteNodes is the topic where the remote node updates
+	// TopicNodes is the topic where the remote node updates
 	// will be published. Use Sub with it to the the messages.
-	TopicRemoteNodes = "topic_rn"
+	TopicNodes = "topic_rn"
 )
 
 // Tracer is a wrapper around the basic Trace and Untrace functions.
@@ -93,7 +93,7 @@ type Booster struct {
 
 	Proxy *Proxy
 
-	RemoteNodeIdleTimeout time.Duration
+	NodeIdleTimeout time.Duration
 }
 
 // NewBooster returns a booster instance.
@@ -106,7 +106,7 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.Pu
 	b.PubSub = ps
 	b.Tracer = tr
 
-	b.RemoteNodeIdleTimeout = 60*5*time.Second // time before closing an idle remote node
+	b.NodeIdleTimeout = 60*5*time.Second // time before closing an idle remote node
 
 	return b
 }
@@ -299,8 +299,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 // signal is received, it closes the connection and sets the IsActive value
 // of the node to false.
 //
-// Publishes a TopicRemoteNodes message when a node is updated.
-func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.Conn) error {
+// Publishes a TopicNodes message when a node is updated.
+func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) error {
 	if conn == nil {
 		return errors.New("remote node: found nil connection. Unable to update node status")
 	}
@@ -324,8 +324,8 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 			b.Printf("booster: update status: deactivating remote node %v", node.ID())
 		}
 
-		// this function will be fired after RemoteNodeIdleTimeout
-		timer := time.AfterFunc(b.RemoteNodeIdleTimeout, func() {
+		// this function will be fired after NodeIdleTimeout
+		timer := time.AfterFunc(b.NodeIdleTimeout, func() {
 			fail()
 		})
 
@@ -352,7 +352,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 				load := buf[3] // workload
 				target := fmt.Sprintf("%x", buf[4:]) // target
 
-				b.UpdateNode(node.ID(), int(load), target)
+				b.UpdateNode(node, int(load), target)
 				statusc <- nil
 			}
 		}()
@@ -381,7 +381,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *RemoteNode, conn net.C
 			}
 
 			// Reset the timer if no errors occurred.
-			timer.Reset(b.RemoteNodeIdleTimeout)
+			timer.Reset(b.NodeIdleTimeout)
 		}
 	}()
 

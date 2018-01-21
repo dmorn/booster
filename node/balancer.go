@@ -9,7 +9,7 @@ import (
 )
 
 // Balancer is a LoadBalancer implementation. It manages nodes, providing
-// functionalities to store and manage a set of RemoteNodes. Uses PubSub
+// functionalities to store and manage a set of Nodes. Uses PubSub
 // as a notification mechanism to let others know which operations are
 // performed.
 // (check inspect.go for an example)
@@ -17,7 +17,7 @@ type Balancer struct {
 	*log.Logger
 	*pubsub.PubSub
 
-	nodes map[string]*RemoteNode
+	nodes map[string]*Node
 }
 
 // NewBalancer returns a new balancer instance.
@@ -25,7 +25,7 @@ func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
 	b := new(Balancer)
 	b.Logger = log
 	b.PubSub = ps
-	b.nodes = make(map[string]*RemoteNode)
+	b.nodes = make(map[string]*Node)
 
 	return b
 }
@@ -38,8 +38,8 @@ func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
 // Returns an error if no candidate is found, either because
 // none was provided or because no entry's workload was under
 // the treshold.
-func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
-	var c *RemoteNode // candidate entry
+func (b *Balancer) GetNodeBalanced(tr int) (*Node, error) {
+	var c *Node // candidate entry
 	var twl int       // total workload
 
 	for _, e := range b.nodes {
@@ -82,7 +82,7 @@ func (b *Balancer) GetNodeBalanced(tr int) (*RemoteNode, error) {
 
 // GetNode returns the node associated with id.
 // Returns an error if no node with this id is found.
-func (b *Balancer) GetNode(id string) (*RemoteNode, error) {
+func (b *Balancer) GetNode(id string) (*Node, error) {
 	if e, ok := b.nodes[id]; ok {
 		return e, nil
 	}
@@ -91,8 +91,8 @@ func (b *Balancer) GetNode(id string) (*RemoteNode, error) {
 }
 
 // GetNodes returns all stored nodes.
-func (b *Balancer) GetNodes() []*RemoteNode {
-	nodes := []*RemoteNode{}
+func (b *Balancer) GetNodes() []*Node {
+	nodes := []*Node{}
 	for _, val := range b.nodes {
 		nodes = append(nodes, val)
 	}
@@ -100,29 +100,23 @@ func (b *Balancer) GetNodes() []*RemoteNode {
 	return nodes
 }
 
-// UpdateNode updates the workload of a node. Returns error if no
-// node is found related to id. Publishes the updated node to the pubsub
-// with topic TopicRemoteNodes.
-func (b *Balancer) UpdateNode(id string, workload int, target string) (*RemoteNode, error) {
-	node, err := b.GetNode(id)
-	if err != nil {
-		return nil, err
-	}
-
+// UpdateNode updates the workload of a node. Publishes the updated node to the pubsub
+// with topic TopicNodes.
+func (b *Balancer) UpdateNode(node *Node, workload int, target string) (*Node, error) {
 	node.Lock()
 	node.workload = workload
 	node.lastOperation.op = BoosterNodeUpdated
 	node.lastOperation.id = target
 	node.Unlock()
 
-	b.Pub(node, TopicRemoteNodes)
+	b.Pub(node, TopicNodes)
 	return node, nil
 }
 
 // AddNode adds a new entry to the monitored nodes. If a node with the same
 // id is already present, it removes it. Publishes the updated node to the pubsub
-// with topic TopicRemoteNodes.
-func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
+// with topic TopicNodes.
+func (b *Balancer) AddNode(node *Node) (*Node, error) {
 	if _, ok := b.nodes[node.ID()]; ok {
 		// close, remove it and substitute
 		b.CloseNode(node.ID())
@@ -135,13 +129,13 @@ func (b *Balancer) AddNode(node *RemoteNode) (*RemoteNode, error) {
 	node.Unlock()
 	b.nodes[node.ID()] = node
 
-	b.Pub(node, TopicRemoteNodes)
+	b.Pub(node, TopicNodes)
 	return node, nil
 }
 
 // CloseNode calls Close on the node with id. Publishes the updated node to the pubsub
-// with topic TopicRemoteNodes.
-func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
+// with topic TopicNodes.
+func (b *Balancer) CloseNode(id string) (*Node, error) {
 	node, err := b.GetNode(id)
 	if err != nil {
 		return nil, err
@@ -157,15 +151,15 @@ func (b *Balancer) CloseNode(id string) (*RemoteNode, error) {
 	b.Printf("balancer: closing node %v\n", id)
 	node.Close()
 
-	b.Pub(node, TopicRemoteNodes)
+	b.Pub(node, TopicNodes)
 
 	return node, nil
 }
 
 // RemoveNode removes the entry labeled with id.
 // Returns false if no entry was found. Publishes the updated node to the pubsub
-// with topic TopicRemoteNodes.
-func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
+// with topic TopicNodes.
+func (b *Balancer) RemoveNode(id string) (*Node, error) {
 	node, err := b.GetNode(id)
 	if err != nil {
 		return nil, err
@@ -184,6 +178,6 @@ func (b *Balancer) RemoveNode(id string) (*RemoteNode, error) {
 	node.Unlock()
 	delete(b.nodes, id)
 
-	b.Pub(node, TopicRemoteNodes)
+	b.Pub(node, TopicNodes)
 	return node, nil
 }

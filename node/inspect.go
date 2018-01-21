@@ -8,9 +8,9 @@ import (
 )
 
 // InspectStream dials with the booster node, performs an "Inspect" procedure and,
-// if successfull, creates a stream of RemoteNode, which are remote nodes that are added
+// if successfull, creates a stream of Node, which are remote nodes that are added
 // or updated to the inspected node.
-func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *RemoteNode, errc chan error) error {
+func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *Node, errc chan error) error {
 	conn, err := b.DialContext(ctx, network, baddr)
 	if err != nil {
 		return errors.New("booster: unable to contact node: " + err.Error())
@@ -77,7 +77,7 @@ func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stre
 			}
 
 			// read the node
-			node, err := ReadRemoteNode(conn)
+			node, err := ReadNode(conn)
 			if err != nil {
 				c <- err
 				return
@@ -123,7 +123,7 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		_, _ = conn.Write([]byte{BoosterStreamStop})
 	}()
 
-	respWriter := func(n *RemoteNode, conn net.Conn) error {
+	respWriter := func(n *Node, conn net.Conn) error {
 		buf := make([]byte, 1)
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return errors.New("booster: unable to read stream step message: " + err.Error())
@@ -161,13 +161,13 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		}
 	}
 
-	stream := b.Sub(TopicRemoteNodes)
+	stream := b.Sub(TopicNodes)
 	defer func() {
-		b.Unsub(stream, TopicRemoteNodes)
+		b.Unsub(stream, TopicNodes)
 	}()
 
 	for i := range stream {
-		n := i.(*RemoteNode)
+		n := i.(*Node)
 
 		err := respWriter(n, conn)
 		if err != nil {

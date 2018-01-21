@@ -84,7 +84,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 		return errors.New("booster: unable to handle connect: " + err.Error())
 	}
 
-	rn := NewRemoteNode(host, pport, bport)
+	rn := NewNode(host, pport, bport)
 	if _, err := b.AddNode(rn); err != nil {
 		return err
 	}

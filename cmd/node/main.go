@@ -59,7 +59,7 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 			b := node.NewBoosterDefault()
 			ctx := context.Background()
-			stream := make(chan *node.RemoteNode)
+			stream := make(chan *node.Node)
 			errc := make(chan error)
 
 			err := b.InspectStream(ctx, "tcp", boosterAddr, stream, errc)

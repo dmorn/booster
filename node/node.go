@@ -15,8 +15,8 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
-// RemoteNode represents a remote booster node.
-type RemoteNode struct {
+// Node represents a remote booster node.
+type Node struct {
 	id    string // sha1 string representation
 	Host  string
 	Pport string // Proxy port
@@ -35,10 +35,6 @@ type operation struct {
 	op uint8
 }
 
-// BoosterNodeAdded   = uint8(0)
-// BoosterNodeClosed  = uint8(1)
-// BoosterNodeUpdated = uint8(2)
-// BoosterNodeRemoved = uint8(3)
 func (o *operation) String() string {
 	switch o.op {
 	case BoosterNodeAdded:
@@ -54,9 +50,9 @@ func (o *operation) String() string {
 	}
 }
 
-// NewRemoteNode create a new RemoteNode instance.
-func NewRemoteNode(host, pport, bport string) *RemoteNode {
-	n := new(RemoteNode)
+// NewNode create a new Node instance.
+func NewNode(host, pport, bport string) *Node {
+	n := new(Node)
 	n.Host = host
 	n.Pport = pport
 	n.Bport = bport
@@ -70,7 +66,7 @@ func NewRemoteNode(host, pport, bport string) *RemoteNode {
 }
 
 // Desc returns the description of the node in a multiline string.
-func (n *RemoteNode) Desc() string {
+func (n *Node) Desc() string {
 	n.Lock()
 	wl := n.workload
 	op := n.lastOperation
@@ -85,12 +81,12 @@ func (n *RemoteNode) Desc() string {
 }
 
 // ID returns the id of the node. Required by tracer.Pinger in this case.
-func (n *RemoteNode) ID() string {
+func (n *Node) ID() string {
 	return n.id
 }
 
 // Close calls the cancel function if present, then sets active state to false.
-func (n *RemoteNode) Close() error {
+func (n *Node) Close() error {
 	n.Lock()
 	defer n.Unlock()
 	if n.cancel != nil {
@@ -103,8 +99,8 @@ func (n *RemoteNode) Close() error {
 	return nil
 }
 
-// ReadRemoteNode reads from reader expecting it to contain a remote node.
-func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
+// ReadNode reads from reader expecting it to contain a remote node.
+func ReadNode(r io.Reader) (*Node, error) {
 	buf := make([]byte, 20) // sha1 len
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return nil, errors.New("remote node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
@@ -139,7 +135,7 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 	}
 	lastOpID := fmt.Sprintf("%x", buf)
 
-	return &RemoteNode{
+	return &Node{
 		id:            id,
 		Host:          host,
 		Pport:         pport,
@@ -155,7 +151,7 @@ func ReadRemoteNode(r io.Reader) (*RemoteNode, error) {
 
 // EncodeBinary encodes the remote node into its binary
 // representation.
-func (n *RemoteNode) EncodeBinary() ([]byte, error) {
+func (n *Node) EncodeBinary() ([]byte, error) {
 	if n == nil {
 		return nil, errors.New("remote node: trying to encode nil")
 	}
@@ -206,7 +202,7 @@ func (n *RemoteNode) EncodeBinary() ([]byte, error) {
 
 // Ping dials with the remote node with little timeout. Returns an error
 // if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
-func (n *RemoteNode) Ping(ctx context.Context) error {
+func (n *Node) Ping(ctx context.Context) error {
 	if n.IsActive {
 		return errors.New("connection already enstablished")
 	}
@@ -221,12 +217,12 @@ func (n *RemoteNode) Ping(ctx context.Context) error {
 }
 
 // String is an implementation of net.Addr.
-func (n *RemoteNode) String() string {
+func (n *Node) String() string {
 	return net.JoinHostPort(n.Host, n.Bport)
 }
 
 // Network is an implementation of net.Addr.
-func (n *RemoteNode) Network() string {
+func (n *Node) Network() string {
 	return "tcp"
 }
 

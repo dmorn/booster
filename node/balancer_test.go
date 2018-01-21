@@ -15,8 +15,8 @@ func TestGetNodes(t *testing.T) {
 		t.Fatalf("unexpected nodes list (wanted []): %v", nodes)
 	}
 
-	n1 := node.NewRemoteNode("host", "port1", "bport")
-	n2 := node.NewRemoteNode("host", "port2", "bport")
+	n1 := node.NewNode("host", "port1", "bport")
+	n2 := node.NewNode("host", "port2", "bport")
 
 	b.AddNode(n1)
 	b.AddNode(n2)
@@ -30,7 +30,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestCloseNode(t *testing.T) {
 	b := node.NewBoosterDefault()
-	n := node.NewRemoteNode("host", "port", "port")
+	n := node.NewNode("host", "port", "port")
 	b.AddNode(n)
 
 	nodes := b.GetNodes()
@@ -65,7 +65,7 @@ func TestCloseNode(t *testing.T) {
 
 func TestRemoveNode(t *testing.T) {
 	b := node.NewBoosterDefault()
-	n := node.NewRemoteNode("host", "port", "port")
+	n := node.NewNode("host", "port", "port")
 	b.AddNode(n)
 
 	nodes := b.GetNodes()
@@ -74,9 +74,9 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	stream := b.Sub(node.TopicRemoteNodes)
+	stream := b.Sub(node.TopicNodes)
 	defer func() {
-		b.Unsub(stream, node.TopicRemoteNodes)
+		b.Unsub(stream, node.TopicNodes)
 	}()
 
 	n, err := b.RemoveNode(n.ID())
@@ -85,7 +85,7 @@ func TestRemoveNode(t *testing.T) {
 	}
 
 	i := <-stream
-	n, ok := i.(*node.RemoteNode)
+	n, ok := i.(*node.Node)
 	if !ok {
 		t.Fatalf("unexpected value from stream: %v type %T", i, i)
 	}
