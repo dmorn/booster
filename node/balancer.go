@@ -40,7 +40,7 @@ func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
 // the treshold.
 func (b *Balancer) GetNodeBalanced(tr int) (*Node, error) {
 	var c *Node // candidate entry
-	var twl int       // total workload
+	var twl int // total workload
 
 	for _, e := range b.nodes {
 		// do not condider non active nodes

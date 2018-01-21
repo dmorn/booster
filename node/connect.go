@@ -111,4 +111,3 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 
 	return nil
 }
-

@@ -58,7 +58,7 @@ func TestPubSub(t *testing.T) {
 		if d != "fakedata" {
 			t.Fatalf("unexpected data: %v", d)
 		}
-	case <- time.After(time.Second * 1):
+	case <-time.After(time.Second * 1):
 		t.Fatal("cannot read from ch1")
 	}
 
@@ -67,7 +67,7 @@ func TestPubSub(t *testing.T) {
 		if d != "fakedata" {
 			t.Fatalf("unexpected data: %v", d)
 		}
-	case <- time.After(time.Second * 1):
+	case <-time.After(time.Second * 1):
 		t.Fatal("cannot read from ch2")
 	}
 
@@ -88,7 +88,7 @@ func TestPubSub(t *testing.T) {
 		if d != "fakedata" {
 			t.Fatalf("unexpected data: %v", d)
 		}
-	case <- time.After(time.Second * 1):
+	case <-time.After(time.Second * 1):
 		t.Fatal("cannot read from ch3")
 	}
 

@@ -418,7 +418,7 @@ func (s *Socks5) Port() int {
 
 type WorkloadMessage struct {
 	Load int
-	ID string
+	ID   string
 }
 
 func (s *Socks5) pushLoad(event string) {
@@ -444,7 +444,7 @@ func (s *Socks5) popLoad(event string) {
 func (s *Socks5) pub(load int, target string) {
 	wm := WorkloadMessage{
 		Load: load,
-		ID: sha1Hash([]byte(target)),
+		ID:   sha1Hash([]byte(target)),
 	}
 	s.Pub(wm, TopicWorkload)
 }

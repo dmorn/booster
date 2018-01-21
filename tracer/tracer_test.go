@@ -8,7 +8,6 @@ import (
 	"github.com/danielmorandini/booster-network/tracer"
 )
 
-
 type pg struct {
 	id         string
 	shouldFail bool
@@ -73,4 +72,3 @@ func TestTrace(t *testing.T) {
 		t.Fatalf("found wrong id: wanted %v, found %v", "fake", id)
 	}
 }
-

@@ -2,15 +2,15 @@ package node
 
 import (
 	"context"
-	"errors"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
-	"time"
 	"strconv"
+	"time"
 
 	"github.com/danielmorandini/booster-network/pubsub"
 	"github.com/danielmorandini/booster-network/socks5"
@@ -106,7 +106,7 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.Pu
 	b.PubSub = ps
 	b.Tracer = tr
 
-	b.NodeIdleTimeout = 60*5*time.Second // time before closing an idle remote node
+	b.NodeIdleTimeout = 60 * 5 * time.Second // time before closing an idle remote node
 
 	return b
 }
@@ -346,10 +346,10 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 					return
 				}
 
-				_ = buf[0]     // version - already checked in the hello procedure
-				_ = buf[1]     // command
-				_ = buf[2]     // reserved field
-				load := buf[3] // workload
+				_ = buf[0]                           // version - already checked in the hello procedure
+				_ = buf[1]                           // command
+				_ = buf[2]                           // reserved field
+				load := buf[3]                       // workload
 				target := fmt.Sprintf("%x", buf[4:]) // target
 
 				b.UpdateNode(node, int(load), target)
@@ -387,4 +387,3 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 
 	return nil
 }
-

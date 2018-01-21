@@ -23,9 +23,9 @@ type Node struct {
 	Bport string // Booster port
 
 	sync.Mutex
-	cancel        context.CancelFunc // added when some goroutin is updating its workload.
-	IsActive      bool               // set to false when connection is nil
-	workload      int
+	cancel   context.CancelFunc // added when some goroutin is updating its workload.
+	IsActive bool               // set to false when connection is nil
+	workload int
 
 	lastOperation *operation // last operation made on this node
 }
@@ -141,12 +141,12 @@ func ReadNode(r io.Reader) (*Node, error) {
 	lastOpID := fmt.Sprintf("%x", buf)
 
 	return &Node{
-		id:            id,
-		Host:          host,
-		Pport:         pport,
-		Bport:         bport,
-		IsActive:      int(isActive) != 0,
-		workload:      workload,
+		id:       id,
+		Host:     host,
+		Pport:    pport,
+		Bport:    bport,
+		IsActive: int(isActive) != 0,
+		workload: workload,
 		lastOperation: &operation{
 			id: lastOpID,
 			op: lastOp,
