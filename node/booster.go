@@ -125,8 +125,9 @@ func NewBoosterDefault() *Booster {
 // Start starts a booster node. It is made by a booster compliant tcp server
 // and a socks5 compliant tcp server.
 func (b *Booster) Start(pport, bport int) error {
-	c := make(chan error)
+	errc := make(chan error)
 
+	// goroutine responsible for adding new nodes when the tracer tells to do so.
 	go func() {
 		stream := b.Sub(tracer.TopicConnDiscovered)
 
@@ -162,15 +163,41 @@ func (b *Booster) Start(pport, bport int) error {
 		b.Unsub(stream, tracer.TopicConnDiscovered)
 	}()
 
+	// goroutine responsible for updating rootNode's information (i.e. local proxy usage and operations).
 	go func() {
-		c <- b.Proxy.ListenAndServe(pport)
+		c := b.Sub(socks5.TopicWorkload)
+		defer func() {
+			b.Unsub(c, socks5.TopicWorkload)
+		}()
+
+		rootNode, err := NewNode("localhost", strconv.Itoa(pport), strconv.Itoa(bport))
+		if err != nil {
+			errc <- errors.New("booster: unable to create local node: " + err.Error())
+			return
+		}
+		b.SetRootNode(rootNode)
+
+		for i := range c {
+			wm, ok := i.(socks5.WorkloadMessage)
+			if !ok {
+				b.Printf("proxy: unable to recognise workload message: %v", wm)
+				return
+			}
+
+			b.UpdateNode(rootNode, wm.Load, wm.ID)
+		}
+	}()
+
+
+	go func() {
+		errc <- b.Proxy.ListenAndServe(pport)
 	}()
 
 	go func() {
-		c <- b.ListenAndServe(bport)
+		errc <- b.ListenAndServe(bport)
 	}()
 
-	return <-c
+	return <-errc
 }
 
 // ListenAndServe listens and serves tcp connections.

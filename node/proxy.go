@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
@@ -18,7 +17,7 @@ type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
 	// tr should be used to set a minimum treshold requirement.
-	GetNodeBalanced(tr int) (*Node, error)
+	GetNodeBalanced() (*Node, error)
 
 	CloseNode(id string) (*Node, error)
 	UpdateNode(node *Node, workload int, target string) (*Node, error)
@@ -47,34 +46,6 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 	p := NewProxy(d, log)
 	d.Logger = log
 
-	// keep track of local proxy usage
-	c := p.Sub(socks5.TopicWorkload)
-	go func() {
-		defer func() {
-			p.Unsub(c, socks5.TopicWorkload)
-		}()
-
-		// TODO(daniel): proxy and booster ports are to be substituted with the real values.
-		node, err := NewNode("localhost", "1080", "4884")
-		if err != nil {
-			p.Printf("proxy: unable to create local node: " + err.Error())
-			return
-		}
-		d.localNode = node
-		d.localNode.IsActive = true
-		for i := range c {
-			d.Lock()
-			wm, ok := i.(socks5.WorkloadMessage)
-			if !ok {
-				p.Printf("proxy: unable to recognise workload message: %v", wm)
-				return
-			}
-
-			d.localNode, _ = balancer.UpdateNode(d.localNode, wm.Load, wm.ID)
-			d.Unlock()
-		}
-	}()
-
 	return p
 }
 
@@ -84,13 +55,6 @@ type Dialer struct {
 	Tracer
 	LoadBalancer
 	Fallback FallbackDialer
-
-	sync.Mutex
-	// local proxy node.
-	// Be careful that its workload will be updated each time that the underlying
-	// socks5 proxy is tunneling some data, so it is updated either when
-	// we directly dial with the remote host AND when we chain with other proxies.
-	localNode *Node
 }
 
 // FallbackDialer combines DialContext and Dial methods.
@@ -117,11 +81,7 @@ func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
 // address to chain the connection to. If none available, dials the connection using
 // the default net.Dialer.
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	d.Lock()
-	lwl := d.localNode.workload // local proxy workload
-	d.Unlock()
-
-	node, err := d.GetNodeBalanced(lwl)
+	node, err := d.GetNodeBalanced()
 	if err != nil {
 		d.Printf("dialer: dialing directly: %v", err)
 		return d.Fallback.DialContext(ctx, network, addr)

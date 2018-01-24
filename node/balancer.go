@@ -16,7 +16,10 @@ type Balancer struct {
 	*log.Logger
 	*pubsub.PubSub
 
-	nodes map[string]*Node
+	// rootNode is the root node of every other remote one. Its workload
+	// is the sum of the workloads of the nodes plus its own.
+	rootNode *Node
+	nodes    map[string]*Node
 }
 
 // NewBalancer returns a new balancer instance.
@@ -30,14 +33,20 @@ func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
 }
 
 // GetNodeBalanced collects the workload of its registered nodes,
-// and compares them to the tr workload, that represents the
-// workload that the remote node is supposed to "beat" in order
-// to be used next.
+// and compares them to the workload of the root node.
 //
 // Returns an error if no candidate is found, either because
 // none was provided or because no entry's workload was under
 // the treshold.
-func (b *Balancer) GetNodeBalanced(tr int) (*Node, error) {
+func (b *Balancer) GetNodeBalanced() (*Node, error) {
+	if b.rootNode == nil {
+		return nil, errors.New("balancer: found nil rootNode")
+	}
+
+	b.rootNode.Lock()
+	tr := b.rootNode.workload
+	b.rootNode.Unlock()
+
 	var c *Node // candidate entry
 	var twl int // total workload
 
@@ -66,17 +75,27 @@ func (b *Balancer) GetNodeBalanced(tr int) (*Node, error) {
 	}
 
 	if c == nil {
-		return nil, errors.New("booster balancer: no remote boosters connected")
+		return nil, errors.New("balancer: no remote boosters connected")
 	}
 
 	// tr is the sum of the local workload and the remote node's workload.
 	// this is why we have to subtract the total remote workload to understand
 	// how the load on this node is.
 	if c.workload > (tr - twl) {
-		return nil, errors.New("booster balancer: use local proxy")
+		return nil, errors.New("balancer: use root proxy")
 	}
 
 	return c, nil
+}
+
+// SetRootNode sets the rootNode of the balancer. Be careful that this value HAS to be set before using the
+// balancer.
+func (b *Balancer) SetRootNode(node *Node) {
+	node.Lock()
+	node.lastOperation.op = BoosterNodeAdded
+	node.Unlock()
+
+	b.rootNode = node
 }
 
 // GetNode returns the node associated with id.
@@ -92,6 +111,10 @@ func (b *Balancer) GetNode(id string) (*Node, error) {
 // GetNodes returns all stored nodes.
 func (b *Balancer) GetNodes() []*Node {
 	nodes := []*Node{}
+	if b.rootNode != nil {
+		nodes = append(nodes, b.rootNode)
+	}
+
 	for _, val := range b.nodes {
 		nodes = append(nodes, val)
 	}
