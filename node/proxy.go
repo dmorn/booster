@@ -67,7 +67,6 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 				return
 			}
 
-			p.Printf("booster: updating local node %v, %v", wm.Load, wm.ID)
 			balancer.UpdateNode(rootNode, wm.Load, wm.ID)
 		}
 	}()
