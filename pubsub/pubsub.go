@@ -37,6 +37,9 @@ func (ps *PubSub) Links(topic string) ([]chan interface{}, error) {
 // the messages will be sent to, which should not be closed. If doing so,
 // the channel will be removed from the list of subscribed channels.
 func (ps *PubSub) Sub(topic string) chan interface{} {
+	ps.Lock()
+	defer ps.Unlock()
+
 	hash := hash(topic)
 	m, err := ps.medium(topic)
 	if err != nil {
@@ -45,9 +48,7 @@ func (ps *PubSub) Sub(topic string) chan interface{} {
 			id:    hash,
 			topic: topic,
 		}
-		ps.Lock()
 		ps.registry[hash] = m
-		ps.Unlock()
 	}
 
 	if m.links == nil {
@@ -93,6 +94,9 @@ func (ps *PubSub) closeChanSafe(c chan interface{}) {
 
 // Close removes a topic and closes its related channels.
 func (ps *PubSub) Close(topic string) error {
+	ps.Lock()
+	defer ps.Unlock()
+
 	m, err := ps.medium(topic)
 	if err != nil {
 		return err
@@ -102,9 +106,7 @@ func (ps *PubSub) Close(topic string) error {
 		close(l)
 	}
 
-	ps.Lock()
 	delete(ps.registry, hash(topic))
-	ps.Unlock()
 
 	return nil
 }
@@ -113,6 +115,9 @@ func (ps *PubSub) Close(topic string) error {
 // Retuns an error if no such topic is present, unsubscribes
 // a channel if it is closed when sending to it. (i.e. causes a panic)
 func (ps *PubSub) Pub(message interface{}, topic string) error {
+	ps.Lock()
+	defer ps.Unlock()
+
 	m, err := ps.medium(topic)
 	if err != nil {
 		return err
@@ -144,10 +149,7 @@ func (ps *PubSub) broadcast(message interface{}, medium *medium) {
 
 func (ps *PubSub) medium(topic string) (*medium, error) {
 	hash := hash(topic)
-
-	ps.Lock()
 	m, ok := ps.registry[hash]
-	ps.Unlock()
 	if !ok {
 		return nil, errors.New("pubsub: topic " + topic + " not found")
 	}

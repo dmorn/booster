@@ -112,9 +112,23 @@ func TestUnsub(t *testing.T) {
 
 func TestMultiSub(t *testing.T) {
 	ps := pubsub.New()
-	ch1 := ps.Sub("t1")
-	ch2 := ps.Sub("t1")
 
+	var ch1 chan interface{}
+	var ch2 chan interface{}
+	wait := make(chan struct{}, 2)
+
+	go func() {
+		ch1 = ps.Sub("t1")
+		wait <- struct{}{}
+	}()
+
+	go func() {
+		ch2 = ps.Sub("t1")
+		wait <- struct{}{}
+	}()
+
+	<-wait
+	<-wait
 	ps.Pub("hi", "t1")
 
 	_, ok := <-ch1

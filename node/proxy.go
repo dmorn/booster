@@ -21,6 +21,7 @@ type LoadBalancer interface {
 
 	CloseNode(id string) (*Node, error)
 	UpdateNode(node *Node, workload int, target string) (*Node, error)
+	SetRootNode(node *Node)
 }
 
 // Proxy is a SOCK5 server.
@@ -45,6 +46,31 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log)
 	d.Logger = log
+
+	// TODO(daniel): Move this code into booster's Start method.
+	//
+	// goroutine responsible for updating rootNode's information (i.e. local proxy usage and operations).
+	go func() {
+		c := p.Sub(socks5.TopicWorkload)
+		defer func() {
+			p.Unsub(c, socks5.TopicWorkload)
+		}()
+
+		rootNode, _ := NewNode("localhost", "1080", "4884")
+		rootNode.IsActive = true
+		balancer.SetRootNode(rootNode)
+
+		for i := range c {
+			wm, ok := i.(socks5.WorkloadMessage)
+			if !ok {
+				p.Printf("proxy: unable to recognise workload message: %v", wm)
+				return
+			}
+
+			p.Printf("booster: updating local node %v, %v", wm.Load, wm.ID)
+			balancer.UpdateNode(rootNode, wm.Load, wm.ID)
+		}
+	}()
 
 	return p
 }
