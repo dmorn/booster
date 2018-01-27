@@ -117,7 +117,7 @@ func NewBoosterDefault() *Booster {
 	pubsub := pubsub.New()
 	tracer := tracer.New(log, pubsub)
 	balancer := NewBalancer(log, pubsub)
-	proxy := NewProxyBalancer(balancer, tracer)
+	proxy := NewProxyBalancer(balancer, tracer, pubsub)
 
 	return NewBooster(proxy, balancer, log, pubsub, tracer)
 }
@@ -126,15 +126,16 @@ func NewBoosterDefault() *Booster {
 // and a socks5 compliant tcp server.
 func (b *Booster) Start(pport, bport int) error {
 	errc := make(chan error)
+	tracerStream := b.Sub(tracer.TopicConnDiscovered)
+	wlStream := b.Sub(socks5.TopicWorkload)
 
 	// goroutine responsible for adding new nodes when the tracer tells to do so.
 	go func() {
-		stream := b.Sub(tracer.TopicConnDiscovered)
 		defer func(){
-			b.Unsub(stream, tracer.TopicConnDiscovered)
+			b.Unsub(tracerStream, tracer.TopicConnDiscovered)
 		}()
 
-		for i := range stream {
+		for i := range tracerStream {
 			id := i.(string)
 			rn, err := b.GetNode(id)
 			if err != nil {
@@ -164,34 +165,29 @@ func (b *Booster) Start(pport, bport int) error {
 		}
 	}()
 
-	// TODO(daniel): causing some sort of race condition in the pubsub. Unable to reproduce
-	// in tests.
-	//
-	// // goroutine responsible for updating rootNode's information (i.e. local proxy usage and operations).
-	// go func() {
-	// 	c := b.Sub(socks5.TopicWorkload)
-	// 	defer func() {
-	// 		b.Unsub(c, socks5.TopicWorkload)
-	// 	}()
+	// goroutine responsible for updating rootNode's information (i.e. local proxy usage and operations).
+	go func() {
+		defer func() {
+			b.Unsub(wlStream, socks5.TopicWorkload)
+		}()
 
-	// 	rootNode, err := NewNode("localhost", strconv.Itoa(pport), strconv.Itoa(bport))
-	// 	if err != nil {
-	// 		errc <- errors.New("booster: unable to create local node: " + err.Error())
-	// 		return
-	// 	}
-	// 	b.SetRootNode(rootNode)
+		rootNode, err := NewNode("localhost", strconv.Itoa(pport), strconv.Itoa(bport))
+		if err != nil {
+			errc <- errors.New("booster: unable to create local node: " + err.Error())
+			return
+		}
+		rootNode.IsActive = true
+		b.SetRootNode(rootNode)
 
-	// 	for i := range c {
-	// 		wm, ok := i.(socks5.WorkloadMessage)
-	// 		if !ok {
-	// 			b.Printf("proxy: unable to recognise workload message: %v", wm)
-	// 			return
-	// 		}
-
-	// 		b.Printf("booster: updating local node %v, %v", wm.Load, wm.ID)
-	// 		b.UpdateNode(rootNode, wm.Load, wm.ID)
-	// 	}
-	// }()
+		for i := range wlStream {
+			wm, ok := i.(socks5.WorkloadMessage)
+			if !ok {
+				b.Printf("proxy: unable to recognise workload message: %v", wm)
+				return
+			}
+			b.UpdateNode(rootNode, wm.Load, wm.ID)
+		}
+	}()
 
 	go func() {
 		errc <- b.Proxy.ListenAndServe(pport)
@@ -199,6 +195,16 @@ func (b *Booster) Start(pport, bport int) error {
 
 	go func() {
 		errc <- b.ListenAndServe(bport)
+	}()
+
+	defer func() {
+		defer func() {
+			// maybe one of the two channels was already closed.
+			recover()
+		}()
+
+		close(tracerStream)
+		close(wlStream)
 	}()
 
 	return <-errc

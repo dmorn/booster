@@ -110,6 +110,59 @@ func TestUnsub(t *testing.T) {
 	}
 }
 
+func TestMultiSub_concurrent(t *testing.T) {
+	ps := pubsub.New()
+
+	// these two messages shuold be ignored
+	ps.Pub("fake_data_t1", "t1")
+	ps.Pub("fake_data_t2", "t2")
+
+	var ch1 chan interface{}
+	var ch2 chan interface{}
+	wait := make(chan struct{}, 2)
+
+	go func() {
+		ch1 = ps.Sub("t1")
+		wait <- struct{}{}
+	}()
+
+	go func() {
+		ch2 = ps.Sub("t2")
+		wait <- struct{}{}
+	}()
+
+	<-wait
+	<-wait
+	ps.Pub("foo", "t1")
+	ps.Pub("bar", "t2")
+
+	select {
+	case d := <-ch1:
+		if d != "foo" {
+			t.Fatalf("unexpected data from ch1: %v", d)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("counld read from ch1")
+	}
+
+	select {
+	case d := <-ch2:
+		if d != "bar" {
+			t.Fatalf("unexpected data from ch2: %v", d)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("counld read from ch2")
+	}
+
+	if err := ps.Unsub(ch1, "t1"); err != nil {
+		t.Fatalf("unable to unsub ch1 from t1: %v", err)
+	}
+	if err := ps.Unsub(ch2, "t2"); err != nil {
+		t.Fatalf("unable to unsub ch1 from t2: %v", err)
+	}
+
+}
+
 func TestMultiSub(t *testing.T) {
 	ps := pubsub.New()
 

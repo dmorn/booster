@@ -103,13 +103,13 @@ type Socks5 struct {
 }
 
 // NewSOCKS5 returns a new Socks5 instance.
-func NewSOCKS5(dialer Dialer, log *log.Logger) *Socks5 {
+func NewSOCKS5(dialer Dialer, log *log.Logger, pubsub *pubsub.PubSub) *Socks5 {
 	s := new(Socks5)
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.ChunkSize = 4 * 1024
 	s.Dialer = dialer
 	s.Logger = log
-	s.PubSub = pubsub.New()
+	s.PubSub = pubsub
 
 	return s
 }
@@ -122,8 +122,9 @@ func SOCKS5() *Socks5 {
 		DualStack: true,
 	}
 	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
+	ps := pubsub.New()
 
-	return NewSOCKS5(d, log)
+	return NewSOCKS5(d, log, ps)
 }
 
 // ListenAndServe accepts and handles TCP connections
@@ -416,6 +417,8 @@ func (s *Socks5) Port() int {
 	return s.port
 }
 
+// WorkloadMessage contains a workload value and an ID, usually the hash of
+// a canonical address.
 type WorkloadMessage struct {
 	Load int
 	ID   string
@@ -446,7 +449,10 @@ func (s *Socks5) pub(load int, target string) {
 		Load: load,
 		ID:   sha1Hash([]byte(target)),
 	}
-	s.Pub(wm, TopicWorkload)
+
+	if err := s.Pub(wm, TopicWorkload); err != nil {
+		s.Printf("socks5: unable to publish message: %v", err)
+	}
 }
 
 func sha1Hash(images ...[]byte) string {

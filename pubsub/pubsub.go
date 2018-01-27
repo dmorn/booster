@@ -41,6 +41,8 @@ func (ps *PubSub) Sub(topic string) chan interface{} {
 	defer ps.Unlock()
 
 	hash := hash(topic)
+	l := make(chan interface{})
+
 	m, err := ps.medium(topic)
 	if err != nil {
 		m = &medium{
@@ -48,15 +50,14 @@ func (ps *PubSub) Sub(topic string) chan interface{} {
 			id:    hash,
 			topic: topic,
 		}
-		ps.registry[hash] = m
 	}
 
 	if m.links == nil {
 		m.links = []chan interface{}{}
 	}
 
-	l := make(chan interface{})
 	m.links = append(m.links, l)
+	ps.registry[hash] = m
 
 	return l
 }

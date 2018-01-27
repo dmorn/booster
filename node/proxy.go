@@ -9,19 +9,16 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster-network/pubsub"
 	"golang.org/x/net/proxy"
 )
 
-// LoadBalancer is a wrapper around the GetNodeBalanced function.
+// LoadBalancer is a wrapper around the GetNodeBalanced and CloseNode functions.
 type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
-	// tr should be used to set a minimum treshold requirement.
 	GetNodeBalanced() (*Node, error)
-
 	CloseNode(id string) (*Node, error)
-	UpdateNode(node *Node, workload int, target string) (*Node, error)
-	SetRootNode(node *Node)
 }
 
 // Proxy is a SOCK5 server.
@@ -30,9 +27,9 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy instance.
-func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
+func NewProxy(dialer socks5.Dialer, log *log.Logger, ps *pubsub.PubSub) *Proxy {
 	p := new(Proxy)
-	p.Socks5 = socks5.NewSOCKS5(dialer, log)
+	p.Socks5 = socks5.NewSOCKS5(dialer, log, ps)
 
 	return p
 }
@@ -41,35 +38,11 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer, tracer Tracer) *Proxy {
+func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps *pubsub.PubSub) *Proxy {
 	d := NewDialer(balancer, tracer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
-	p := NewProxy(d, log)
+	p := NewProxy(d, log, ps)
 	d.Logger = log
-
-	// TODO(daniel): Move this code into booster's Start method.
-	//
-	// goroutine responsible for updating rootNode's information (i.e. local proxy usage and operations).
-	go func() {
-		c := p.Sub(socks5.TopicWorkload)
-		defer func() {
-			p.Unsub(c, socks5.TopicWorkload)
-		}()
-
-		rootNode, _ := NewNode("localhost", "1080", "4884")
-		rootNode.IsActive = true
-		balancer.SetRootNode(rootNode)
-
-		for i := range c {
-			wm, ok := i.(socks5.WorkloadMessage)
-			if !ok {
-				p.Printf("proxy: unable to recognise workload message: %v", wm)
-				return
-			}
-
-			balancer.UpdateNode(rootNode, wm.Load, wm.ID)
-		}
-	}()
 
 	return p
 }
