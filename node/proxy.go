@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
-	"github.com/danielmorandini/booster-network/pubsub"
 	"golang.org/x/net/proxy"
 )
 
@@ -27,7 +26,7 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy instance.
-func NewProxy(dialer socks5.Dialer, log *log.Logger, ps *pubsub.PubSub) *Proxy {
+func NewProxy(dialer socks5.Dialer, log *log.Logger, ps PubSub) *Proxy {
 	p := new(Proxy)
 	p.Socks5 = socks5.NewSOCKS5(dialer, log, ps)
 
@@ -38,7 +37,7 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger, ps *pubsub.PubSub) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps *pubsub.PubSub) *Proxy {
+func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps PubSub) *Proxy {
 	d := NewDialer(balancer, tracer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log, ps)

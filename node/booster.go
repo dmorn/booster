@@ -82,13 +82,20 @@ type Tracer interface {
 	Untrace(id string)
 }
 
+// PubSub describes the required functionalities of a publication/subscription object.
+type PubSub interface {
+	Sub(topic string) chan interface{}
+	Unsub(c chan interface{}, topic string) error
+	Pub(message interface{}, topic string) error
+}
+
 // Booster is capable of handling tcp connections that follow booster-network
 // protocol. It can be initialized with a custom logger and load balancer.
 type Booster struct {
 	*log.Logger
 	socks5.Dialer
 	*Balancer
-	*pubsub.PubSub
+	PubSub
 	Tracer
 
 	Proxy *Proxy
@@ -97,7 +104,7 @@ type Booster struct {
 }
 
 // NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps *pubsub.PubSub, tr Tracer) *Booster {
+func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps PubSub, tr Tracer) *Booster {
 	b := new(Booster)
 	b.Proxy = proxy
 	b.Balancer = balancer

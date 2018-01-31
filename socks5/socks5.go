@@ -85,10 +85,17 @@ type Dialer interface {
 	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
+// PubSub describes the required functionalities of a publication/subscription object.
+type PubSub interface {
+	Sub(topic string) chan interface{}
+	Unsub(c chan interface{}, topic string) error
+	Pub(message interface{}, topic string) error
+}
+
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
 	*log.Logger
-	*pubsub.PubSub
+	PubSub
 
 	// Dialer is used when connecting to a remote host. Could
 	// be useful when chaining multiple proxies.
@@ -103,7 +110,7 @@ type Socks5 struct {
 }
 
 // NewSOCKS5 returns a new Socks5 instance.
-func NewSOCKS5(dialer Dialer, log *log.Logger, pubsub *pubsub.PubSub) *Socks5 {
+func NewSOCKS5(dialer Dialer, log *log.Logger, pubsub PubSub) *Socks5 {
 	s := new(Socks5)
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.ChunkSize = 4 * 1024
