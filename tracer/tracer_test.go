@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"net"
 
 	"github.com/danielmorandini/booster-network/tracer"
 )
@@ -13,11 +14,18 @@ type pg struct {
 	shouldFail bool
 }
 
-func (p *pg) String() string {
+type addr struct {
+}
+
+func (p *pg) Addr() net.Addr {
+	return new(addr)
+}
+
+func (a *addr) String() string {
 	return "host:port"
 }
 
-func (p *pg) Network() string {
+func (a *addr) Network() string {
 	return "tcp"
 }
 
@@ -35,8 +43,8 @@ func (p *pg) Ping(ctx context.Context) error {
 
 func TestRun(t *testing.T) {
 	tr := tracer.NewDefault()
-	if tr.Status() != tracer.TrackerStatusRunning {
-		t.Fatalf("unexpected tracer status: found %v, expected %v", tr.Status(), tracer.TrackerStatusRunning)
+	if tr.Status() != tracer.StatusRunning {
+		t.Fatalf("unexpected tracer status: found %v, expected %v", tr.Status(), tracer.StatusRunning)
 	}
 
 	if err := tr.Run(); err == nil {
@@ -44,8 +52,8 @@ func TestRun(t *testing.T) {
 	}
 
 	tr.Close()
-	if tr.Status() != tracer.TrackerStatusStopped {
-		t.Fatalf("unexpected tracer status: found %v, expected %v", tr.Status(), tracer.TrackerStatusStopped)
+	if tr.Status() != tracer.StatusStopped {
+		t.Fatalf("unexpected tracer status: found %v, expected %v", tr.Status(), tracer.StatusStopped)
 	}
 }
 
@@ -63,12 +71,12 @@ func TestTrace(t *testing.T) {
 	}()
 
 	i := <-stream
-	id, ok := i.(string)
+	m, ok := i.(tracer.Message)
 	if !ok {
 		t.Fatalf("wrong trace data found: %v", i)
 	}
 
-	if id != "fake" {
-		t.Fatalf("found wrong id: wanted %v, found %v", "fake", id)
+	if m.ID != "fake" {
+		t.Fatalf("found wrong id: wanted %v, found %v", "fake", m.ID)
 	}
 }

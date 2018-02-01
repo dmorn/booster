@@ -21,8 +21,14 @@ const (
 
 // Possible Tracer status value.
 const (
-	TrackerStatusRunning = iota
-	TrackerStatusStopped
+	StatusRunning = iota
+	StatusStopped
+)
+
+// Possible connection states.
+const (
+	ConnOnline = iota
+	ConnOffline
 )
 
 // Pinger wraps the basic Ping function.
@@ -32,9 +38,16 @@ type Pinger interface {
 	ID() string
 }
 
+// PubSub describes the required functionalities of a publication/subscription object.
+type PubSub interface {
+	Sub(topic string) chan interface{}
+	Unsub(c chan interface{}, topic string) error
+	Pub(message interface{}, topic string) error
+}
+
 // Tracer can monitor remote interfaces until they're up.
 type Tracer struct {
-	*pubsub.PubSub
+	PubSub
 	*log.Logger
 
 	refreshc chan struct{}
@@ -45,15 +58,19 @@ type Tracer struct {
 	status int
 }
 
+type Message struct {
+	ID string
+	Err error
+}
 // New returns a new instance of Tracer. Calls Run before returning.
-func New(lg *log.Logger, ps *pubsub.PubSub) *Tracer {
+func New(lg *log.Logger, ps PubSub) *Tracer {
 	t := &Tracer{
 		Logger:   lg,
 		PubSub:   ps,
 		conns:    make(map[string]Pinger),
 		refreshc: make(chan struct{}),
 		stopc:    make(chan struct{}),
-		status:   TrackerStatusStopped,
+		status:   StatusStopped,
 	}
 	t.Run()
 
@@ -70,23 +87,21 @@ func NewDefault() *Tracer {
 // on each connection that is labeled with pending.
 // Quits immediately when Close is called, runs in its own gorountine.
 func (t *Tracer) Run() error {
-	if t.Status() == TrackerStatusRunning {
+	if t.Status() == StatusRunning {
 		return errors.New("tracer: already running")
 	}
-	t.setStatus(TrackerStatusRunning)
+	t.setStatus(StatusRunning)
 
 	ping := func() context.CancelFunc {
 		ctx, cancel := context.WithCancel(context.Background())
 
 		for _, c := range t.conns {
 			go func(c Pinger) {
-				if err := c.Ping(ctx); err == nil {
-					// this connection resolves to an active connection
-					t.Printf("tracer: found active connection @ %v (%v)", c.Addr().String(), c.ID())
+				err := c.Ping(ctx)
+				m := Message{ID: c.ID(), Err: err}
 
-					if t.PubSub != nil {
-						t.Pub(c.ID(), TopicConnDiscovered)
-					}
+				if t.PubSub != nil {
+					t.Pub(m, TopicConnDiscovered)
 				}
 			}(c)
 		}
@@ -112,7 +127,7 @@ func (t *Tracer) Run() error {
 					cancel()
 				}
 				return
-			case <-time.After(15 * time.Second):
+			case <-time.After(2 * time.Second):
 				refresh()
 			}
 		}
@@ -160,6 +175,6 @@ func (t *Tracer) refresh() {
 // Close makes the tracer pass from status running to status stopped.
 func (t *Tracer) Close() {
 	t.Printf("tracer: stopping.")
-	t.setStatus(TrackerStatusStopped)
+	t.setStatus(StatusStopped)
 	t.stopc <- struct{}{}
 }

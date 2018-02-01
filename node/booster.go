@@ -29,6 +29,7 @@ const (
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
 	BoosterCMDInspect    = uint8(5)
+	BoosterCMDHeartbit   = uint8(6)
 )
 
 // Possible stream instructions
@@ -143,17 +144,26 @@ func (b *Booster) Start(pport, bport int) error {
 		}()
 
 		for i := range tracerStream {
-			id := i.(string)
-			rn, err := b.GetNode(id)
-			if err != nil {
-				b.Printf("booster: found unresolved id from tracer: %v", err)
-				b.Untrace(id)
+			m, ok := i.(tracer.Message)
+			if !ok {
+				b.Printf("booster: unable to recognise tracer message %v", m)
+				return
+			}
+
+			// means that the device is still offline.
+			if m.Err != nil {
 				continue
 			}
 
-			// do not reactivate a node that is already doing its job
+			rn, err := b.GetNode(m.ID)
+			if err != nil {
+				b.Printf("booster: found unresolved id from tracer: %v", err)
+				b.Untrace(m.ID)
+				continue
+			}
+
+			// do not do anything if the node is already running.
 			if rn.IsActive {
-				b.Untrace(id)
 				continue
 			}
 
@@ -167,8 +177,8 @@ func (b *Booster) Start(pport, bport int) error {
 				continue
 			}
 
-			// do not trace this node anymore, as we managed to connect to it
-			b.Untrace(id)
+			// do not trace this node anymore, as we managed to connect to it.
+			b.Untrace(m.ID)
 		}
 	}()
 
@@ -290,6 +300,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	ec := make(chan error)
 	wc := b.Proxy.Sub(socks5.TopicWorkload)
 
+	// send status messages.
 	go func() {
 		defer func() {
 			b.Proxy.Unsub(wc, socks5.TopicWorkload)
@@ -326,6 +337,20 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 		}
 	}()
 
+	// read heartbit messages.
+	go func() {
+		buf := make([]byte, 2)
+		for {
+			if _, err := io.ReadFull(conn, buf); err != nil {
+				ec <- errors.New("booster: unable to read heartbit message: " + err.Error())
+				return
+			}
+
+			_ = buf[0] // version
+			_ = buf[1] // cmd
+		}
+	}()
+
 	select {
 	case <-ctx.Done():
 		b.Proxy.Unsub(wc, socks5.TopicWorkload)
@@ -336,8 +361,9 @@ func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	}
 }
 
-// UpdateStatus expects conn to produce booster status messages. It then
-// uses that data to update the workload's value of the node.
+// UpdateStatus expects conn to produce booster status messages and produces
+// itself heartbit messages, which must be consumed by the connected node. It then
+// uses the data received to update the workload's value of the node.
 //
 // If the connection is closed, the data is somehow corrupted or a cancel
 // signal is received, it closes the connection and sets the IsActive value
@@ -398,6 +424,21 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 
 				b.UpdateNode(node, int(load), target)
 				statusc <- nil
+			}
+		}()
+
+		// send heartbit messages to check if the connection is still alive.
+		go func() {
+			buf := make([]byte, 0, 2)
+			buf = append(buf, BoosterVersion1)
+			buf = append(buf, BoosterCMDHeartbit)
+
+			for {
+				<-time.After(2 * time.Second)
+				if _, err := conn.Write(buf); err != nil {
+					statusc <- err
+					return
+				}
 			}
 		}()
 
