@@ -381,7 +381,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 	node.Unlock()
 
 	go func() {
-		fail := func() {
+		fail := func(err error) {
 			conn.Close() // be sure that the connection gets closed.
 
 			// Do not fail multiple times.
@@ -391,12 +391,12 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 
 			b.CloseNode(node.ID())
 			b.Trace(node)
-			b.Printf("booster: update status: deactivating remote node %v", node.ID())
+			b.Printf("booster: update status: deactivating remote node %v: %v", node.ID(), err)
 		}
 
 		// this function will be fired after NodeIdleTimeout
 		timer := time.AfterFunc(b.NodeIdleTimeout, func() {
-			fail()
+			fail(errors.New("node flagged as idle"))
 		})
 
 		buf := make([]byte, 4+20)
@@ -427,18 +427,22 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 			}
 		}()
 
-		// send heartbit messages to check if the connection is still alive.
+		// send heartbit messages to check if the connection is still alive. Fails if
+		// it's not able to send messages after two seconds.
 		go func() {
 			buf := make([]byte, 0, 2)
 			buf = append(buf, BoosterVersion1)
 			buf = append(buf, BoosterCMDHeartbit)
 
 			for {
-				<-time.After(2 * time.Second)
+				// Write fails after 2 seconds.
+				conn.SetWriteDeadline(time.Now().Add(2*time.Second))
 				if _, err := conn.Write(buf); err != nil {
-					statusc <- err
+					statusc <- errors.New("unable to send heartbit message: " + err.Error())
 					return
 				}
+
+				<- time.After(2*time.Second) // Wait 2 seconds before sending another message.
 			}
 		}()
 
@@ -461,7 +465,7 @@ func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) e
 		// read demultiplexed messages and act accordingly.
 		for err := range demuxc {
 			if err != nil {
-				fail()
+				fail(err)
 				return
 			}
 
