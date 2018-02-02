@@ -55,7 +55,7 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 	go func() {
 		buf := make([]byte, 0, 3)
 		buf = append(buf, BoosterVersion1)
-		buf = append(buf, BoosterCMDHeartbit)
+		buf = append(buf, BoosterCMDHeartbeat)
 		buf = append(buf, BoosterFieldReserved)
 
 		if _, err := conn.Write(buf); err != nil {
