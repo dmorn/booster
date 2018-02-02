@@ -11,17 +11,18 @@ import (
 
 // Hello dials with the remote address, expecting it to be a booster server.
 // Right after having enstablished the connection, it performs a "Hello" request.
+//
 // If the response is successfull, it reads the remote proxy address from the response
-// and returns it, together with the connection used to communicate with
-// the remote node.
-func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, string, error) {
+// and returns it.
+func (b *Booster) Hello(ctx context.Context, network, addr string) (string, error) {
 	_ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	conn, err := b.DialContext(_ctx, network, addr)
 	if err != nil {
-		return nil, "", errors.New("booster: unable to contact remote instance: " + err.Error())
+		return "", errors.New("booster: unable to contact remote instance: " + err.Error())
 	}
+	defer conn.Close()
 
 	buf := make([]byte, 0, 3)
 	buf = append(buf, BoosterVersion1)
@@ -29,17 +30,17 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, st
 	buf = append(buf, BoosterFieldReserved)
 
 	if _, err := conn.Write(buf); err != nil {
-		return nil, "", errors.New("booster: unable to perform hello request: " + err.Error())
+		return "", errors.New("booster: unable to perform hello request: " + err.Error())
 	}
 
 	buf = make([]byte, 6)
 	if _, err := io.ReadFull(conn, buf); err != nil {
-		return nil, "", errors.New("booster: unable read hello response: " + err.Error())
+		return "", errors.New("booster: unable read hello response: " + err.Error())
 	}
 
 	v := buf[0] // version
 	if v != BoosterVersion1 {
-		return nil, "", errors.New("booster: unsupported version " + strconv.Itoa(int(v)))
+		return "", errors.New("booster: unsupported version " + strconv.Itoa(int(v)))
 	}
 
 	_ = buf[1]                           // cmd
@@ -48,17 +49,17 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (net.Conn, st
 	port := int(buf[4])<<8 | int(buf[5]) // proxy listening port
 
 	if resp != BoosterRespSuccess {
-		return nil, "", errors.New("booster: remote instance refused hello request")
+		return "", errors.New("booster: remote instance refused hello request")
 	}
 
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, "", errors.New("booster: " + err.Error())
+		return "", errors.New("booster: " + err.Error())
 	}
 
 	paddr := net.JoinHostPort(host, strconv.Itoa(port))
 
-	return conn, paddr, nil
+	return paddr, nil
 }
 
 func (b *Booster) handleHello(conn net.Conn) error {
@@ -79,3 +80,4 @@ func (b *Booster) handleHello(conn net.Conn) error {
 
 	return nil
 }
+

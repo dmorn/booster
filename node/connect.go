@@ -64,41 +64,37 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	return id, nil
 }
 
-func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
+func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) (*Node, error) {
 	addr, err := socks5.ReadAddress(conn)
 	if err != nil {
-		return errors.New("booster: " + err.Error())
+		return nil, errors.New("booster: " + err.Error())
 	}
 
-	bconn, paddr, err := b.Hello(ctx, "tcp", addr)
+	paddr, err := b.Hello(ctx, "tcp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	host, bport, err := net.SplitHostPort(addr)
 	if err != nil {
-		return errors.New("booster: unable to handle connect: " + err.Error())
+		return nil, errors.New("booster: unable to handle connect: " + err.Error())
 	}
 	_, pport, err := net.SplitHostPort(paddr)
 	if err != nil {
-		return errors.New("booster: unable to handle connect: " + err.Error())
+		return nil, errors.New("booster: unable to handle connect: " + err.Error())
 	}
 
 	rn, err := NewNode(host, pport, bport)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := b.AddNode(rn); err != nil {
-		return err
+		return nil, err
 	}
 
 	bid, err := hex.DecodeString(rn.ID())
 	if err != nil {
-		return errors.New("booster: " + err.Error())
-	}
-
-	if err := b.UpdateStatus(context.Background(), rn, bconn); err != nil {
-		b.Printf("booster: connect: unable to update node: %v", err)
+		return nil, errors.New("booster: " + err.Error())
 	}
 
 	buf := make([]byte, 0, len(bid)+4)
@@ -109,8 +105,8 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) error {
 	buf = append(buf, bid...)
 
 	if _, err := conn.Write(buf); err != nil {
-		return errors.New("booster: unable to write connect response: " + err.Error())
+		return nil, errors.New("booster: unable to write connect response: " + err.Error())
 	}
 
-	return nil
+	return rn, nil
 }

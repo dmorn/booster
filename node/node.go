@@ -22,8 +22,8 @@ type Node struct {
 	PAddr net.Addr
 
 	sync.Mutex
-	cancel   context.CancelFunc // added when some goroutin is updating its workload.
-	IsActive bool               // set to false when connection is nil
+	cancel   context.CancelFunc // added when some goroutine is updating its workload.
+	IsActive bool               // tells wether the node is updating its status or not
 	workload int
 
 	lastOperation *operation // last operation made on this node
@@ -97,9 +97,8 @@ func (n *Node) ID() string {
 }
 
 // Close calls the cancel function if present, then sets active state to false.
+// Not safe to be accessed by multiple goroutines!
 func (n *Node) Close() error {
-	n.Lock()
-	defer n.Unlock()
 	if n.cancel != nil {
 		n.cancel()
 		n.cancel = nil

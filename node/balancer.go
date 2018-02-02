@@ -3,8 +3,6 @@ package node
 import (
 	"errors"
 	"log"
-
-	"github.com/danielmorandini/booster-network/pubsub"
 )
 
 // Balancer is a LoadBalancer implementation. It manages nodes, providing
@@ -14,7 +12,7 @@ import (
 // (check inspect.go for an example)
 type Balancer struct {
 	*log.Logger
-	*pubsub.PubSub
+	PubSub
 
 	// rootNode is the root node of every other remote one. Its workload
 	// is the sum of the workloads of the nodes plus its own.
@@ -23,7 +21,7 @@ type Balancer struct {
 }
 
 // NewBalancer returns a new balancer instance.
-func NewBalancer(log *log.Logger, ps *pubsub.PubSub) *Balancer {
+func NewBalancer(log *log.Logger, ps PubSub) *Balancer {
 	b := new(Balancer)
 	b.Logger = log
 	b.PubSub = ps
@@ -126,6 +124,7 @@ func (b *Balancer) GetNodes() []*Node {
 // with topic TopicNodes.
 func (b *Balancer) UpdateNode(node *Node, workload int, target string) (*Node, error) {
 	node.Lock()
+	node.IsActive = true
 	node.workload = workload
 	node.lastOperation.op = BoosterNodeUpdated
 	node.lastOperation.id = target
@@ -145,13 +144,14 @@ func (b *Balancer) AddNode(node *Node) (*Node, error) {
 		b.RemoveNode(node.ID())
 	}
 
-	b.Printf("balancer: adding node (%v)", node.ID())
 	node.Lock()
-	node.lastOperation.op = BoosterNodeAdded
-	node.Unlock()
-	b.nodes[node.ID()] = node
+	defer node.Unlock()
 
+	b.Printf("balancer: adding node (%v)", node.ID())
+	node.lastOperation.op = BoosterNodeAdded
+	b.nodes[node.ID()] = node
 	b.Pub(node, TopicNodes)
+
 	return node, nil
 }
 
@@ -164,15 +164,15 @@ func (b *Balancer) CloseNode(id string) (*Node, error) {
 	}
 
 	node.Lock()
+	defer node.Unlock()
+
+	b.Printf("balancer: closing node (%v)\n", id)
 	lastOp := node.lastOperation.op
-	node.Unlock()
 	if lastOp == BoosterNodeClosed {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already closed")
 	}
 
-	b.Printf("balancer: closing node %v\n", id)
 	node.Close()
-
 	b.Pub(node, TopicNodes)
 
 	return node, nil
@@ -188,18 +188,17 @@ func (b *Balancer) RemoveNode(id string) (*Node, error) {
 	}
 
 	node.Lock()
+	defer node.Unlock()
+
+	b.Printf("balancer: removing node (%v)\n", id)
 	lastOp := node.lastOperation.op
-	node.Unlock()
 	if lastOp == BoosterNodeRemoved {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already removed")
 	}
 
-	b.Printf("balancer: removing node %v\n", id)
-	node.Lock()
 	node.lastOperation.op = BoosterNodeRemoved
-	node.Unlock()
 	delete(b.nodes, id)
-
 	b.Pub(node, TopicNodes)
+
 	return node, nil
 }

@@ -2,9 +2,7 @@ package node
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -50,6 +48,7 @@ const (
 // Reserved field value
 const (
 	BoosterFieldReserved = uint8(0xff)
+	BoosterFieldPing     = uint8(0)
 )
 
 // Possible booster RESP field values
@@ -101,7 +100,7 @@ type Booster struct {
 
 	Proxy *Proxy
 
-	NodeIdleTimeout time.Duration
+	NodeIdleTimeout time.Duration // time before closing an idle remote node
 }
 
 // NewBooster returns a booster instance.
@@ -114,7 +113,7 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps PubSub, tr
 	b.PubSub = ps
 	b.Tracer = tr
 
-	b.NodeIdleTimeout = 60 * 5 * time.Second // time before closing an idle remote node
+	b.NodeIdleTimeout = 3 * time.Second
 
 	return b
 }
@@ -139,7 +138,7 @@ func (b *Booster) Start(pport, bport int) error {
 
 	// goroutine responsible for adding new nodes when the tracer tells to do so.
 	go func() {
-		defer func(){
+		defer func() {
 			b.Unsub(tracerStream, tracer.TopicConnDiscovered)
 		}()
 
@@ -256,8 +255,8 @@ func (b *Booster) ListenAndServe(port int) error {
 // It expects to receive only "Hello", "Connect", "Inspect" or "Disconnect" requests.
 // Ends serving forever the state of the proxy.
 func (b *Booster) Handle(conn net.Conn) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
+	//ctx, cancel := context.WithCancel(context.Background())
 	defer conn.Close()
 
 	buf := make([]byte, 3)
@@ -275,7 +274,18 @@ func (b *Booster) Handle(conn net.Conn) error {
 
 	switch cmd {
 	case BoosterCMDConnect:
-		return b.handleConnect(ctx, conn)
+		node, err := b.handleConnect(ctx, conn)
+		if err != nil {
+			return err
+		}
+
+		if err := b.Ping(ctx, node); err != nil {
+			return err
+		}
+
+		if err = b.Status(ctx, node); err != nil {
+			return err
+		}
 
 	case BoosterCMDDisconnect:
 		return b.handleDisconnect(ctx, conn)
@@ -284,195 +294,18 @@ func (b *Booster) Handle(conn net.Conn) error {
 		return b.handleInspect(ctx, conn)
 
 	case BoosterCMDHello:
-		if err := b.handleHello(conn); err != nil {
-			return err
-		}
+		return b.handleHello(conn)
+
+	case BoosterCMDStatus:
+		return b.ServeStatus(ctx, conn)
+
+	case BoosterCMDHeartbit:
+		return b.handlePing(ctx, conn)
 
 	default:
 		return errors.New("booster: unknown command " + string(cmd) + "from " + conn.RemoteAddr().String())
 	}
 
-	return b.ServeStatus(ctx, conn)
-}
-
-// ServeStatus writes the proxy's status to the connection, whenever it changes.
-func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
-	ec := make(chan error)
-	wc := b.Proxy.Sub(socks5.TopicWorkload)
-
-	// send status messages.
-	go func() {
-		defer func() {
-			b.Proxy.Unsub(wc, socks5.TopicWorkload)
-		}()
-
-		buf := make([]byte, 0, 4+20)
-		buf = append(buf, BoosterVersion1)
-		buf = append(buf, BoosterCMDStatus)
-		buf = append(buf, BoosterFieldReserved)
-		for i := range wc {
-			wm, ok := i.(socks5.WorkloadMessage)
-			if !ok {
-				ec <- errors.New("booster: unable to recognise workload message")
-				return
-			}
-
-			idbuf, err := hex.DecodeString(wm.ID)
-			if err != nil {
-				ec <- errors.New("booster: unable to parse target: " + wm.ID + ": " + err.Error())
-				return
-			}
-			if len(idbuf) != 20 {
-				ec <- errors.New("booster: unexpected status target length: " + strconv.Itoa(len(idbuf)))
-				return
-			}
-
-			buf = buf[:3]
-			buf = append(buf, byte(wm.Load))
-			buf = append(buf, idbuf...)
-
-			if _, err := conn.Write(buf); err != nil {
-				ec <- errors.New("booster: unable to write status: " + err.Error())
-			}
-		}
-	}()
-
-	// read heartbit messages.
-	go func() {
-		buf := make([]byte, 2)
-		for {
-			if _, err := io.ReadFull(conn, buf); err != nil {
-				ec <- errors.New("booster: unable to read heartbit message: " + err.Error())
-				return
-			}
-
-			_ = buf[0] // version
-			_ = buf[1] // cmd
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		b.Proxy.Unsub(wc, socks5.TopicWorkload)
-		return errors.New("booster: serve status: " + ctx.Err().Error())
-	case err := <-ec:
-		b.Proxy.Unsub(wc, socks5.TopicWorkload)
-		return err
-	}
-}
-
-// UpdateStatus expects conn to produce booster status messages and produces
-// itself heartbit messages, which must be consumed by the connected node. It then
-// uses the data received to update the workload's value of the node.
-//
-// If the connection is closed, the data is somehow corrupted or a cancel
-// signal is received, it closes the connection and sets the IsActive value
-// of the node to false.
-//
-// Publishes a TopicNodes message when a node is updated.
-func (b *Booster) UpdateStatus(ctx context.Context, node *Node, conn net.Conn) error {
-	if conn == nil {
-		return errors.New("remote node: found nil connection. Unable to update node status")
-	}
-	ctx, cancel := context.WithCancel(ctx)
-	node.Lock()
-	node.IsActive = true
-	node.cancel = cancel
-	node.Unlock()
-
-	go func() {
-		fail := func(err error) {
-			conn.Close() // be sure that the connection gets closed.
-
-			// Do not fail multiple times.
-			if !node.IsActive {
-				return
-			}
-
-			b.CloseNode(node.ID())
-			b.Trace(node)
-			b.Printf("booster: update status: deactivating remote node %v: %v", node.ID(), err)
-		}
-
-		// this function will be fired after NodeIdleTimeout
-		timer := time.AfterFunc(b.NodeIdleTimeout, func() {
-			fail(errors.New("node flagged as idle"))
-		})
-
-		buf := make([]byte, 4+20)
-		statusc := make(chan error)
-		demuxc := make(chan error)
-
-		// keep on reading status messages until the node is closed.
-		go func() {
-			for {
-				// check if the node is active before trying to read from the connection
-				if !node.IsActive {
-					return
-				}
-
-				if _, err := io.ReadFull(conn, buf); err != nil {
-					statusc <- err
-					return
-				}
-
-				_ = buf[0]                           // version - already checked in the hello procedure
-				_ = buf[1]                           // command
-				_ = buf[2]                           // reserved field
-				load := buf[3]                       // workload
-				target := fmt.Sprintf("%x", buf[4:]) // target
-
-				b.UpdateNode(node, int(load), target)
-				statusc <- nil
-			}
-		}()
-
-		// send heartbit messages to check if the connection is still alive. Fails if
-		// it's not able to send messages after two seconds.
-		go func() {
-			buf := make([]byte, 0, 2)
-			buf = append(buf, BoosterVersion1)
-			buf = append(buf, BoosterCMDHeartbit)
-
-			for {
-				// Write fails after 2 seconds.
-				conn.SetWriteDeadline(time.Now().Add(2*time.Second))
-				if _, err := conn.Write(buf); err != nil {
-					statusc <- errors.New("unable to send heartbit message: " + err.Error())
-					return
-				}
-
-				<- time.After(2*time.Second) // Wait 2 seconds before sending another message.
-			}
-		}()
-
-		// demux the messages from ctx and statusc into one channel
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					demuxc <- ctx.Err()
-					return
-				case err := <-statusc:
-					demuxc <- err
-					if err != nil {
-						return
-					}
-				}
-			}
-		}()
-
-		// read demultiplexed messages and act accordingly.
-		for err := range demuxc {
-			if err != nil {
-				fail(err)
-				return
-			}
-
-			// Reset the timer if no errors occurred.
-			timer.Reset(b.NodeIdleTimeout)
-		}
-	}()
-
 	return nil
 }
+
