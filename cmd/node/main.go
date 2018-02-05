@@ -10,6 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version and BuildTime are filled in during build by the Makefile
+var (
+	Version   = "N/A"
+	BuildTime = "N/A"
+)
+
 func main() {
 	var pport int
 	var bport int
