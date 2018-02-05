@@ -3,10 +3,10 @@ package node
 import (
 	"context"
 	"errors"
-	"strconv"
-	"sync"
 	"io"
 	"net"
+	"strconv"
+	"sync"
 	"time"
 )
 
@@ -92,8 +92,8 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 				return
 			}
 
-			<- time.After(2 * time.Second) // Wait 2 seconds before sending another message.
-			errc <- nil // reset timer
+			<-time.After(2 * time.Second) // Wait 2 seconds before sending another message.
+			errc <- nil                   // reset timer
 		}
 	}()
 
@@ -115,7 +115,6 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 
 	return nil
 }
-
 
 func (b *Booster) handlePing(ctx context.Context, conn net.Conn) error {
 	errc := make(chan error)

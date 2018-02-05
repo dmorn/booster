@@ -4,9 +4,9 @@ package pubsub
 
 import (
 	"crypto/sha1"
-	"sync"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 

@@ -59,9 +59,10 @@ type Tracer struct {
 }
 
 type Message struct {
-	ID string
+	ID  string
 	Err error
 }
+
 // New returns a new instance of Tracer. Calls Run before returning.
 func New(lg *log.Logger, ps PubSub) *Tracer {
 	t := &Tracer{

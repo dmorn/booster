@@ -27,7 +27,7 @@ const (
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
 	BoosterCMDInspect    = uint8(5)
-	BoosterCMDHeartbeat   = uint8(6)
+	BoosterCMDHeartbeat  = uint8(6)
 )
 
 // Possible stream instructions
@@ -308,4 +308,3 @@ func (b *Booster) Handle(conn net.Conn) error {
 
 	return nil
 }
-

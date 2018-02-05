@@ -3,8 +3,8 @@ package tracer_test
 import (
 	"context"
 	"errors"
-	"testing"
 	"net"
+	"testing"
 
 	"github.com/danielmorandini/booster-network/tracer"
 )
