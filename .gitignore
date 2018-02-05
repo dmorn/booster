@@ -21,3 +21,5 @@
 .env
 *.crt
 *.key
+/.GOPATH
+/bin

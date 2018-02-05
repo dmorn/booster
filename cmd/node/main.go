@@ -20,6 +20,7 @@ func main() {
 	var pport int
 	var bport int
 	var boosterAddr string
+	fmt.Printf("Version: %s, BuildTime: %s\n", Version, BuildTime)
 
 	var cmdStart = &cobra.Command{
 		Use:   "start",

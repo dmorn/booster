@@ -77,6 +77,7 @@ func (b *Booster) Status(ctx context.Context, node *Node) error {
 
 	conn, err := b.DialContext(ctx, node.Addr().Network(), node.Addr().String())
 	if err != nil {
+		cancel()
 		return errors.New("status error: " + err.Error())
 	}
 
@@ -85,6 +86,7 @@ func (b *Booster) Status(ctx context.Context, node *Node) error {
 	buf = append(buf, BoosterCMDStatus)
 	buf = append(buf, BoosterFieldReserved)
 	if _, err := conn.Write(buf); err != nil {
+		cancel()
 		return errors.New("unable to write status request: " + err.Error())
 	}
 
