@@ -20,7 +20,6 @@ func main() {
 	var pport int
 	var bport int
 	var boosterAddr string
-	fmt.Printf("Version: %s, BuildTime: %s\n\n", Version, BuildTime)
 
 	var cmdStart = &cobra.Command{
 		Use:   "start",
@@ -28,8 +27,9 @@ func main() {
 		Long:  ``,
 		Args:  cobra.MinimumNArgs(0),
 		Run: func(cmd *cobra.Command, args []string) {
-			b := node.NewBoosterDefault()
+			fmt.Printf("Version: %s, BuildTime: %s\n\n", Version, BuildTime)
 
+			b := node.NewBoosterDefault()
 			if err := b.Start(pport, bport); err != nil {
 				log.Fatal(err)
 			}
