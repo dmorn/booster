@@ -14,7 +14,6 @@
 .glide/
 
 /bin/
-/vendor/
 /test/tests.*
 /test/coverage.*
 
