@@ -1,4 +1,5 @@
 # booster-network
+[![Build Status](https://travis-ci.org/danielmorandini/booster-network.svg?branch=master)](https://travis-ci.org/danielmorandini/booster-network)
 
 ## Abstract
 
