@@ -36,7 +36,10 @@ func NewBalancer(log *log.Logger, ps PubSub) *Balancer {
 // Returns an error if no candidate is found, either because
 // none was provided or because no entry's workload was under
 // the treshold.
-func (b *Balancer) GetNodeBalanced() (*Node, error) {
+//
+// exp is a list of ids, which are considered as nodes that should
+// not be taken into consideration.
+func (b *Balancer) GetNodeBalanced(exp ...string) (*Node, error) {
 	if b.rootNode == nil {
 		return nil, errors.New("balancer: found nil rootNode")
 	}
@@ -63,6 +66,11 @@ func (b *Balancer) GetNodeBalanced() (*Node, error) {
 		twl += ewl
 		e.Unlock()
 
+		// check if node is in the exceptions
+		if isIn(e.ID(), exp...) {
+			continue
+		}
+
 		c.Lock()
 		cwl := c.workload // candidate workload
 		c.Unlock()
@@ -72,18 +80,37 @@ func (b *Balancer) GetNodeBalanced() (*Node, error) {
 		}
 	}
 
+	// we did not find any suitable node
 	if c == nil {
-		return nil, errors.New("balancer: no remote boosters connected")
+		if isIn(b.rootNode.ID(), exp...) {
+			return nil, errors.New("balancer: no suitable node found")
+		}
+
+		return b.rootNode, nil
 	}
 
 	// tr is the sum of the local workload and the remote node's workload.
 	// this is why we have to subtract the total remote workload to understand
 	// how the load on this node is.
 	if c.workload > (tr - twl) {
-		return nil, errors.New("balancer: use root proxy")
+		// return the candidate even if the local node is the most suitable one
+		if isIn(b.rootNode.ID(), exp...) {
+			return c, nil
+		}
+
+		return b.rootNode, nil
 	}
 
 	return c, nil
+}
+
+func isIn(id string, ids ...string) bool {
+	for _, v := range ids {
+		if id == v {
+			return true
+		}
+	}
+	return false
 }
 
 // SetRootNode sets the rootNode of the balancer. Be careful that this value HAS to be set before using the

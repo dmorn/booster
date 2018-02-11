@@ -193,6 +193,7 @@ func (b *Booster) Start(pport, bport int) error {
 			return
 		}
 		rootNode.IsActive = true
+		rootNode.isLocal = true
 		b.SetRootNode(rootNode)
 
 		for i := range wlStream {
