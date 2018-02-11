@@ -13,7 +13,7 @@ all: build
 
 .PHONY: build
 build: .GOPATH/.ok
-	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/node
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/bnode
 
 ### Code not in the repository root? Another binary? Add to the path like this.
 # .PHONY: otherbin

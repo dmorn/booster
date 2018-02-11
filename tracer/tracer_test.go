@@ -65,7 +65,7 @@ func TestTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stream := tr.Sub(tracer.TopicConnDiscovered)
+	stream, _ := tr.Sub(tracer.TopicConnDiscovered)
 	defer func() {
 		tr.Unsub(stream, tracer.TopicConnDiscovered)
 	}()

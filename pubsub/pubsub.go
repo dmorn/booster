@@ -7,107 +7,110 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 )
 
 // PubSub wraps the core pubsub functionalities.
 type PubSub struct {
+	MaxSubs int // maximum number of subscribers
+
 	sync.Mutex
-	registry map[string]*medium
+	registry map[string]*topic
 }
 
 // New returns a new PubSub instance.
 func New() *PubSub {
 	return &PubSub{
-		registry: make(map[string]*medium),
+		MaxSubs: 20,
+		registry: make(map[string]*topic),
 	}
-}
-
-// Links returns the active channels related to topic.
-func (ps *PubSub) Links(topic string) ([]chan interface{}, error) {
-	m, err := ps.medium(topic)
-	if err != nil {
-		return nil, err
-	}
-
-	return m.links, nil
 }
 
 // Sub makes a subscription to topic. Returns the channel where
 // the messages will be sent to, which should not be closed. If doing so,
 // the channel will be removed from the list of subscribed channels.
-func (ps *PubSub) Sub(topic string) chan interface{} {
-	ps.Lock()
-	defer ps.Unlock()
-
-	hash := hash(topic)
-	l := make(chan interface{})
-
-	m, err := ps.medium(topic)
+func (ps *PubSub) Sub(tname string) (chan interface{}, error) {
+	hash := hash(tname)
+	t, err := ps.topic(tname)
 	if err != nil {
-		m = &medium{
-			done:  make(chan struct{}),
+		t = &topic{
 			id:    hash,
-			topic: topic,
+			name: tname,
+			chs: make([]*channel, ps.MaxSubs),
+		}
+
+		ps.Lock()
+		ps.registry[hash] = t
+		ps.Unlock()
+	}
+
+	ch := newChannel()
+
+	t.Lock()
+	defer t.Unlock()
+
+	// find free place
+	ok := false
+	for i, v := range t.chs {
+		if v == nil {
+			ok = true
+			t.chs[i] = ch
+			break
 		}
 	}
 
-	if m.links == nil {
-		m.links = []chan interface{}{}
+	if !ok {
+		return nil, errors.New("pubsub: too many subscribers")
 	}
 
-	m.links = append(m.links, l)
-	ps.registry[hash] = m
-
-	return l
+	return ch.out(), nil
 }
 
 // Unsub removes c from the list of subscribed channels of topic.
 // Returns an error if no such topic is present, or if the channel
 // is already no longer in the subscription list.
 func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
-	m, err := ps.medium(topic)
+	t, err := ps.topic(topic)
 	if err != nil {
 		return err
 	}
 
-	links := m.links
-	for i, l := range links {
-		if l == c {
-			ps.closeChanSafe(l)
-			m.links = append(m.links[:i], m.links[i+1:]...) // remove it from the list
-			return nil
+	t.Lock()
+	defer t.Unlock()
+	for i, ch := range t.chs {
+		if ch == nil {
+			continue
 		}
+
+		if ch.out() != c {
+			continue
+		}
+
+		ch.stop()
+		t.chs[i] = nil
 	}
 
-	return errors.New("pubsub: unsub error: unable to find channel")
+	return nil
 }
 
-func (ps *PubSub) closeChanSafe(c chan interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			// tried to close c, which was already closed.
-		}
-	}()
-
-	close(c)
-}
 
 // Close removes a topic and closes its related channels.
 func (ps *PubSub) Close(topic string) error {
-	ps.Lock()
-	defer ps.Unlock()
-
-	m, err := ps.medium(topic)
+	t, err := ps.topic(topic)
 	if err != nil {
 		return err
 	}
 
-	for _, l := range m.links {
-		close(l)
+	t.Lock()
+	for _, c := range t.chs {
+		if c != nil {
+			c.stop()
+		}
 	}
+	t.Unlock()
 
+	ps.Lock()
 	delete(ps.registry, hash(topic))
+	ps.Unlock()
 
 	return nil
 }
@@ -116,57 +119,47 @@ func (ps *PubSub) Close(topic string) error {
 // Retuns an error if no such topic is present, unsubscribes
 // a channel if it is closed when sending to it. (i.e. causes a panic)
 func (ps *PubSub) Pub(message interface{}, topic string) error {
-	ps.Lock()
-	defer ps.Unlock()
-
-	m, err := ps.medium(topic)
+	t, err := ps.topic(topic)
 	if err != nil {
 		return err
 	}
 
-	ps.broadcast(message, m)
+	t.Lock()
+	defer t.Unlock()
+
+	for _, c := range t.chs {
+		if c == nil {
+			continue
+		}
+
+		c.send(message)
+	}
 	return nil
 }
 
-func (ps *PubSub) broadcast(message interface{}, medium *medium) {
-	send := func(c chan interface{}) {
-		defer func() {
-			if r := recover(); r != nil {
-				// remove the channel that caused the panic
-				ps.Unsub(c, medium.topic)
-			}
-		}()
+func (ps *PubSub) topic(name string) (*topic, error) {
+	ps.Lock()
+	defer ps.Unlock()
 
-		select {
-		case c <- message:
-		case <-time.After(time.Second * 5):
-		}
-	}
-
-	for _, l := range medium.links {
-		go send(l)
-	}
-}
-
-func (ps *PubSub) medium(topic string) (*medium, error) {
-	hash := hash(topic)
+	hash := hash(name)
 	m, ok := ps.registry[hash]
 	if !ok {
-		return nil, errors.New("pubsub: topic " + topic + " not found")
+		return nil, errors.New("pubsub: topic " + name + " not found")
 	}
 
 	return m, nil
 }
 
-type medium struct {
+type topic struct {
 	id    string
-	topic string
-	done  chan struct{}
-	links []chan interface{}
+	name string
+
+	sync.Mutex
+	chs []*channel
 }
 
-func (m *medium) String() string {
-	return "medium (" + m.id + "): topic: " + m.topic
+func (m *topic) String() string {
+	return "topic (" + m.id + "): topic: " + m.name
 }
 
 func hash(images ...string) string {
@@ -176,4 +169,14 @@ func hash(images ...string) string {
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func closeChanSafe(c chan interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			// tried to close c, which was already closed.
+		}
+	}()
+
+	close(c)
 }

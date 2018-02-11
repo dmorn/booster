@@ -15,7 +15,10 @@ import (
 // ServeStatus writes the proxy's status to the connection, whenever it changes.
 func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	ec := make(chan error)
-	wc := b.Proxy.Sub(socks5.TopicWorkload)
+	wc, err := b.Proxy.Sub(socks5.TopicWorkload)
+	if err != nil {
+		return err
+	}
 
 	// send status messages.
 	go func() {

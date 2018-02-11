@@ -74,7 +74,7 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	stream := b.Sub(node.TopicNodes)
+	stream, _ := b.Sub(node.TopicNodes)
 	defer func() {
 		b.Unsub(stream, node.TopicNodes)
 	}()

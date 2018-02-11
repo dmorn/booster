@@ -9,7 +9,10 @@ import (
 
 func TestSub(t *testing.T) {
 	ps := pubsub.New()
-	ch1 := ps.Sub("t1")
+	ch1, err := ps.Sub("t1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if ch1 == nil {
 		t.Fatal("channel not created")
 	}
@@ -19,36 +22,30 @@ func TestSub(t *testing.T) {
 	}
 }
 
-func TestLinks(t *testing.T) {
+func TestPub(t *testing.T) {
 	ps := pubsub.New()
-	top := "t1"
-	_ = ps.Sub(top)
-	c := ps.Sub(top)
-
-	links, err := ps.Links(top)
+	ch1, err := ps.Sub("t1")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(links) != 2 {
-		t.Fatalf("unexpected links length: wanted 2, found %v", len(links))
-	}
+	ps.Pub("fakedata", "t1")
 
-	ps.Unsub(c, top)
-	links, err = ps.Links(top)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(links) != 1 {
-		t.Fatalf("unexpected links length: wanted 1, found %v", len(links))
+	select {
+	case d := <-ch1:
+		if d != "fakedata" {
+			t.Fatalf("unexpected data: %v", d)
+		}
+	case <-time.After(time.Second * 1):
+		t.Fatal("cannot read from ch1")
 	}
 }
 
-func TestPubSub(t *testing.T) {
+
+func TestPub_multiple(t *testing.T) {
 	ps := pubsub.New()
-	ch1 := ps.Sub("t1")
-	ch2 := ps.Sub("t2")
+	ch1, _ := ps.Sub("t1")
+	ch2, _ := ps.Sub("t2")
 
 	ps.Pub("fakedata", "t1")
 	ps.Pub("fakedata", "t2")
@@ -70,38 +67,26 @@ func TestPubSub(t *testing.T) {
 	case <-time.After(time.Second * 1):
 		t.Fatal("cannot read from ch2")
 	}
-
-	if err := ps.Close("t1"); err != nil {
-		t.Fatal(err)
-	}
-
-	ch3 := ps.Sub("t2")
-	ps.Pub("fakedata", "t2")
-
-	// ch2 and ch3 should have received the message
-	if err := ps.Unsub(ch3, "t2"); err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case d := <-ch2:
-		if d != "fakedata" {
-			t.Fatalf("unexpected data: %v", d)
-		}
-	case <-time.After(time.Second * 1):
-		t.Fatal("cannot read from ch3")
-	}
-
-	if _, ok := <-ch3; ok {
-		t.Fatal("channel is not closed")
-	}
 }
 
 func TestUnsub(t *testing.T) {
 	ps := pubsub.New()
-	ch1 := ps.Sub("t1")
+	ch1, _ := ps.Sub("t1")
 
 	if err := ps.Unsub(ch1, "t1"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := <-ch1; ok {
+		t.Fatal("channel is not closed")
+	}
+}
+
+func TestClose(t *testing.T) {
+	ps := pubsub.New()
+	ch1, _ := ps.Sub("t1")
+
+	if err := ps.Close("t1"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -122,12 +107,12 @@ func TestMultiSub_concurrent(t *testing.T) {
 	wait := make(chan struct{}, 2)
 
 	go func() {
-		ch1 = ps.Sub("t1")
+		ch1, _ = ps.Sub("t1")
 		wait <- struct{}{}
 	}()
 
 	go func() {
-		ch2 = ps.Sub("t2")
+		ch2, _ = ps.Sub("t2")
 		wait <- struct{}{}
 	}()
 
@@ -168,15 +153,23 @@ func TestMultiSub(t *testing.T) {
 
 	var ch1 chan interface{}
 	var ch2 chan interface{}
+	var err1 error
+	var err2 error
 	wait := make(chan struct{}, 2)
 
 	go func() {
-		ch1 = ps.Sub("t1")
+		ch1, err1 = ps.Sub("t1")
+		if err1 != nil {
+			t.Fatal(err1)
+		}
 		wait <- struct{}{}
 	}()
 
 	go func() {
-		ch2 = ps.Sub("t1")
+		ch2, err2 = ps.Sub("t1")
+		if err2 != nil {
+			t.Fatal(err2)
+		}
 		wait <- struct{}{}
 	}()
 

@@ -161,7 +161,11 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		}
 	}
 
-	stream := b.Sub(TopicNodes)
+	stream, err := b.Sub(TopicNodes)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		b.Unsub(stream, TopicNodes)
 	}()
