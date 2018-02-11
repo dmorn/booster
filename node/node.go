@@ -17,9 +17,9 @@ import (
 
 // Node represents a remote booster node.
 type Node struct {
-	id    string // sha1 string representation
-	BAddr net.Addr
-	PAddr net.Addr
+	id      string // sha1 string representation
+	BAddr   net.Addr
+	PAddr   net.Addr
 	isLocal bool
 
 	sync.Mutex

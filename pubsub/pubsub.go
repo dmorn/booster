@@ -20,7 +20,7 @@ type PubSub struct {
 // New returns a new PubSub instance.
 func New() *PubSub {
 	return &PubSub{
-		MaxSubs: 20,
+		MaxSubs:  20,
 		registry: make(map[string]*topic),
 	}
 }
@@ -33,9 +33,9 @@ func (ps *PubSub) Sub(tname string) (chan interface{}, error) {
 	t, err := ps.topic(tname)
 	if err != nil {
 		t = &topic{
-			id:    hash,
+			id:   hash,
 			name: tname,
-			chs: make([]*channel, ps.MaxSubs),
+			chs:  make([]*channel, ps.MaxSubs),
 		}
 
 		ps.Lock()
@@ -91,7 +91,6 @@ func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
 
 	return nil
 }
-
 
 // Close removes a topic and closes its related channels.
 func (ps *PubSub) Close(topic string) error {
@@ -151,7 +150,7 @@ func (ps *PubSub) topic(name string) (*topic, error) {
 }
 
 type topic struct {
-	id    string
+	id   string
 	name string
 
 	sync.Mutex

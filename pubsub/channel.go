@@ -10,14 +10,14 @@ type channel struct {
 
 	sync.Mutex
 	active bool
-	ch chan interface{}
+	ch     chan interface{}
 }
 
 func newChannel() *channel {
 	ch := &channel{
-		sendc: make(chan interface{}),
-		stopc: make(chan interface{}),
-		ch: make(chan interface{}),
+		sendc:  make(chan interface{}),
+		stopc:  make(chan interface{}),
+		ch:     make(chan interface{}),
 		active: true,
 	}
 
@@ -35,7 +35,7 @@ func newChannel() *channel {
 
 		for {
 			select {
-			case m := <- ch.sendc:
+			case m := <-ch.sendc:
 				send(m)
 			case <-ch.stopc:
 				stop()

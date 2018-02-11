@@ -41,7 +41,6 @@ func TestPub(t *testing.T) {
 	}
 }
 
-
 func TestPub_multiple(t *testing.T) {
 	ps := pubsub.New()
 	ch1, _ := ps.Sub("t1")
