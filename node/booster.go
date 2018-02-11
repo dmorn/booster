@@ -124,7 +124,7 @@ func NewBoosterDefault() *Booster {
 	pubsub := pubsub.New()
 	tracer := tracer.New(log, pubsub)
 	balancer := NewBalancer(log, pubsub)
-	proxy := NewProxyBalancer(balancer, tracer, pubsub)
+	proxy := NewProxyBalancer(balancer, pubsub)
 
 	return NewBooster(proxy, balancer, log, pubsub, tracer)
 }

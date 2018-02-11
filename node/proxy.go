@@ -17,7 +17,6 @@ type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
 	GetNodeBalanced(exp ...string) (*Node, error)
-	CloseNode(id string) (*Node, error)
 }
 
 // Proxy is a SOCK5 server.
@@ -37,8 +36,8 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger, ps PubSub) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps PubSub) *Proxy {
-	d := NewDialer(balancer, tracer)
+func NewProxyBalancer(balancer LoadBalancer, ps PubSub) *Proxy {
+	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log, ps)
 	d.Logger = log
@@ -89,7 +88,6 @@ func (d *socks5Dialer) DialContext(ctx context.Context, network, address string)
 // Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
-	Tracer
 	LoadBalancer
 
 	Fallback FallbackDialer
@@ -102,10 +100,9 @@ type FallbackDialer interface {
 }
 
 // NewDialer returns a Dialer instance.
-func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
+func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
-	d.Tracer = tracer
 
 	d.Fallback = &net.Dialer{
 		Timeout:   30 * time.Second,
