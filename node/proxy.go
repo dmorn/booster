@@ -117,8 +117,12 @@ func (d *Dialer) nodeFinderFunc() func() (*Node, error) {
 	var ids []string
 
 	return func() (*Node, error) {
+		if len(ids) > 0 {
+			d.Printf("dialer: dialed with nodes: %+v", ids)
+		}
+
 		n, err := d.GetNodeBalanced(ids...)
-		if err != nil {
+		if err == nil {
 			ids = append(ids, n.ID())
 		}
 		return n, err
@@ -145,7 +149,12 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		return nil, errors.New("dialer: " + err.Error())
 	}
 
+	// trace number of iterations
+	i := 0
 	for {
+		i += 1
+		d.Printf("dialer: iteration (%v): to %v", i, addr)
+
 		// first get a dialer
 		dialer, err := d.dialerForNode(node)
 		if err != nil {
