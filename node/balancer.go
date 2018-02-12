@@ -57,10 +57,6 @@ func (b *Balancer) GetNodeBalanced(exp ...string) (*Node, error) {
 			continue
 		}
 
-		if c == nil {
-			c = e
-		}
-
 		e.Lock()
 		ewl := e.workload
 		twl += ewl
@@ -69,6 +65,10 @@ func (b *Balancer) GetNodeBalanced(exp ...string) (*Node, error) {
 		// check if node is in the exceptions
 		if isIn(e.ID(), exp...) {
 			continue
+		}
+
+		if c == nil {
+			c = e
 		}
 
 		c.Lock()
