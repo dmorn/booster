@@ -80,4 +80,3 @@ func (b *Booster) handleHello(conn net.Conn) error {
 
 	return nil
 }
-

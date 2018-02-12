@@ -87,7 +87,7 @@ type Dialer interface {
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) chan interface{}
+	Sub(topic string) (chan interface{}, error)
 	Unsub(c chan interface{}, topic string) error
 	Pub(message interface{}, topic string) error
 }

@@ -15,7 +15,10 @@ import (
 // ServeStatus writes the proxy's status to the connection, whenever it changes.
 func (b *Booster) ServeStatus(ctx context.Context, conn net.Conn) error {
 	ec := make(chan error)
-	wc := b.Proxy.Sub(socks5.TopicWorkload)
+	wc, err := b.Proxy.Sub(socks5.TopicWorkload)
+	if err != nil {
+		return err
+	}
 
 	// send status messages.
 	go func() {
@@ -77,6 +80,7 @@ func (b *Booster) Status(ctx context.Context, node *Node) error {
 
 	conn, err := b.DialContext(ctx, node.Addr().Network(), node.Addr().String())
 	if err != nil {
+		cancel()
 		return errors.New("status error: " + err.Error())
 	}
 
@@ -85,6 +89,7 @@ func (b *Booster) Status(ctx context.Context, node *Node) error {
 	buf = append(buf, BoosterCMDStatus)
 	buf = append(buf, BoosterFieldReserved)
 	if _, err := conn.Write(buf); err != nil {
+		cancel()
 		return errors.New("unable to write status request: " + err.Error())
 	}
 

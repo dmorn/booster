@@ -16,8 +16,7 @@ import (
 type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
-	GetNodeBalanced() (*Node, error)
-	CloseNode(id string) (*Node, error)
+	GetNodeBalanced(exp ...string) (*Node, error)
 }
 
 // Proxy is a SOCK5 server.
@@ -37,8 +36,8 @@ func NewProxy(dialer socks5.Dialer, log *log.Logger, ps PubSub) *Proxy {
 // a paramenter to the dialer that the proxy will use.
 // balancer will be used by the proxy dialer to fetch the
 // proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps PubSub) *Proxy {
-	d := NewDialer(balancer, tracer)
+func NewProxyBalancer(balancer LoadBalancer, ps PubSub) *Proxy {
+	d := NewDialer(balancer)
 	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
 	p := NewProxy(d, log, ps)
 	d.Logger = log
@@ -46,11 +45,51 @@ func NewProxyBalancer(balancer LoadBalancer, tracer Tracer, ps PubSub) *Proxy {
 	return p
 }
 
+type socks5Dialer struct {
+	dialer proxy.Dialer
+}
+
+func newSocks5Dialer(forward proxy.Dialer, network, addr string) (*socks5Dialer, error) {
+	sd := new(socks5Dialer)
+	dialer, err := proxy.SOCKS5(network, addr, nil, forward)
+	if err != nil {
+		return nil, err
+	}
+
+	sd.dialer = dialer
+
+	return sd, nil
+}
+
+func (d *socks5Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	errc := make(chan error)
+	connc := make(chan net.Conn)
+
+	go func() {
+		conn, err := d.dialer.Dial(network, address)
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		connc <- conn
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-errc:
+		return nil, err
+	case conn := <-connc:
+		return conn, nil
+	}
+}
+
 // Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
-	Tracer
 	LoadBalancer
+
 	Fallback FallbackDialer
 }
 
@@ -61,10 +100,10 @@ type FallbackDialer interface {
 }
 
 // NewDialer returns a Dialer instance.
-func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
+func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
-	d.Tracer = tracer
+
 	d.Fallback = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -74,57 +113,70 @@ func NewDialer(balancer LoadBalancer, tracer Tracer) *Dialer {
 	return d
 }
 
+func (d *Dialer) nodeFinderFunc() func() (*Node, error) {
+	var ids []string
+
+	return func() (*Node, error) {
+		if len(ids) > 0 {
+			d.Printf("dialer: dialed with nodes: %+v", ids)
+		}
+
+		n, err := d.GetNodeBalanced(ids...)
+		if err == nil {
+			ids = append(ids, n.ID())
+		}
+		return n, err
+	}
+}
+
+func (d *Dialer) dialerForNode(node *Node) (socks5.Dialer, error) {
+	if node.isLocal {
+		d.Printf("dialer: using local gateway")
+		return d.Fallback, nil
+	}
+
+	d.Printf("dialer: using SOCKS5 gateway @ %v", node.PAddr.String())
+	return newSocks5Dialer(d.Fallback, node.PAddr.Network(), node.PAddr.String())
+}
+
 // DialContext uses the underlying load balancer to retrieve a possibile socks5 proxy
 // address to chain the connection to. If none available, dials the connection using
 // the default net.Dialer.
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	node, err := d.GetNodeBalanced()
+	nff := d.nodeFinderFunc()
+	node, err := nff()
 	if err != nil {
-		d.Printf("dialer: dialing directly: %v", err)
-		return d.Fallback.DialContext(ctx, network, addr)
+		return nil, errors.New("dialer: " + err.Error())
 	}
 
-	paddr := node.PAddr.String()
-	ec := make(chan error, 1)
-	cc := make(chan net.Conn, 1)
+	// trace number of iterations
+	i := 0
+	for {
+		i += 1
+		d.Printf("dialer: iteration (%v): to %v", i, addr)
 
-	go func() {
-		d.Printf("dialer: using SOCKS5 gateway @ %v", paddr)
-
-		socksDialer, err := proxy.SOCKS5(network, paddr, nil, d.Fallback)
+		// first get a dialer
+		dialer, err := d.dialerForNode(node)
 		if err != nil {
-			ec <- err
-			return
+			return nil, errors.New("dialer: " + err.Error())
 		}
 
-		conn, err := socksDialer.Dial(network, addr)
-		if err != nil {
-			// the node that we tried to chain to is down or unusable.
-			// fallback to a normal dialer and close this node.
-			d.Printf("dialer: unable to Dial using gateway @ %v. Fallback", node.ID())
-			if _, err := d.CloseNode(node.ID()); err != nil {
-				d.Printf("dialer: unable to close node (%v)", node.ID())
-			}
-			if d.Tracer != nil {
-				d.Trace(node)
-			}
-
-			conn, err = d.Fallback.Dial(network, addr)
-			if err != nil {
-				ec <- err
-				return
-			}
+		// try to get a connection
+		conn, cerr := dialer.DialContext(ctx, network, addr)
+		if cerr == nil {
+			return conn, cerr
 		}
 
-		cc <- conn
-	}()
+		// simply return if it was a context error
+		if cerr == ctx.Err() {
+			return nil, err
+		}
 
-	select {
-	case <-ctx.Done():
-		return nil, errors.New("dialer: dial context: " + ctx.Err().Error())
-	case err := <-ec:
-		return nil, err
-	case conn := <-cc:
-		return conn, nil
+		// in case of a connection error, try with another node if possible.
+		// otherwise, return the last connection error that we got back.
+		node, err = nff()
+		if err != nil {
+			return nil, cerr
+		}
 	}
 }

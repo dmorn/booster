@@ -17,9 +17,10 @@ import (
 
 // Node represents a remote booster node.
 type Node struct {
-	id    string // sha1 string representation
-	BAddr net.Addr
-	PAddr net.Addr
+	id      string // sha1 string representation
+	BAddr   net.Addr
+	PAddr   net.Addr
+	isLocal bool
 
 	sync.Mutex
 	cancel   context.CancelFunc // added when some goroutine is updating its workload.
@@ -57,6 +58,7 @@ func NewNode(host, pport, bport string) (*Node, error) {
 		return nil, errors.New("node: unable to create baddr: " + err.Error())
 	}
 	n.BAddr = baddr
+	n.isLocal = false
 
 	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
 	if err != nil {

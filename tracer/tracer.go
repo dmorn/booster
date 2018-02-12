@@ -40,7 +40,7 @@ type Pinger interface {
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) chan interface{}
+	Sub(topic string) (chan interface{}, error)
 	Unsub(c chan interface{}, topic string) error
 	Pub(message interface{}, topic string) error
 }
@@ -59,9 +59,10 @@ type Tracer struct {
 }
 
 type Message struct {
-	ID string
+	ID  string
 	Err error
 }
+
 // New returns a new instance of Tracer. Calls Run before returning.
 func New(lg *log.Logger, ps PubSub) *Tracer {
 	t := &Tracer{

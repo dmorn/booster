@@ -27,7 +27,7 @@ const (
 	BoosterCMDHello      = uint8(3)
 	BoosterCMDStatus     = uint8(4)
 	BoosterCMDInspect    = uint8(5)
-	BoosterCMDHeartbeat   = uint8(6)
+	BoosterCMDHeartbeat  = uint8(6)
 )
 
 // Possible stream instructions
@@ -84,7 +84,7 @@ type Tracer interface {
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) chan interface{}
+	Sub(topic string) (chan interface{}, error)
 	Unsub(c chan interface{}, topic string) error
 	Pub(message interface{}, topic string) error
 }
@@ -124,7 +124,7 @@ func NewBoosterDefault() *Booster {
 	pubsub := pubsub.New()
 	tracer := tracer.New(log, pubsub)
 	balancer := NewBalancer(log, pubsub)
-	proxy := NewProxyBalancer(balancer, tracer, pubsub)
+	proxy := NewProxyBalancer(balancer, pubsub)
 
 	return NewBooster(proxy, balancer, log, pubsub, tracer)
 }
@@ -133,8 +133,8 @@ func NewBoosterDefault() *Booster {
 // and a socks5 compliant tcp server.
 func (b *Booster) Start(pport, bport int) error {
 	errc := make(chan error)
-	tracerStream := b.Sub(tracer.TopicConnDiscovered)
-	wlStream := b.Sub(socks5.TopicWorkload)
+	tracerStream, _ := b.Sub(tracer.TopicConnDiscovered)
+	wlStream, _ := b.Sub(socks5.TopicWorkload)
 
 	// goroutine responsible for adding new nodes when the tracer tells to do so.
 	go func() {
@@ -193,6 +193,7 @@ func (b *Booster) Start(pport, bport int) error {
 			return
 		}
 		rootNode.IsActive = true
+		rootNode.isLocal = true
 		b.SetRootNode(rootNode)
 
 		for i := range wlStream {
@@ -308,4 +309,3 @@ func (b *Booster) Handle(conn net.Conn) error {
 
 	return nil
 }
-

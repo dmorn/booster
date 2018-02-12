@@ -14,10 +14,11 @@
 .glide/
 
 /bin/
-/vendor/
 /test/tests.*
 /test/coverage.*
 
 .env
 *.crt
 *.key
+/.GOPATH
+/bin
