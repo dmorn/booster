@@ -38,7 +38,7 @@ archive:
     dragonfly: DragonFlyBSD
   files:
     - README.md
-    - LICENSE.md
+    - LICENSE
 brew:
   # Reporitory to push the tap to.
   github:
