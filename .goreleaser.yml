@@ -1,0 +1,68 @@
+build:
+  main: cmd/booster/main.go
+  binary: booster
+  goos:
+    - darwin
+    - linux
+    - windows
+    - freebsd
+    - netbsd
+    - openbsd
+    - dragonfly
+  goarch:
+    - amd64
+    - 386
+    - arm
+    - arm64
+  ignore:
+    - goos: openbsd
+      goarch: arm
+      goarm: 6
+archive:
+  format: tar.gz
+  format_overrides:
+    - goos: windows
+      format: zip
+  name_template: "{{.Binary}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+  replacements:
+    amd64: 64bit
+    386: 32bit
+    arm: ARM
+    arm64: ARM64
+    darwin: macOS
+    linux: Linux
+    windows: Windows
+    openbsd: OpenBSD
+    netbsd: NetBSD
+    freebsd: FreeBSD
+    dragonfly: DragonFlyBSD
+  files:
+    - README.md
+    - LICENSE.md
+brew:
+  # Reporitory to push the tap to.
+  github:
+    owner: danielmorandini
+    name: homebrew-tap
+
+  # Git author used to commit to the repository.
+  # Defaults are shown.
+  commit_author:
+    name: danielmorandini
+    email: danielmorandini@me.com
+
+  # Folder inside the repository to put the formula.
+  # Default is the root folder.
+  folder: Formula
+
+  # Caveats for the user of your binary.
+  # Default is empty.
+  caveats: "How to use this binary"
+
+  # Your app's homepage.
+  # Default is empty.
+  homepage: "https://booster.tecnoporto.co/"
+
+  # Your app's description.
+  # Default is empty.
+  description: "peer-to-peer network interface balancer"
