@@ -94,7 +94,7 @@ func (b *Booster) Status(ctx context.Context, node *Node) error {
 	}
 
 	node.Lock()
-	node.cancel = cancel
+	node.cancelStatus = cancel
 	node.IsActive = true
 	node.Unlock()
 
