@@ -62,3 +62,5 @@ brew:
   # Your app's description.
   # Default is empty.
   description: "peer-to-peer network interface balancer"
+
+  skip_upload: true
