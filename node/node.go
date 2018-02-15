@@ -23,7 +23,8 @@ type Node struct {
 	isLocal bool
 
 	sync.Mutex
-	cancel   context.CancelFunc // added when some goroutine is updating its workload.
+	cancelStatus   context.CancelFunc // added when some goroutine is updating its workload.
+	cancelPing context.CancelFunc
 	IsActive bool               // tells wether the node is updating its status or not
 	workload int
 
@@ -101,10 +102,16 @@ func (n *Node) ID() string {
 // Close calls the cancel function if present, then sets active state to false.
 // Not safe to be accessed by multiple goroutines!
 func (n *Node) Close() error {
-	if n.cancel != nil {
-		n.cancel()
-		n.cancel = nil
+	if n.cancelStatus != nil {
+		n.cancelStatus()
+		n.cancelStatus = nil
 	}
+
+	if n.cancelPing != nil {
+		n.cancelPing()
+		n.cancelPing = nil
+	}
+
 	n.IsActive = false
 	n.lastOperation.op = BoosterNodeClosed
 

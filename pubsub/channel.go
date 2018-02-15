@@ -23,14 +23,14 @@ func newChannel() *channel {
 
 	go func() {
 		send := func(m interface{}) {
-			ch.ch <- m
+			ch.out() <- m
 		}
 
 		stop := func() {
 			ch.setIsActive(false)
 			closeChanSafe(ch.sendc)
 			closeChanSafe(ch.stopc)
-			closeChanSafe(ch.ch)
+			closeChanSafe(ch.out())
 		}
 
 		for {

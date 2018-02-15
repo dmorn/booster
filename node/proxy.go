@@ -176,6 +176,9 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		// otherwise, return the last connection error that we got back.
 		node, err = nff()
 		if err != nil {
+			if cerr == nil {
+				cerr = err
+			}
 			return nil, cerr
 		}
 	}
