@@ -22,3 +22,5 @@
 *.key
 /.GOPATH
 /bin
+
+dist/
