@@ -18,6 +18,7 @@ build:
     - goos: openbsd
       goarch: arm
       goarm: 6
+  ldflags: -s -w -X main.Version={{.Version}} -X main.BuildTime={{.Date}}
 archive:
   format: tar.gz
   format_overrides:
