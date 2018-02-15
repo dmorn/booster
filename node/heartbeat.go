@@ -13,10 +13,17 @@ import (
 // Ping sends messages to check if the connection is still alive. Fails if
 // it's not able to send after two seconds.
 func (b *Booster) Ping(ctx context.Context, node *Node) error {
+	ctx, cancel := context.WithCancel(ctx)
+
 	conn, err := b.DialContext(ctx, node.Addr().Network(), node.Addr().String())
 	if err != nil {
+		cancel()
 		return errors.New("booster: ping error: " + err.Error())
 	}
+
+	node.Lock()
+	node.cancelPing = cancel
+	node.Unlock()
 
 	var mux sync.Mutex
 
