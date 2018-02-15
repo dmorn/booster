@@ -25,6 +25,10 @@ func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net
 
 		return nil, err
 	}
+	// BUG: sometimes there is no err BUT the connection is nil
+	if tconn == nil {
+		return nil, errors.New("socks5: connect returned nil connection")
+	}
 
 	buf = append(buf, socks5RespSuccess, socks5FieldReserved)
 
