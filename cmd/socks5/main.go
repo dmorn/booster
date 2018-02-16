@@ -15,4 +15,3 @@ func main() {
 	commands.BuildTime = BuildTime
 	commands.Execute()
 }
-

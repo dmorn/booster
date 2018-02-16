@@ -23,10 +23,10 @@ type Node struct {
 	isLocal bool
 
 	sync.Mutex
-	cancelStatus   context.CancelFunc // added when some goroutine is updating its workload.
-	cancelPing context.CancelFunc
-	IsActive bool               // tells wether the node is updating its status or not
-	workload int
+	cancelStatus context.CancelFunc // added when some goroutine is updating its workload.
+	cancelPing   context.CancelFunc
+	IsActive     bool // tells wether the node is updating its status or not
+	workload     int
 
 	lastOperation *Operation // last operation made on this node
 }

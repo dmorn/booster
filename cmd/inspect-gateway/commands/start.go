@@ -3,24 +3,24 @@ package commands
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"log"
-	"time"
 	"io"
 	"io/ioutil"
-	"net/http"
+	"log"
 	"net"
-	"encoding/json"
+	"net/http"
+	"time"
 
 	"github.com/danielmorandini/booster-network/node"
 	"github.com/spf13/cobra"
 )
 
-var startCmd = &cobra.Command {
-	Use: "start",
+var startCmd = &cobra.Command{
+	Use:   "start",
 	Short: "inspects the node's activity and sends the data to the target API",
-	Long: ``,
-	Args: cobra.MaximumNArgs(0),
+	Long:  ``,
+	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		host, port, err := net.SplitHostPort(targetAddr)
 		if err != nil {
@@ -64,27 +64,27 @@ var startCmd = &cobra.Command {
 }
 
 type nodeMsg struct {
-	ID string `json:"id"`
-	Timestamp time.Time `json:"timestamp"`
-	BAddr string `json:"booster_address"`
-	PAddr string `json:"proxy_address"`
-	Workload int `json:"workload"`
-	LastOp *operation `json:"last_operation"`
+	ID        string     `json:"id"`
+	Timestamp time.Time  `json:"timestamp"`
+	BAddr     string     `json:"booster_address"`
+	PAddr     string     `json:"proxy_address"`
+	Workload  int        `json:"workload"`
+	LastOp    *operation `json:"last_operation"`
 }
 
 type operation struct {
-	ID string `json:"id"`
-	Code int `json:"code"`
+	ID   string `json:"id"`
+	Code int    `json:"code"`
 }
 
 func newMsg(n *node.Node) *nodeMsg {
-	return &nodeMsg {
-		ID: n.ID(),
-		BAddr: n.BAddr.String(),
-		PAddr: n.PAddr.String(),
+	return &nodeMsg{
+		ID:       n.ID(),
+		BAddr:    n.BAddr.String(),
+		PAddr:    n.PAddr.String(),
 		Workload: n.Workload(),
-		LastOp: &operation {
-			ID: n.LastOperation().ID,
+		LastOp: &operation{
+			ID:   n.LastOperation().ID,
 			Code: int(n.LastOperation().Op),
 		},
 	}
@@ -93,8 +93,8 @@ func newMsg(n *node.Node) *nodeMsg {
 type client struct {
 	*http.Client
 
-	host string
-	port string
+	host  string
+	port  string
 	token string
 }
 
@@ -102,8 +102,8 @@ func newAPIClient(host, port string) *client {
 	return &client{
 		host: host,
 		port: port,
-		Client: &http.Client {
-			Timeout: time.Second*5,
+		Client: &http.Client{
+			Timeout: time.Second * 5,
 		},
 	}
 }
@@ -117,7 +117,7 @@ func (c *client) FetchToken() error {
 	defer resp.Body.Close()
 
 	var token string
-	if err := json.NewDecoder(resp.Body).Decode( &struct {
+	if err := json.NewDecoder(resp.Body).Decode(&struct {
 		Token *string `json:"token"`
 	}{&token}); err != nil {
 		return err

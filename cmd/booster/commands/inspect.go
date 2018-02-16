@@ -8,11 +8,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var inspectCmd = &cobra.Command {
-	Use: "inspect",
+var inspectCmd = &cobra.Command{
+	Use:   "inspect",
 	Short: "inspects the node's activity",
-	Long: `inspect listents (by default) on the local node for each node activity update, and logs it.`,
-	Args: cobra.MaximumNArgs(0),
+	Long:  `inspect listents (by default) on the local node for each node activity update, and logs it.`,
+	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		b := node.NewBoosterDefault()
 		stream := make(chan *node.Node)

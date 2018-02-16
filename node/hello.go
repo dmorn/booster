@@ -29,7 +29,7 @@ func (b *Booster) Hello(ctx context.Context, network, addr string) (string, erro
 	buf = append(buf, BoosterCMDHello)
 	buf = append(buf, BoosterFieldReserved)
 
-	conn.SetDeadline(time.Now().Add(time.Second*5))
+	conn.SetDeadline(time.Now().Add(time.Second * 5))
 	if _, err := conn.Write(buf); err != nil {
 		return "", errors.New("booster: unable to perform hello request: " + err.Error())
 	}
@@ -75,7 +75,7 @@ func (b *Booster) handleHello(conn net.Conn) error {
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, byte(port>>8), byte(port))
 
-	conn.SetWriteDeadline(time.Now().Add(time.Second*2))
+	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	if _, err := conn.Write(buf); err != nil {
 		return errors.New("booster: unable to write hello response: " + err.Error())
 	}

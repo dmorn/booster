@@ -104,7 +104,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) (*Node, erro
 	buf = append(buf, BoosterFieldReserved)
 	buf = append(buf, bid...)
 
-	conn.SetWriteDeadline(time.Now().Add(time.Second*2))
+	conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 	if _, err := conn.Write(buf); err != nil {
 		return nil, errors.New("booster: unable to write connect response: " + err.Error())
 	}

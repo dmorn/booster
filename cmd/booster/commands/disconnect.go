@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"strings"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/danielmorandini/booster-network/node"
@@ -11,10 +11,10 @@ import (
 )
 
 var disconnectCmd = &cobra.Command{
-	Use: "disconnect [id]",
+	Use:   "disconnect [id]",
 	Short: "disconnect two nodes",
-	Long: `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
-	Args: cobra.MinimumNArgs(1),
+	Long:  `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		id := strings.Join(args, " ")
 		b := node.NewBoosterDefault()

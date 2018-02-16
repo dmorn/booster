@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	Version string
+	Version   string
 	BuildTime string
 )
 
@@ -16,11 +16,10 @@ var (
 	pport int
 )
 
-var rootCmd = &cobra.Command {
-	Use: "socks5",
+var rootCmd = &cobra.Command{
+	Use:   "socks5",
 	Short: "socks5 is a SOCKS5 proxy server",
 }
-
 
 func Execute() {
 	// parse flags

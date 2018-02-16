@@ -81,7 +81,7 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 		buf = append(buf, BoosterFieldReserved)
 		buf = append(buf, id...)
 
-		conn.SetWriteDeadline(time.Now().Add(time.Second*2))
+		conn.SetWriteDeadline(time.Now().Add(time.Second * 2))
 		if _, err := conn.Write(buf); err != nil {
 			return errors.New("booster: unable to write connect response: " + err.Error())
 		}

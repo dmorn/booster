@@ -3,8 +3,8 @@ package commands
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/spf13/cobra"
 )
 
 var startCmd = &cobra.Command{
@@ -19,4 +19,3 @@ var startCmd = &cobra.Command{
 		}
 	},
 }
-

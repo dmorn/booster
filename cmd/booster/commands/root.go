@@ -8,20 +8,20 @@ import (
 )
 
 var (
-	Version string
+	Version   string
 	BuildTime string
 )
 
 var (
-	pport int
-	bport int
+	pport       int
+	bport       int
 	boosterAddr string
 )
 
 var rootCmd = &cobra.Command{
-	Use: "booster",
+	Use:   "booster",
 	Short: "booster is a peer-to-peer network interface balancer",
-	Long: `booster creates a network of peer nodes, each of them with an active Internet connection, balancing the network usage between their interfaces`,
+	Long:  `booster creates a network of peer nodes, each of them with an active Internet connection, balancing the network usage between their interfaces`,
 }
 
 func Execute() {
