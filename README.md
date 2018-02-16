@@ -49,6 +49,7 @@ go get -u github.com/danielmorandini/booster-network/node
 (`cd` into the cloned repo)
 build the executable:
 ```
+cd $GOPATH/src/github.com/danielmorandini/booster-network
 go build -o booster cmd/booster/main.go
 ```
 
