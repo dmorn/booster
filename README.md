@@ -38,8 +38,9 @@ When I need a further boost, I even connect my brother's phone, my mum's, and
 the phone of whoever wants to **boost** me! :tada:
 
 ## Usage
-`booster help`
 ```
+$ booster help
+
 Usage:
   booster [command]
 
@@ -56,9 +57,10 @@ Flags:
 
 Use "booster [command] --help" for more information about a command.
 ```
-
-`booster help version`
+---
 ```
+$ booster help version
+
 prints booster version
 
 Usage:
@@ -67,9 +69,10 @@ Usage:
 Flags:
   -h, --help   help for version
 ```
-
-`booster help start`
+---
 ```
+$ booster help start
+
 starts a booster proxy and node. Both are tcp servers, their listening port will be logged
 
 Usage:
@@ -80,9 +83,10 @@ Flags:
   -h, --help        help for start
       --pport int   proxy listening port (default 1080)
 ```
-
-`booster help connect`
+---
 ```
+$ booster help connect
+
 connect asks (by default) the local node to perform the necessary steps required to connect
 an external node to itself. Returns the added node identifier if successfull. You can use
 the 'inspect' command to monitor node activity.
@@ -94,9 +98,10 @@ Flags:
   -b, --baddr string   booster address (default ":4884")
   -h, --help           help for connect
 ```
-
-`booster help disconnect`
+---
 ```
+$ booster help disconnect
+
 disconnect aks (by default) the local node to perform the necessary steps required to disconnect
 completely a node from itself.
 
@@ -107,9 +112,10 @@ Flags:
   -b, --baddr string   booster address (default ":4884")
   -h, --help           help for disconnect
 ```
-
-`booster help inspect`
+---
 ```
+$ booster help inspect
+
 inspect listents (by default) on the local node for each node activity update, and logs it.
 
 Usage:
