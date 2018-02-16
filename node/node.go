@@ -28,16 +28,16 @@ type Node struct {
 	IsActive bool               // tells wether the node is updating its status or not
 	workload int
 
-	lastOperation *operation // last operation made on this node
+	lastOperation *Operation // last operation made on this node
 }
 
-type operation struct {
-	id string // sha1 identifier
-	op uint8
+type Operation struct {
+	ID string // sha1 identifier
+	Op uint8
 }
 
-func (o *operation) String() string {
-	switch o.op {
+func (o *Operation) String() string {
+	switch o.Op {
 	case BoosterNodeAdded:
 		return "added"
 	case BoosterNodeClosed:
@@ -45,7 +45,7 @@ func (o *operation) String() string {
 	case BoosterNodeRemoved:
 		return "removed"
 	case BoosterNodeUpdated:
-		return fmt.Sprintf("updated (%v)", o.id)
+		return fmt.Sprintf("updated (%v)", o.ID)
 	default:
 		return "unknown"
 	}
@@ -68,7 +68,7 @@ func NewNode(host, pport, bport string) (*Node, error) {
 	n.PAddr = paddr
 
 	n.workload = 0
-	n.lastOperation = new(operation)
+	n.lastOperation = new(Operation)
 
 	// id is the sha1 of host + bport + pport
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
@@ -99,6 +99,14 @@ func (n *Node) ID() string {
 	return n.id
 }
 
+// Workload returns the workload of the node protecting it from concurrent access.
+func (n *Node) Workload() int {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.workload
+}
+
 // Close calls the cancel function if present, then sets active state to false.
 // Not safe to be accessed by multiple goroutines!
 func (n *Node) Close() error {
@@ -113,14 +121,17 @@ func (n *Node) Close() error {
 	}
 
 	n.IsActive = false
-	n.lastOperation.op = BoosterNodeClosed
+	n.lastOperation.Op = BoosterNodeClosed
 
 	return nil
 }
 
 // LastOperation returns the last operation code of the node.
-func (n *Node) LastOperation() uint8 {
-	return n.lastOperation.op
+func (n *Node) LastOperation() *Operation {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.lastOperation
 }
 
 // ReadNode reads from reader expecting it to contain a node.
@@ -167,9 +178,9 @@ func ReadNode(r io.Reader) (*Node, error) {
 	node.id = id
 	node.IsActive = int(isActive) != 0
 	node.workload = workload
-	node.lastOperation = &operation{
-		id: lastOpID,
-		op: lastOp,
+	node.lastOperation = &Operation{
+		ID: lastOpID,
+		Op: lastOp,
 	}
 
 	return node, nil
@@ -198,8 +209,8 @@ func (n *Node) EncodeBinary() ([]byte, error) {
 
 	n.Lock()
 	load := n.workload
-	lastOp := n.lastOperation.op
-	opidbuf, err := hex.DecodeString(n.lastOperation.id)
+	lastOp := n.lastOperation.Op
+	opidbuf, err := hex.DecodeString(n.lastOperation.ID)
 	n.Unlock()
 
 	if err != nil {

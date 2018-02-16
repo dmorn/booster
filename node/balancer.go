@@ -117,7 +117,7 @@ func isIn(id string, ids ...string) bool {
 // balancer.
 func (b *Balancer) SetRootNode(node *Node) {
 	node.Lock()
-	node.lastOperation.op = BoosterNodeAdded
+	node.lastOperation.Op = BoosterNodeAdded
 	node.Unlock()
 
 	b.rootNode = node
@@ -153,8 +153,8 @@ func (b *Balancer) UpdateNode(node *Node, workload int, target string) (*Node, e
 	node.Lock()
 	node.IsActive = true
 	node.workload = workload
-	node.lastOperation.op = BoosterNodeUpdated
-	node.lastOperation.id = target
+	node.lastOperation.Op = BoosterNodeUpdated
+	node.lastOperation.ID = target
 	node.Unlock()
 
 	b.Pub(node, TopicNodes)
@@ -175,7 +175,7 @@ func (b *Balancer) AddNode(node *Node) (*Node, error) {
 	defer node.Unlock()
 
 	b.Printf("balancer: adding node (%v)", node.ID())
-	node.lastOperation.op = BoosterNodeAdded
+	node.lastOperation.Op = BoosterNodeAdded
 	b.nodes[node.ID()] = node
 	b.Pub(node, TopicNodes)
 
@@ -194,7 +194,7 @@ func (b *Balancer) CloseNode(id string) (*Node, error) {
 	defer node.Unlock()
 
 	b.Printf("balancer: closing node (%v)\n", id)
-	lastOp := node.lastOperation.op
+	lastOp := node.lastOperation.Op
 	if lastOp == BoosterNodeClosed {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already closed")
 	}
@@ -218,12 +218,12 @@ func (b *Balancer) RemoveNode(id string) (*Node, error) {
 	defer node.Unlock()
 
 	b.Printf("balancer: removing node (%v)\n", id)
-	lastOp := node.lastOperation.op
+	lastOp := node.lastOperation.Op
 	if lastOp == BoosterNodeRemoved {
 		return nil, errors.New("balancer: node (" + node.ID() + ") already removed")
 	}
 
-	node.lastOperation.op = BoosterNodeRemoved
+	node.lastOperation.Op = BoosterNodeRemoved
 	delete(b.nodes, id)
 	b.Pub(node, TopicNodes)
 
