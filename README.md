@@ -38,6 +38,7 @@ When I need a further boost, I even connect my brother's phone, my mum's, and
 the phone of whoever wants to **boost** me! :tada:
 
 ## Usage
+`booster help`
 ```
 Usage:
   booster [command]
@@ -56,7 +57,7 @@ Flags:
 Use "booster [command] --help" for more information about a command.
 ```
 
-**command: version**
+`booster help version`
 ```
 prints booster version
 
@@ -67,7 +68,7 @@ Flags:
   -h, --help   help for version
 ```
 
-**command: start**
+`booster help start`
 ```
 starts a booster proxy and node. Both are tcp servers, their listening port will be logged
 
@@ -80,9 +81,11 @@ Flags:
       --pport int   proxy listening port (default 1080)
 ```
 
-**command: connect**
+`booster help connect`
 ```
-connect asks (by default) the local node to perform the necessary steps required to connect an external node to itself. Returns the added node identifier if successfull. You can use the 'inspect' command to monitor node activity.
+connect asks (by default) the local node to perform the necessary steps required to connect
+an external node to itself. Returns the added node identifier if successfull. You can use
+the 'inspect' command to monitor node activity.
 
 Usage:
   booster connect [host:port] [flags]
@@ -92,9 +95,10 @@ Flags:
   -h, --help           help for connect
 ```
 
-**command: disconnect**
+`booster help disconnect`
 ```
-disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.
+disconnect aks (by default) the local node to perform the necessary steps required to disconnect
+completely a node from itself.
 
 Usage:
   booster disconnect [id] [flags]
@@ -104,7 +108,7 @@ Flags:
   -h, --help           help for disconnect
 ```
 
-**command: inspect**
+`booster help inspect`
 ```
 inspect listents (by default) on the local node for each node activity update, and logs it.
 
