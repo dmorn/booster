@@ -32,10 +32,45 @@ preferences, I set the proxy setting to use the SOCKS5 booster-proxy, so all my
 network traffic passes through it. I have another booster instance running on a
 Nexus 5X (thanks to termux), which is connected to my mac's (step described
 later). With just this simple steps, my network traffic is balanced between our
-slow home's Internet connection and the NEXUS 5's 4G!
+slow home's Internet connection and the NEXUS 5X's 4G!
 
 When I need a further boost, I even connect my brother's phone, my mum's, and
 the phone of whoever wants to **boost** me! :tada:
+
+## Installation
+#### From source:
+With a [correctly configured](https://golang.org/doc/code.html#GOPATH) Go installation,
+
+get the repo with:
+```
+go get -u github.com/danielmorandini/booster-network/node
+```
+
+(`cd` into the cloned repo)
+build the executable:
+```
+go build -o booster cmd/booster/main.go
+```
+
+With Makefile (thanks to @FiloSottile's [hellogopher](https://github.com/cloudflare/hellogopher)),
+
+clone the repo:
+```
+git clone https://github.com/danielmorandini/booster-network.git
+```
+
+test & build:
+```
+cd booster-network
+make setup
+make test
+make
+```
+
+a `bin` folder will be produced inside the repo.
+
+#### From binary:
+Pick your [release!](https://github.com/danielmorandini/booster-network/releases)
 
 ## Usage
 ```
