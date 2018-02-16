@@ -2,7 +2,15 @@
 [![Build Status](https://travis-ci.org/danielmorandini/booster-network.svg?branch=master)](https://travis-ci.org/danielmorandini/booster-network)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster-network/node)
 
-## Abstract
+# Table of Contents
+
+- [Overview](#overview)
+- [Installation](#installation)
+  * [From source](#from-source)
+  * [Binary](#binary)
+- [Usage](#usage)
+
+## Overview
 
 At my parent's home we have a slow Internet connection. I noticed that we also
 have four smartphones, all of them 4G enabled. This made me think about this
@@ -69,7 +77,7 @@ make
 
 a `bin` folder will be produced inside the repo.
 
-#### From binary:
+#### Binary:
 Pick your [release!](https://github.com/danielmorandini/booster-network/releases)
 
 ## Usage
