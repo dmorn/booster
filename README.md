@@ -56,7 +56,7 @@ Flags:
 Use "booster [command] --help" for more information about a command.
 ```
 
-### CMD: version
+**command: version**
 ```
 prints booster version
 
@@ -67,7 +67,7 @@ Flags:
   -h, --help   help for version
 ```
 
-### CMD: start
+**command: start**
 ```
 starts a booster proxy and node. Both are tcp servers, their listening port will be logged
 
@@ -80,7 +80,7 @@ Flags:
       --pport int   proxy listening port (default 1080)
 ```
 
-### CMD: connect
+**command: connect**
 ```
 connect asks (by default) the local node to perform the necessary steps required to connect an external node to itself. Returns the added node identifier if successfull. You can use the 'inspect' command to monitor node activity.
 
@@ -92,7 +92,7 @@ Flags:
   -h, --help           help for connect
 ```
 
-### CMD: disconnect
+**command: disconnect**
 ```
 disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.
 
@@ -104,7 +104,7 @@ Flags:
   -h, --help           help for disconnect
 ```
 
-### CMD: inspect
+**command: inspect**
 ```
 inspect listents (by default) on the local node for each node activity update, and logs it.
 
