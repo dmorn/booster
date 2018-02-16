@@ -37,6 +37,85 @@ slow home's Internet connection and the NEXUS 5's 4G!
 When I need a further boost, I even connect my brother's phone, my mum's, and
 the phone of whoever wants to **boost** me! :tada:
 
+## Usage
+```
+Usage:
+  booster [command]
+
+Available Commands:
+  connect     connect two nodes together
+  disconnect  disconnect two nodes
+  help        Help about any command
+  inspect     inspects the node's activity
+  start       starts a booster node
+  version     prints booster version
+
+Flags:
+  -h, --help   help for booster
+
+Use "booster [command] --help" for more information about a command.
+```
+
+### CMD: version
+```
+prints booster version
+
+Usage:
+  booster version [flags]
+
+Flags:
+  -h, --help   help for version
+```
+
+### CMD: start
+```
+starts a booster proxy and node. Both are tcp servers, their listening port will be logged
+
+Usage:
+  booster start [flags]
+
+Flags:
+      --bport int   booster listening port (default 4884)
+  -h, --help        help for start
+      --pport int   proxy listening port (default 1080)
+```
+
+### CMD: connect
+```
+connect asks (by default) the local node to perform the necessary steps required to connect an external node to itself. Returns the added node identifier if successfull. You can use the 'inspect' command to monitor node activity.
+
+Usage:
+  booster connect [host:port] [flags]
+
+Flags:
+  -b, --baddr string   booster address (default ":4884")
+  -h, --help           help for connect
+```
+
+### CMD: disconnect
+```
+disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.
+
+Usage:
+  booster disconnect [id] [flags]
+
+Flags:
+  -b, --baddr string   booster address (default ":4884")
+  -h, --help           help for disconnect
+```
+
+### CMD: inspect
+```
+inspect listents (by default) on the local node for each node activity update, and logs it.
+
+Usage:
+  booster inspect [flags]
+
+Flags:
+  -b, --baddr string   booster address (default ":4884")
+  -h, --help           help for inspect
+```
+
 ## Booster protocol specification (todo)
 
 ## Connecting through bluetooth (todo)
