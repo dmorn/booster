@@ -1,5 +1,6 @@
 # booster-network
 [![Build Status](https://travis-ci.org/danielmorandini/booster-network.svg?branch=master)](https://travis-ci.org/danielmorandini/booster-network)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster-network/node)
 
 ## Abstract
 
