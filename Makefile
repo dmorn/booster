@@ -9,20 +9,19 @@ IMPORT_PATH := github.com/danielmorandini/booster-network
 IGNORED_PACKAGES := /vendor/
 
 .PHONY: all
-all: build
+all: booster
 
-.PHONY: build
-build: .GOPATH/.ok
+.PHONY: booster
+booster: .GOPATH/.ok
 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/booster
 
-### Code not in the repository root? Another binary? Add to the path like this.
-# .PHONY: otherbin
-# otherbin: .GOPATH/.ok
-# 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/otherbin
+.PHONY: proxy
+proxy: .GOPATH/.ok
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/socks5
 
-##### ^^^^^^ EDIT ABOVE ^^^^^^ #####
-
-##### =====> Utility targets <===== #####
+.PHONY: inspect-gateway
+inspect-gateway: .GOPATH/.ok
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/inspect-gateway
 
 .PHONY: clean test list cover format
 
