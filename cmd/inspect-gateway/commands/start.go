@@ -79,10 +79,11 @@ type operation struct {
 
 func newMsg(n *node.Node) *nodeMsg {
 	return &nodeMsg{
-		ID:       n.ID(),
-		BAddr:    n.BAddr.String(),
-		PAddr:    n.PAddr.String(),
-		Workload: n.Workload(),
+		ID:        n.ID(),
+		Timestamp: time.Now(),
+		BAddr:     n.BAddr.String(),
+		PAddr:     n.PAddr.String(),
+		Workload:  n.Workload(),
 		LastOp: &operation{
 			ID:   n.LastOperation().ID,
 			Code: int(n.LastOperation().Op),
