@@ -1,16 +1,22 @@
-package node
+package booster
 
 import (
 	"context"
 	"errors"
 	"io"
 	"net"
+
+	"github.com/danielmorandini/booster-network/node"
 )
+
+type BinaryEncoder interface {
+	EncodeBinary() ([]byte, error)
+}
 
 // InspectStream dials with the booster node, performs an "Inspect" procedure and,
 // if successfull, creates a stream of Node, which are remote nodes that are added
 // or updated to the inspected node.
-func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *Node, errc chan error) error {
+func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stream chan *node.Node, errc chan error) error {
 	conn, err := b.DialContext(ctx, network, baddr)
 	if err != nil {
 		return errors.New("booster: unable to contact node: " + err.Error())
@@ -77,12 +83,13 @@ func (b *Booster) InspectStream(ctx context.Context, network, baddr string, stre
 			}
 
 			// read the node
-			node, err := ReadNode(conn)
+			n := new(node.Node)
+			err := n.Read(conn)
 			if err != nil {
 				c <- err
 				return
 			}
-			stream <- node
+			stream <- n
 		}
 	}(conn)
 
@@ -123,7 +130,7 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 		_, _ = conn.Write([]byte{BoosterStreamStop})
 	}()
 
-	respWriter := func(n *Node, conn net.Conn) error {
+	respWriter := func(n BinaryEncoder, conn net.Conn) error {
 		buf := make([]byte, 1)
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return errors.New("booster: unable to read stream step message: " + err.Error())
@@ -171,7 +178,7 @@ func (b *Booster) handleInspect(ctx context.Context, conn net.Conn) error {
 	}()
 
 	for i := range stream {
-		n := i.(*Node)
+		n := i.(*node.Node)
 
 		err := respWriter(n, conn)
 		if err != nil {

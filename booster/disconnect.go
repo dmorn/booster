@@ -1,4 +1,4 @@
-package node
+package booster
 
 import (
 	"context"
@@ -92,10 +92,15 @@ func (b *Booster) handleDisconnect(ctx context.Context, conn net.Conn) error {
 	// do not check if the node is up anymore
 	b.Untrace(id)
 
+	node, err := b.GetNode(id)
+	if err != nil {
+		return err
+	}
+
 	// first deactivate the node...
-	b.CloseNode(id) // do not check for errors (maybe the node wasy already closed)
+	b.CloseNode(node) // do not check for errors (maybe the node wasy already closed)
 	// ...then remove it (this is important)
-	if _, err := b.RemoveNode(id); err != nil {
+	if _, err := b.RemoveNode(node); err != nil {
 		return respWriter(err)
 	}
 

@@ -1,4 +1,4 @@
-package node_test
+package booster_test
 
 import (
 	"context"

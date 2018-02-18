@@ -1,13 +1,14 @@
-package node_test
+package booster_test
 
 import (
 	"testing"
 
 	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster-network/booster"
 )
 
 func TestGetNodes(t *testing.T) {
-	b := node.NewBoosterDefault()
+	b := booster.NewBoosterDefault()
 	nodes := b.GetNodes()
 
 	// first, check that there are no nodes at the beginning
@@ -29,7 +30,7 @@ func TestGetNodes(t *testing.T) {
 }
 
 func TestCloseNode(t *testing.T) {
-	b := node.NewBoosterDefault()
+	b := booster.NewBoosterDefault()
 	n, _ := node.NewNode("localhost", "1111", "1111")
 	b.AddNode(n)
 
@@ -48,8 +49,8 @@ func TestCloseNode(t *testing.T) {
 		t.Fatal("node should not be active")
 	}
 
-	if n1.LastOperation() != node.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), node.BoosterNodeClosed)
+	if n1.LastOperation() != booster.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeClosed)
 	}
 
 	// now let's check if the node in the list was actually updated
@@ -58,13 +59,13 @@ func TestCloseNode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if n.LastOperation() != node.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.LastOperation(), node.BoosterNodeClosed)
+	if n.LastOperation() != booster.BoosterNodeClosed {
+		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeClosed)
 	}
 }
 
 func TestRemoveNode(t *testing.T) {
-	b := node.NewBoosterDefault()
+	b := booster.NewBoosterDefault()
 	n, _ := node.NewNode("localhost", "1111", "1111")
 	b.AddNode(n)
 
@@ -94,7 +95,7 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatal("node not properly closed")
 	}
 
-	if n.LastOperation() != node.BoosterNodeRemoved {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), node.BoosterNodeRemoved)
+	if n.LastOperation() != booster.BoosterNodeRemoved {
+		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeRemoved)
 	}
 }

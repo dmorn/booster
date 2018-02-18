@@ -4,11 +4,11 @@ package socks5
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
-	"fmt"
 	"io"
 	"log"
+	"fmt"
+	"crypto/sha1"
 	"net"
 	"os"
 	"strconv"
@@ -78,6 +78,14 @@ const (
 	TopicWorkload = "topic_wl"
 )
 
+type Event int
+
+// Possible proxy operations.
+const (
+	EventPush = 0
+	EventPop = 1
+)
+
 // Dialer is the interface that wraps the DialContext function.
 type Dialer interface {
 	// DialContext opens a connection to addr, which should
@@ -136,7 +144,7 @@ func SOCKS5() *Socks5 {
 
 // ListenAndServe accepts and handles TCP connections
 // using the SOCKS5 protocol.
-func (s *Socks5) ListenAndServe(port int) error {
+func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
 	s.Lock()
 	s.port = port
 	s.Unlock()
@@ -156,7 +164,7 @@ func (s *Socks5) ListenAndServe(port int) error {
 		}
 
 		go func() {
-			if err := s.Handle(conn); err != nil {
+			if err := s.Handle(ctx, conn); err != nil {
 				s.Println(err)
 			}
 		}()
@@ -168,8 +176,8 @@ func (s *Socks5) ListenAndServe(port int) error {
 //
 // Should run in its own go routine, closes the connection
 // when returning.
-func (s *Socks5) Handle(conn net.Conn) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer conn.Close()
 
@@ -427,34 +435,28 @@ func (s *Socks5) Port() int {
 // WorkloadMessage contains a workload value and an ID, usually the hash of
 // a canonical address.
 type WorkloadMessage struct {
-	Load int
-	ID   string
+	Target string
+	Event Event
 }
 
-func (s *Socks5) pushLoad(event string) {
+func (s *Socks5) pushLoad(target string) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.workload++
-	s.pub(s.workload, event)
+	s.pub(EventPush, target)
 }
 
-func (s *Socks5) popLoad(event string) {
+func (s *Socks5) popLoad(target string) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.workload--
-	// should never become negative
-	if s.workload < 0 {
-		s.workload = 0
-	}
-	s.pub(s.workload, event)
+	s.pub(EventPop, target)
 }
 
-func (s *Socks5) pub(load int, target string) {
+func (s *Socks5) pub(event Event, target string) {
 	wm := WorkloadMessage{
-		Load: load,
-		ID:   sha1Hash([]byte(target)),
+		Target: target,
+		Event: event,
 	}
 
 	if err := s.Pub(wm, TopicWorkload); err != nil {

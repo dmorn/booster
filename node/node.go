@@ -1,14 +1,13 @@
 package node
 
 import (
-	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -17,49 +16,25 @@ import (
 
 // Node represents a remote booster node.
 type Node struct {
-	id      string // sha1 string representation
+	id      []byte // sha1
 	BAddr   net.Addr
 	PAddr   net.Addr
 	isLocal bool
 
 	sync.Mutex
-	cancelStatus context.CancelFunc // added when some goroutine is updating its workload.
-	cancelPing   context.CancelFunc
-	IsActive     bool // tells wether the node is updating its status or not
-	workload     int
-
-	lastOperation *Operation // last operation made on this node
+	stop chan struct{}
+	active     bool // tells wether the node is updating its status or not
+	tunnels map[string]*Tunnel
 }
 
-type Operation struct {
-	ID string // sha1 identifier
-	Op uint8
-}
-
-func (o *Operation) String() string {
-	switch o.Op {
-	case BoosterNodeAdded:
-		return "added"
-	case BoosterNodeClosed:
-		return "closed"
-	case BoosterNodeRemoved:
-		return "removed"
-	case BoosterNodeUpdated:
-		return fmt.Sprintf("updated (%v)", o.ID)
-	default:
-		return "unknown"
-	}
-}
-
-// NewNode create a new Node instance.
-func NewNode(host, pport, bport string) (*Node, error) {
+// New creates a new node instance.
+func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	n := new(Node)
 	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
 	if err != nil {
 		return nil, errors.New("node: unable to create baddr: " + err.Error())
 	}
 	n.BAddr = baddr
-	n.isLocal = false
 
 	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
 	if err != nil {
@@ -67,123 +42,200 @@ func NewNode(host, pport, bport string) (*Node, error) {
 	}
 	n.PAddr = paddr
 
-	n.workload = 0
-	n.lastOperation = new(Operation)
-
-	// id is the sha1 of host + bport + pport
+	n.tunnels = make(map[string]*Tunnel)
+	n.stop = make(chan struct{})
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
+	n.isLocal = isLocal
 
 	return n, nil
 }
 
-// Desc returns the description of the node in a multiline string.
-func (n *Node) String() string {
+// Workload is the number of tunnels that the node is managing. Contains also unacknoledged ones.
+func (n *Node) Workload() int {
 	n.Lock()
-	wl := n.workload
-	op := n.lastOperation
+	defer n.Unlock()
+
+	return len(n.tunnels)
+}
+
+// IsLocal returns true if the node is a local node.
+func (n *Node) IsLocal() bool {
+	return n.isLocal
+}
+
+// SetIsActive sets the state of the node. Safe to be called by
+// multiple goroutines.
+func (n *Node) SetIsActive(active bool) {
+	n.Lock()
+	defer n.Unlock()
+
+	n.active = active
+}
+
+// IsActive returns true if the node is updating it's status.
+func (n *Node) IsActive() bool {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.active
+}
+
+// ID returns the node's sha1 identifier.
+func (n *Node) ID() string {
+	return fmt.Sprintf("%x", n.id)
+}
+
+// ProxyAddr returns the proxy address of the node.
+func (n *Node) ProxyAddr() net.Addr {
+	return n.PAddr
+}
+
+// AddTunnel sets the node's state to active and adds a new
+// tunnel to it. If the node as already a tunnel with this
+// target connected to it, it increments the copies of the
+// tunnel.
+func (n *Node) AddTunnel(target net.Addr) {
+	n.SetIsActive(true)
+
+	if t, ok := n.tunnels[target.String()]; ok {
+		t.Lock()
+		defer t.Unlock()
+
+		t.copies++
+		return
+	}
+
+	t := NewTunnel(target)
+	n.Lock()
+	defer n.Unlock()
+	n.tunnels[target.String()] = t
+}
+
+// Ack acknoledges the target tunnel, impling that the node is actually working on it.
+func (n *Node) Ack(target net.Addr) error {
+	n.Lock()
+	t, ok := n.tunnels[target.String()]
+	if !ok {
+		return fmt.Errorf("node: cannot ack [%v], no such node", target)
+	}
 	n.Unlock()
 
+	t.Lock()
+	defer t.Unlock()
+
+	if t.acks >= t.copies {
+		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", target, t.acks, t.copies)
+	}
+
+	t.acks++
+	return nil
+}
+
+// Nack
+func (n *Node) RemoveTunnel(target net.Addr) error {
+	n.Lock()
+	defer n.Unlock()
+
+	t, ok := n.tunnels[target.String()]
+	if !ok {
+		return fmt.Errorf("node: cannot delete [%v], no such tunnel", target)
+	}
+
+	t.Lock()
+	defer t.Unlock()
+	if t.copies == 1 {
+		delete(n.tunnels, target.String())
+		return nil
+	}
+
+	t.copies--
+	return nil
+}
+
+func (n *Node) Close() error {
+	n.Lock()
+	defer n.Unlock()
+
+	n.SetIsActive(false)
+	close(n.stop)
+	return nil
+}
+
+func (n *Node) Stop() chan struct{} {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.stop
+}
+
+// Desc returns the description of the node in a multiline string.
+func (n *Node) String() string {
 	activeStr := "inactive"
-	if n.IsActive {
+	if n.IsActive() {
 		activeStr = "active"
 	}
 
 	host, bport, _ := net.SplitHostPort(n.BAddr.String())
 	_, pport, _ := net.SplitHostPort(n.PAddr.String())
 
-	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v, lastop: %v", n.ID(), host, bport, pport, activeStr, wl, op.String())
+	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v", n.ID(), host, bport, pport, activeStr, n.Workload())
 }
 
-// ID returns the id of the node. Required by tracer.Pinger in this case.
-func (n *Node) ID() string {
-	return n.id
-}
-
-// Workload returns the workload of the node protecting it from concurrent access.
-func (n *Node) Workload() int {
-	n.Lock()
-	defer n.Unlock()
-
-	return n.workload
-}
-
-// Close calls the cancel function if present, then sets active state to false.
-// Not safe to be accessed by multiple goroutines!
-func (n *Node) Close() error {
-	if n.cancelStatus != nil {
-		n.cancelStatus()
-		n.cancelStatus = nil
-	}
-
-	if n.cancelPing != nil {
-		n.cancelPing()
-		n.cancelPing = nil
-	}
-
-	n.IsActive = false
-	n.lastOperation.Op = BoosterNodeClosed
-
-	return nil
-}
-
-// LastOperation returns the last operation code of the node.
-func (n *Node) LastOperation() *Operation {
-	n.Lock()
-	defer n.Unlock()
-
-	return n.lastOperation
-}
-
-// ReadNode reads from reader expecting it to contain a node.
-func ReadNode(r io.Reader) (*Node, error) {
+// Read  reads from reader expecting it to contain a node.
+func (n *Node) Read(r io.Reader) error {
 	buf := make([]byte, 20) // sha1 len
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
+		return errors.New("node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
 	}
 
-	id := fmt.Sprintf("%x", buf)
+	id := buf
 	host, err := socks5.ReadHost(r)
 	if err != nil {
-		return nil, errors.New("node: unable to decode host: " + err.Error())
+		return errors.New("node: unable to decode host: " + err.Error())
 	}
 	pport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("node: unable to decode p port: " + err.Error())
+		return errors.New("node: unable to decode p port: " + err.Error())
 	}
 	bport, err := socks5.ReadPort(r)
 	if err != nil {
-		return nil, errors.New("node: unable to decode b port: " + err.Error())
+		return errors.New("node: unable to decode b port: " + err.Error())
 	}
 
-	buf = buf[:3]
+	buf = buf[:2]
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to decode state: " + err.Error())
+		return errors.New("node: unable to decode state: " + err.Error())
 	}
 
-	isActive := buf[0]
-	workload := int(buf[1])
-	lastOp := buf[2]
+	active := buf[0]
+	count := int(buf[1])
 
-	buf = buf[:20]
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to decode last operation id: " + err.Error())
+	tns := make(map[string]*Tunnel)
+	for i := 0; i < count; i++ {
+		t := new(Tunnel)
+		if err := t.Read(r); err != nil {
+			return err
+		}
+
+		tns[t.ID()] = t
 	}
-	lastOpID := fmt.Sprintf("%x", buf)
 
-	node, err := NewNode(host, pport, bport)
+	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
 	if err != nil {
-		return nil, err
+		return errors.New("node: unable to create baddr: " + err.Error())
+	}
+	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
+	if err != nil {
+		return errors.New("node: unable to create paddr: " + err.Error())
 	}
 
-	node.id = id
-	node.IsActive = int(isActive) != 0
-	node.workload = workload
-	node.lastOperation = &Operation{
-		ID: lastOpID,
-		Op: lastOp,
-	}
+	n.id = id
+	n.BAddr = baddr
+	n.PAddr = paddr
+	n.active = active != 0
+	n.tunnels = tns
 
-	return node, nil
+	return nil
 }
 
 // EncodeBinary encodes the node into its binary
@@ -206,39 +258,30 @@ func (n *Node) EncodeBinary() ([]byte, error) {
 	if err != nil {
 		return nil, errors.New("node: unable to encode: " + err.Error())
 	}
-
-	n.Lock()
-	load := n.workload
-	lastOp := n.lastOperation.Op
-	opidbuf, err := hex.DecodeString(n.lastOperation.ID)
-	n.Unlock()
-
-	if err != nil {
-		opidbuf = make([]byte, 20) // just put a fake hash
-	}
-	// It could happen that we do not have any operation id
-	if len(opidbuf) != 20 {
-		opidbuf = make([]byte, 20) // just put a fake hash
+	active := 0
+	if n.IsActive() {
+		active = 1
 	}
 
-	if load > 0xff {
-		return nil, errors.New("node: load out of range: " + strconv.Itoa(load))
-	}
-
-	isActive := 0
-	if n.IsActive {
-		isActive = 1
-	}
-
-	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3+len(opidbuf))
+	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3+518)
 	buf = append(buf, idbuf...)
 	buf = append(buf, hbuf...)
 	buf = append(buf, ppbuf...)
 	buf = append(buf, bpbuf...)
-	buf = append(buf, byte(isActive))
-	buf = append(buf, byte(load))
-	buf = append(buf, byte(lastOp))
-	buf = append(buf, opidbuf...)
+	buf = append(buf, byte(active))
+	buf = append(buf, byte(n.Workload()))
+
+	n.Lock()
+	defer n.Unlock()
+
+	for _, t := range n.tunnels {
+		tbuf, err := t.EncodeBinary()
+		if err != nil {
+			return nil, errors.New("node: unable to encode tunnel: " + err.Error())
+		}
+
+		buf = append(buf, tbuf...)
+	}
 
 	return buf, nil
 }
@@ -246,7 +289,7 @@ func (n *Node) EncodeBinary() ([]byte, error) {
 // Ping dials with the node with little timeout. Returns an error
 // if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
 func (n *Node) Ping(ctx context.Context) error {
-	if n.IsActive {
+	if n.IsActive() {
 		return errors.New("connection already enstablished")
 	}
 
@@ -263,11 +306,11 @@ func (n *Node) Addr() net.Addr {
 	return n.BAddr
 }
 
-func sha1Hash(images ...[]byte) string {
+func sha1Hash(images ...[]byte) []byte {
 	h := sha1.New()
 	for _, image := range images {
 		h.Write(image)
 	}
 
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return h.Sum(nil)
 }

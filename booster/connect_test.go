@@ -1,4 +1,4 @@
-package node_test
+package booster_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster-network/booster"
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
@@ -18,7 +18,7 @@ func TestConnect(t *testing.T) {
 	d := new(connectDialer)
 	d.Conn = mockConn.client
 
-	br := node.NewBoosterDefault()
+	br := booster.NewBoosterDefault()
 	br.Dialer = d
 
 	h := sha1.New()
@@ -52,12 +52,12 @@ func TestConnect(t *testing.T) {
 			return
 		}
 
-		if buf[0] != node.BoosterVersion1 {
+		if buf[0] != booster.BoosterVersion1 {
 			c <- fmt.Errorf("unexpected version: %v", buf[0])
 			return
 		}
 
-		if buf[1] != node.BoosterCMDConnect {
+		if buf[1] != booster.BoosterCMDConnect {
 			c <- fmt.Errorf("unexpencted CMD response: %v", buf[1])
 			return
 		}
@@ -102,10 +102,10 @@ func TestConnect(t *testing.T) {
 		}
 
 		buf = make([]byte, 0, len(bid)+4)
-		buf = append(buf, node.BoosterVersion1)
-		buf = append(buf, node.BoosterCMDConnect)
-		buf = append(buf, node.BoosterRespSuccess)
-		buf = append(buf, node.BoosterFieldReserved)
+		buf = append(buf, booster.BoosterVersion1)
+		buf = append(buf, booster.BoosterCMDConnect)
+		buf = append(buf, booster.BoosterRespSuccess)
+		buf = append(buf, booster.BoosterFieldReserved)
 		buf = append(buf, bid...)
 
 		if _, err := conn.Write(buf); err != nil {

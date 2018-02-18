@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/danielmorandini/booster-network/booster"
 	"github.com/danielmorandini/booster-network/node"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ var inspectCmd = &cobra.Command{
 	Long:  `inspect listents (by default) on the local node for each node activity update, and logs it.`,
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		b := node.NewBoosterDefault()
+		b := booster.NewBoosterDefault()
 		stream := make(chan *node.Node)
 		errc := make(chan error)
 		ctx := context.Background()

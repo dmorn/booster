@@ -1,4 +1,4 @@
-package node
+package booster
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 // Ping sends messages to check if the connection is still alive. Fails if
 // it's not able to send after two seconds.
-func (b *Booster) Ping(ctx context.Context, node *Node) error {
+func (b *Booster) Ping(ctx context.Context, node Node) error {
 	ctx, cancel := context.WithCancel(ctx)
 
 	conn, err := b.DialContext(ctx, node.Addr().Network(), node.Addr().String())
@@ -21,13 +21,11 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 		return errors.New("booster: ping error: " + err.Error())
 	}
 
-	node.Lock()
-	node.cancelPing = cancel
-	node.Unlock()
-
 	var mux sync.Mutex
 
 	fail := func(err error, remove bool) error {
+		defer cancel()
+
 		mux.Lock()
 		defer mux.Unlock()
 
@@ -35,18 +33,19 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 		conn.Close()
 
 		// Do not fail multiple times.
-		if !node.IsActive {
+		if !node.IsActive() {
 			return err
 		}
 
 		b.Printf("booster: ping error: %v", err)
 		if remove {
-			b.CloseNode(node.ID())
-			b.RemoveNode(node.ID())
+			b.CloseNode(node)
+			b.RemoveNode(node)
+
 			return err
 		} else {
 			b.Trace(node)
-			b.CloseNode(node.ID())
+			b.CloseNode(node)
 		}
 
 		return err
@@ -116,6 +115,9 @@ func (b *Booster) Ping(ctx context.Context, node *Node) error {
 				}
 				// Reset the timer if no errors occurred.
 				timer.Reset(b.NodeIdleTimeout)
+			case <-node.Stop():
+				fail(errors.New("booster: node [" + node.ID() + "] closed"), false)
+				return
 			}
 		}
 	}()

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster-network/booster"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ var connectCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		dest := strings.Join(args, " ")
-		b := node.NewBoosterDefault()
+		b := booster.NewBoosterDefault()
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 		defer cancel()
 

@@ -1,4 +1,4 @@
-package node
+package booster
 
 import (
 	"context"
@@ -16,7 +16,9 @@ import (
 type LoadBalancer interface {
 	// GetNodeBalanced should returns a node id, using internally a
 	// balancing algorithm.
-	GetNodeBalanced(exp ...string) (*Node, error)
+	GetNodeBalanced(exp ...string) (Node, error)
+	AddTunnel(node Node, target net.Addr)
+	RemoveTunnel(node Node, target net.Addr) error
 }
 
 // Proxy is a SOCK5 server.
@@ -113,10 +115,10 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 	return d
 }
 
-func (d *Dialer) nodeFinderFunc() func() (*Node, error) {
+func (d *Dialer) nodeFinderFunc() func() (Node, error) {
 	var ids []string
 
-	return func() (*Node, error) {
+	return func() (Node, error) {
 		if len(ids) > 0 {
 			d.Printf("dialer: dialed with nodes: %+v", ids)
 		}
@@ -129,14 +131,14 @@ func (d *Dialer) nodeFinderFunc() func() (*Node, error) {
 	}
 }
 
-func (d *Dialer) dialerForNode(node *Node) (socks5.Dialer, error) {
-	if node.isLocal {
+func (d *Dialer) dialerForNode(node Node) (socks5.Dialer, error) {
+	if node.IsLocal() {
 		d.Printf("dialer: using local gateway")
 		return d.Fallback, nil
 	}
 
-	d.Printf("dialer: using SOCKS5 gateway @ %v", node.PAddr.String())
-	return newSocks5Dialer(d.Fallback, node.PAddr.Network(), node.PAddr.String())
+	d.Printf("dialer: using SOCKS5 gateway @ %v", node.ProxyAddr().String())
+	return newSocks5Dialer(d.Fallback, node.ProxyAddr().Network(), node.ProxyAddr().String())
 }
 
 // DialContext uses the underlying load balancer to retrieve a possibile socks5 proxy
@@ -152,8 +154,13 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 	// trace number of iterations
 	i := 0
 	for {
-		i += 1
+		i++
 		d.Printf("dialer: iteration (%v): to %v", i, addr)
+
+		target, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, errors.New("dialer: unable to create addr: " + err.Error())
+		}
 
 		// first get a dialer
 		dialer, err := d.dialerForNode(node)
@@ -162,9 +169,15 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 		}
 
 		// try to get a connection
+		d.AddTunnel(node, target)
 		conn, cerr := dialer.DialContext(ctx, network, addr)
 		if cerr == nil {
 			return conn, cerr
+		}
+
+		// remove the tunnel the we've created.
+		if err = d.RemoveTunnel(node, target); err != nil {
+			return nil, errors.New("dialer: " + err.Error())
 		}
 
 		// simply return if it was a context error

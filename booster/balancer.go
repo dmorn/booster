@@ -1,9 +1,29 @@
-package node
+package booster
 
 import (
 	"errors"
 	"log"
+	"sync"
+	"net"
+
+	"github.com/danielmorandini/booster-network/tracer"
 )
+
+type Node interface {
+	tracer.Pinger
+	BinaryEncoder
+
+	Workload() int
+	IsActive() bool
+	SetIsActive(bool)
+	IsLocal() bool
+	ProxyAddr() net.Addr
+	Ack(net.Addr) error
+	AddTunnel(net.Addr)
+	RemoveTunnel(net.Addr) error
+	Close() error
+	Stop() chan struct{}
+}
 
 // Balancer is a LoadBalancer implementation. It manages nodes, providing
 // functionalities to store and manage a set of Nodes. Uses PubSub
@@ -14,10 +34,11 @@ type Balancer struct {
 	*log.Logger
 	PubSub
 
+	sync.Mutex
 	// rootNode is the root node of every other remote one. Its workload
 	// is the sum of the workloads of the nodes plus its own.
-	rootNode *Node
-	nodes    map[string]*Node
+	rootNode Node
+	nodes    map[string]Node
 }
 
 // NewBalancer returns a new balancer instance.
@@ -25,7 +46,7 @@ func NewBalancer(log *log.Logger, ps PubSub) *Balancer {
 	b := new(Balancer)
 	b.Logger = log
 	b.PubSub = ps
-	b.nodes = make(map[string]*Node)
+	b.nodes = make(map[string]Node)
 
 	return b
 }
@@ -39,28 +60,25 @@ func NewBalancer(log *log.Logger, ps PubSub) *Balancer {
 //
 // exp is a list of ids, which are considered as nodes that should
 // not be taken into consideration.
-func (b *Balancer) GetNodeBalanced(exp ...string) (*Node, error) {
-	if b.rootNode == nil {
+func (b *Balancer) GetNodeBalanced(exp ...string) (Node, error) {
+	if b.RootNode() == nil {
 		return nil, errors.New("balancer: found nil rootNode")
 	}
 
-	b.rootNode.Lock()
-	tr := b.rootNode.workload
-	b.rootNode.Unlock()
+	tr := b.RootNode().Workload()
 
-	var c *Node // candidate entry
+	var c Node // candidate entry
 	var twl int // total workload
 
+	b.Lock()
 	for _, e := range b.nodes {
 		// do not condider non active nodes
-		if !e.IsActive {
+		if !e.IsActive() {
 			continue
 		}
 
-		e.Lock()
-		ewl := e.workload
+		ewl := e.Workload()
 		twl += ewl
-		e.Unlock()
 
 		// check if node is in the exceptions
 		if isIn(e.ID(), exp...) {
@@ -71,34 +89,33 @@ func (b *Balancer) GetNodeBalanced(exp ...string) (*Node, error) {
 			c = e
 		}
 
-		c.Lock()
-		cwl := c.workload // candidate workload
-		c.Unlock()
+		cwl := c.Workload() // candidate workload
 
 		if ewl < cwl {
 			c = e
 		}
 	}
+	b.Unlock()
 
 	// we did not find any suitable node
 	if c == nil {
-		if isIn(b.rootNode.ID(), exp...) {
+		if isIn(b.RootNode().ID(), exp...) {
 			return nil, errors.New("balancer: no suitable node found")
 		}
 
-		return b.rootNode, nil
+		return b.RootNode(), nil
 	}
 
 	// tr is the sum of the local workload and the remote node's workload.
 	// this is why we have to subtract the total remote workload to understand
 	// how the load on this node is.
-	if c.workload > (tr - twl) {
+	if c.Workload() > (tr - twl) {
 		// return the candidate even if the local node is the most suitable one
-		if isIn(b.rootNode.ID(), exp...) {
+		if isIn(b.RootNode().ID(), exp...) {
 			return c, nil
 		}
 
-		return b.rootNode, nil
+		return b.RootNode(), nil
 	}
 
 	return c, nil
@@ -115,17 +132,26 @@ func isIn(id string, ids ...string) bool {
 
 // SetRootNode sets the rootNode of the balancer. Be careful that this value HAS to be set before using the
 // balancer.
-func (b *Balancer) SetRootNode(node *Node) {
-	node.Lock()
-	node.lastOperation.Op = BoosterNodeAdded
-	node.Unlock()
+func (b *Balancer) SetRootNode(node Node) {
+	b.Lock()
+	defer b.Unlock()
 
 	b.rootNode = node
 }
 
+func (b *Balancer) RootNode() Node {
+	b.Lock()
+	defer b.Unlock()
+
+	return b.rootNode
+}
+
 // GetNode returns the node associated with id.
 // Returns an error if no node with this id is found.
-func (b *Balancer) GetNode(id string) (*Node, error) {
+func (b *Balancer) GetNode(id string) (Node, error) {
+	b.Lock()
+	defer b.Unlock()
+
 	if e, ok := b.nodes[id]; ok {
 		return e, nil
 	}
@@ -134,12 +160,14 @@ func (b *Balancer) GetNode(id string) (*Node, error) {
 }
 
 // GetNodes returns all stored nodes.
-func (b *Balancer) GetNodes() []*Node {
-	nodes := []*Node{}
-	if b.rootNode != nil {
-		nodes = append(nodes, b.rootNode)
+func (b *Balancer) GetNodes() []Node {
+	nodes := []Node{}
+	if b.RootNode() != nil {
+		nodes = append(nodes, b.RootNode())
 	}
 
+	b.Lock()
+	defer b.Unlock()
 	for _, val := range b.nodes {
 		nodes = append(nodes, val)
 	}
@@ -147,57 +175,54 @@ func (b *Balancer) GetNodes() []*Node {
 	return nodes
 }
 
-// UpdateNode updates the workload of a node. Publishes the updated node to the pubsub
-// with topic TopicNodes.
-func (b *Balancer) UpdateNode(node *Node, workload int, target string) (*Node, error) {
-	node.Lock()
-	node.IsActive = true
-	node.workload = workload
-	node.lastOperation.Op = BoosterNodeUpdated
-	node.lastOperation.ID = target
-	node.Unlock()
-
-	b.Pub(node, TopicNodes)
-	return node, nil
-}
-
 // AddNode adds a new entry to the monitored nodes. If a node with the same
 // id is already present, it removes it. Publishes the updated node to the pubsub
 // with topic TopicNodes.
-func (b *Balancer) AddNode(node *Node) (*Node, error) {
+func (b *Balancer) AddNode(node Node) (Node, error) {
 	if _, ok := b.nodes[node.ID()]; ok {
-		// close, remove it and substitute
-		b.CloseNode(node.ID())
-		b.RemoveNode(node.ID())
+		return nil, errors.New("balancer: node (" + node.ID() + ") already present")
 	}
 
-	node.Lock()
-	defer node.Unlock()
-
 	b.Printf("balancer: adding node (%v)", node.ID())
-	node.lastOperation.Op = BoosterNodeAdded
 	b.nodes[node.ID()] = node
 	b.Pub(node, TopicNodes)
 
 	return node, nil
 }
 
+func (b *Balancer) Ack(node Node, target net.Addr) error {
+	b.Printf("balancer: acknoledging (%v) on node (%v)", target, node.ID())
+
+	if err := node.Ack(target); err != nil {
+		return err
+	}
+
+	b.Pub(node, TopicNodes)
+	return nil
+}
+
+func (b *Balancer) RemoveTunnel(node Node, target net.Addr) error {
+	b.Printf("balancer: removing (%v) on node (%v)", target, node.ID())
+
+	if err := node.RemoveTunnel(target); err != nil {
+		return err
+	}
+
+	b.Pub(node, TopicNodes)
+	return nil
+}
+
+func (b *Balancer) AddTunnel(node Node, target net.Addr) {
+	b.Printf("balancer: adding tunnel (%v) to node (%v)", target, node.ID())
+
+	node.AddTunnel(target)
+	b.Pub(node, TopicNodes)
+}
+
 // CloseNode calls Close on the node with id. Publishes the updated node to the pubsub
 // with topic TopicNodes.
-func (b *Balancer) CloseNode(id string) (*Node, error) {
-	node, err := b.GetNode(id)
-	if err != nil {
-		return nil, err
-	}
-
-	node.Lock()
-	defer node.Unlock()
-
-	b.Printf("balancer: closing node (%v)\n", id)
-	lastOp := node.lastOperation.Op
-	if lastOp == BoosterNodeClosed {
-		return nil, errors.New("balancer: node (" + node.ID() + ") already closed")
-	}
+func (b *Balancer) CloseNode(node Node) (Node, error) {
+	b.Printf("balancer: closing node (%v)", node.ID())
 
 	node.Close()
 	b.Pub(node, TopicNodes)
@@ -208,23 +233,10 @@ func (b *Balancer) CloseNode(id string) (*Node, error) {
 // RemoveNode removes the entry labeled with id.
 // Returns false if no entry was found. Publishes the updated node to the pubsub
 // with topic TopicNodes.
-func (b *Balancer) RemoveNode(id string) (*Node, error) {
-	node, err := b.GetNode(id)
-	if err != nil {
-		return nil, err
-	}
+func (b *Balancer) RemoveNode(node Node) (Node, error) {
+	b.Printf("balancer: removing node (%v)\n", node.ID())
 
-	node.Lock()
-	defer node.Unlock()
-
-	b.Printf("balancer: removing node (%v)\n", id)
-	lastOp := node.lastOperation.Op
-	if lastOp == BoosterNodeRemoved {
-		return nil, errors.New("balancer: node (" + node.ID() + ") already removed")
-	}
-
-	node.lastOperation.Op = BoosterNodeRemoved
-	delete(b.nodes, id)
+	delete(b.nodes, node.ID())
 	b.Pub(node, TopicNodes)
 
 	return node, nil

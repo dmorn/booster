@@ -1,4 +1,4 @@
-package node_test
+package booster_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster-network/booster"
 )
 
 func TestHello(t *testing.T) {
@@ -23,7 +23,7 @@ func TestHello(t *testing.T) {
 	d := new(connectDialer)
 	d.Conn = mockConn.client
 
-	br := node.NewBoosterDefault()
+	br := booster.NewBoosterDefault()
 	br.Dialer = d
 
 	c := make(chan error)
@@ -53,12 +53,12 @@ func TestHello(t *testing.T) {
 			return
 		}
 
-		if buf[0] != node.BoosterVersion1 {
+		if buf[0] != booster.BoosterVersion1 {
 			c <- fmt.Errorf("unexpected version %v", buf[0])
 			return
 		}
 
-		if buf[1] != node.BoosterCMDHello {
+		if buf[1] != booster.BoosterCMDHello {
 			c <- fmt.Errorf("unexpected cmd %v", buf[1])
 			return
 		}
@@ -67,10 +67,10 @@ func TestHello(t *testing.T) {
 
 		// write response back
 		buf = make([]byte, 0, 6)
-		buf = append(buf, node.BoosterVersion1)
-		buf = append(buf, node.BoosterCMDHello)
-		buf = append(buf, node.BoosterRespSuccess)
-		buf = append(buf, node.BoosterFieldReserved)
+		buf = append(buf, booster.BoosterVersion1)
+		buf = append(buf, booster.BoosterCMDHello)
+		buf = append(buf, booster.BoosterRespSuccess)
+		buf = append(buf, booster.BoosterFieldReserved)
 		buf = append(buf, byte(port>>8), byte(port))
 
 		if _, err := conn.Write(buf); err != nil {

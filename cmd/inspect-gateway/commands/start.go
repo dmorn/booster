@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/danielmorandini/booster-network/booster"
 	"github.com/danielmorandini/booster-network/node"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +38,7 @@ var startCmd = &cobra.Command{
 		log.Printf("token: %v", c.token)
 
 		// listen for node events
-		b := node.NewBoosterDefault()
+		b := booster.NewBoosterDefault()
 		stream := make(chan *node.Node)
 		errc := make(chan error)
 		ctx := context.Background()

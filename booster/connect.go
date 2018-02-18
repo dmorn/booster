@@ -1,4 +1,4 @@
-package node
+package booster
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster-network/node"
 )
 
 // connect performs the steps required to pair with a remote node.
@@ -64,7 +65,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	return id, nil
 }
 
-func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) (*Node, error) {
+func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) (*node.Node, error) {
 	addr, err := socks5.ReadAddress(conn)
 	if err != nil {
 		return nil, errors.New("booster: " + err.Error())
@@ -84,7 +85,7 @@ func (b *Booster) handleConnect(ctx context.Context, conn net.Conn) (*Node, erro
 		return nil, errors.New("booster: unable to handle connect: " + err.Error())
 	}
 
-	rn, err := NewNode(host, pport, bport)
+	rn, err := node.New(host, pport, bport, false)
 	if err != nil {
 		return nil, err
 	}
