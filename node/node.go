@@ -116,7 +116,7 @@ func (n *Node) Ack(target net.Addr) error {
 	n.Lock()
 	t, ok := n.tunnels[target.String()]
 	if !ok {
-		return fmt.Errorf("node: cannot ack [%v], no such node", target)
+		return fmt.Errorf("node: cannot ack [%v], no such tunnel", target)
 	}
 	n.Unlock()
 
