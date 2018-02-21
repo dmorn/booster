@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster-network/pubsub"
+	"github.com/danielmorandini/booster-network/proxy"
 )
 
 const (
@@ -74,8 +75,8 @@ var (
 )
 
 const (
-	// TopicWorkload is the topic where the workload updates are published
-	TopicWorkload = "topic_wl"
+	// TopicTunnels is the topic where the tunnels updates are published
+	TopicTunnels = "topic_tunnels"
 )
 
 type Event int
@@ -85,13 +86,6 @@ const (
 	EventPush = 0
 	EventPop = 1
 )
-
-// Dialer is the interface that wraps the DialContext function.
-type Dialer interface {
-	// DialContext opens a connection to addr, which should
-	// be a canonical address with host and port.
-	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
-}
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
@@ -105,32 +99,17 @@ type Socks5 struct {
 	*log.Logger
 	PubSub
 
-	// Dialer is used when connecting to a remote host. Could
-	// be useful when chaining multiple proxies.
-	Dialer
-
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 
 	sync.Mutex
+	proxy.Dialer
 	port     int
 	workload int
 }
 
-// NewSOCKS5 returns a new Socks5 instance.
-func NewSOCKS5(dialer Dialer, log *log.Logger, pubsub PubSub) *Socks5 {
-	s := new(Socks5)
-	s.ReadWriteTimeout = 2 * time.Minute
-	s.ChunkSize = 4 * 1024
-	s.Dialer = dialer
-	s.Logger = log
-	s.PubSub = pubsub
-
-	return s
-}
-
 // SOCKS5 returns a new Socks5 instance with default logger and dialer.
-func SOCKS5() *Socks5 {
+func New() *Socks5 {
 	d := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -139,7 +118,14 @@ func SOCKS5() *Socks5 {
 	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
 	ps := pubsub.New()
 
-	return NewSOCKS5(d, log, ps)
+	s := new(Socks5)
+	s.ReadWriteTimeout = 2 * time.Minute
+	s.ChunkSize = 4 * 1024
+	s.Dialer = d
+	s.Logger = log
+	s.PubSub = ps
+
+	return s
 }
 
 // ListenAndServe accepts and handles TCP connections
@@ -169,6 +155,12 @@ func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
 			}
 		}()
 	}
+}
+
+func (s *Socks5) SetDialer(dialer proxy.Dialer) {
+	s.Lock()
+	s.Dialer = dialer
+	s.Unlock()
 }
 
 // Handle performs the steps required to be SOCKS5 compliant.
@@ -234,6 +226,10 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	s.popLoad(target)
 
 	return nil
+}
+
+func (s *Socks5) NotifyTunnel() (<-chan interface{}, error) {
+	return s.Sub(TopicTunnels)
 }
 
 // ProxyData copies data from src to dst and the other way around.
@@ -432,9 +428,9 @@ func (s *Socks5) Port() int {
 	return s.port
 }
 
-// WorkloadMessage contains a workload value and an ID, usually the hash of
+// TunnelMessage contains a workload value and an ID, usually the hash of
 // a canonical address.
-type WorkloadMessage struct {
+type TunnelMessage struct {
 	Target string
 	Event Event
 }
@@ -453,13 +449,14 @@ func (s *Socks5) popLoad(target string) {
 	s.pub(EventPop, target)
 }
 
+
 func (s *Socks5) pub(event Event, target string) {
-	wm := WorkloadMessage{
+	tm := TunnelMessage{
 		Target: target,
 		Event: event,
 	}
 
-	if err := s.Pub(wm, TopicWorkload); err != nil {
+	if err := s.Pub(tm, TopicTunnels); err != nil {
 		s.Printf("socks5: unable to publish message: %v", err)
 	}
 }
