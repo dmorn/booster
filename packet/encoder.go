@@ -67,7 +67,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	tw := NewTagWriter(e.w)
 
 	// module id
-	buf := []byte(m.ID)
+	buf := []byte(m.id)
 	if len(buf) != 2 {
 		return fmt.Errorf("module: ID must be a 2 letters identifier, found %v", m.ID)
 	}
@@ -83,7 +83,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 
 	// payload size
 	buf = make([]byte, 0, 2)
-	buf = append(buf, byte(m.Size>>8), byte(m.Size))
+	buf = append(buf, byte(m.size>>8), byte(m.size))
 	if _, err := e.w.Write(buf); err != nil {
 		return fmt.Errorf("module: unable to write modules size: %v", err)
 	}
@@ -94,7 +94,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// encoding
-	if _, err := e.w.Write([]byte{m.Encoding}); err != nil {
+	if _, err := e.w.Write([]byte{m.encoding}); err != nil {
 		return fmt.Errorf("module: unable to write encoding type: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// payload
-	if _, err := e.w.Write(m.Payload); err != nil {
+	if _, err := e.w.Write(m.payload); err != nil {
 		return fmt.Errorf("module: unable to write payload: %v", err)
 	}
 

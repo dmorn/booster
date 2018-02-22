@@ -2,6 +2,7 @@ package packet
 
 import (
 	"fmt"
+	"io"
 )
 
 const (
@@ -20,6 +21,18 @@ const (
 	PayloadClosingTag = "]"
 	Separator = ":"
 )
+
+type EncoderDecoder struct {
+	*Encoder
+	*Decoder
+}
+
+func NewEncoderDecoder(rw io.ReadWriter) *EncoderDecoder {
+	return &EncoderDecoder{
+		Encoder: NewEncoder(rw),
+		Decoder: NewDecoder(rw),
+	}
+}
 
 type Packet struct {
 	modules map[string]*Module
@@ -61,10 +74,10 @@ func (p *Packet) Header() (*Module, error) {
 }
 
 type Module struct {
-	ID string
-	Size uint16
-	Encoding uint8
-	Payload []byte
+	id string
+	size uint16
+	encoding uint8
+	payload []byte
 }
 
 func NewModule(id string, payload []byte) (*Module, error) {
@@ -78,9 +91,27 @@ func NewModule(id string, payload []byte) (*Module, error) {
 	}
 
 	return &Module {
-		ID: id,
-		Size: uint16(size),
-		Encoding: EncodingProto,
-		Payload: payload,
+		id: id,
+		size: uint16(size),
+		encoding: EncodingProto,
+		payload: payload,
 	}, nil
 }
+
+func (m *Module) ID() string {
+	return m.id
+}
+
+func (m *Module) Payload() []byte {
+	return m.payload
+}
+
+func (m *Module) Encoding() string {
+	switch m.encoding {
+	case EncodingProto:
+		return "protobuf"
+	default:
+		return "undefined"
+	}
+}
+

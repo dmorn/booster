@@ -61,7 +61,7 @@ func (d *Decoder) Decode(packet *Packet) error {
 			return err
 		}
 
-		packet.modules[m.ID] = m
+		packet.modules[m.id] = m
 	}
 }
 
@@ -87,7 +87,7 @@ func (d *ModuleDecoder) Decode(m *Module) error {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return fmt.Errorf("module: unable to read module id: %v", err)
 	}
-	m.ID = string(buf)
+	m.id = string(buf)
 
 	// separator
 	if _, err := sr.Read(buf); err != io.EOF {
@@ -99,7 +99,7 @@ func (d *ModuleDecoder) Decode(m *Module) error {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return fmt.Errorf("module: unable to read payload size: %v", err)
 	}
-	m.Size = uint16(buf[0])<<8 | uint16(buf[1])
+	m.size = uint16(buf[0])<<8 | uint16(buf[1])
 
 	// separator
 	if _, err := sr.Read(buf); err != io.EOF {
@@ -112,18 +112,18 @@ func (d *ModuleDecoder) Decode(m *Module) error {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return fmt.Errorf("module: unable to read encoding type: %v", err)
 	}
-	m.Encoding = buf[0]
+	m.encoding = buf[0]
 
 	// payload open tag
 	if _, err := otr.Read(buf); err != io.EOF {
 		return fmt.Errorf("module: read payload open tag: %v", err)
 	}
 
-	buf = make([]byte, m.Size)
+	buf = make([]byte, m.size)
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return fmt.Errorf("module: unable to read payload: %v", err)
 	}
-	copy(m.Payload, buf)
+	copy(m.payload, buf)
 
 	// payload close tag
 	if _, err := ctr.Read(buf); err != io.EOF {

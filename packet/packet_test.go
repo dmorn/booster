@@ -23,7 +23,7 @@ func TestAddModule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if hm.ID != m.ID {
+	if hm.ID() != m.ID() {
 		t.Fatalf("wanted %v, found %v", m.ID, hm.ID)
 	}
 }
@@ -59,7 +59,7 @@ func TestEncodeDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if hm.ID != m.ID {
+	if hm.ID() != m.ID() {
 		t.Fatalf("wanted %v, found %v", m.ID, hm.ID)
 	}
 }
