@@ -24,16 +24,16 @@ type FallbackDialer interface {
 	proxy.Dialer
 }
 
-type Dialer struct {
+type Dispatcher struct {
 	*log.Logger
 	LoadBalancer
 
 	Fallback FallbackDialer
 }
 
-// NewBalancedDialer returns a Dialer instance.
-func NewDialer(balancer LoadBalancer) *Dialer {
-	d := new(Dialer)
+// NewBalancedDialer returns a Dispatcher instance.
+func NewDialer(balancer LoadBalancer) *Dispatcher {
+	d := new(Dispatcher)
 	d.LoadBalancer = balancer
 
 	d.Fallback = &net.Dialer{
@@ -45,7 +45,7 @@ func NewDialer(balancer LoadBalancer) *Dialer {
 	return d
 }
 
-func (d *Dialer) nodeFinderFunc() func() (Node, error) {
+func (d *Dispatcher) nodeFinderFunc() func() (Node, error) {
 	var ids []string
 
 	return func() (Node, error) {
@@ -61,7 +61,7 @@ func (d *Dialer) nodeFinderFunc() func() (Node, error) {
 	}
 }
 
-func (d *Dialer) dialerForNode(node Node) (socks5.Dialer, error) {
+func (d *Dispatcher) dialerForNode(node Node) (socks5.Dialer, error) {
 	if node.IsLocal() {
 		d.Printf("dialer: using local gateway")
 		return d.Fallback, nil
@@ -74,7 +74,7 @@ func (d *Dialer) dialerForNode(node Node) (socks5.Dialer, error) {
 // DialContext uses the underlying load balancer to retrieve a possibile socks5 proxy
 // address to chain the connection to. If none available, dials the connection using
 // the default net.Dialer.
-func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	nff := d.nodeFinderFunc()
 	node, err := nff()
 	if err != nil {
