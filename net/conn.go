@@ -3,23 +3,31 @@ package net
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/danielmorandini/booster-network/packet"
 )
 
 type Conn struct {
 	conn net.Conn
+
+	mutex sync.Mutex
 	ped *packet.EncoderDecoder
 }
 
 func (c *Conn) Accept() (*packet.Packet, error) {
+	c.mutex.Lock()
 	p := packet.New()
 	err := c.ped.Decode(p)
+	c.mutex.Unlock()
 
 	return p, err
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	return c.ped.Encode(p)
 }
 
