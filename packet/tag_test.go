@@ -8,7 +8,7 @@ import (
 	"github.com/danielmorandini/booster-network/packet"
 )
 
-func TestRead_tagReader(t *testing.T) {
+func TestTagRead(t *testing.T) {
 	r := strings.NewReader(">")
 	tr := packet.NewTagReader(r, ">")
 
