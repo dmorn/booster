@@ -3,8 +3,8 @@ package booster
 import (
 	"errors"
 	"log"
-	"sync"
 	"net"
+	"sync"
 
 	"github.com/danielmorandini/booster-network/tracer"
 )
@@ -67,7 +67,7 @@ func (b *Balancer) GetNodeBalanced(exp ...string) (Node, error) {
 
 	tr := b.RootNode().Workload()
 
-	var c Node // candidate entry
+	var c Node  // candidate entry
 	var twl int // total workload
 
 	b.Lock()

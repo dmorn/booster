@@ -3,8 +3,8 @@ package booster_test
 import (
 	"testing"
 
-	"github.com/danielmorandini/booster-network/node"
 	"github.com/danielmorandini/booster-network/booster"
+	"github.com/danielmorandini/booster-network/node"
 )
 
 func TestGetNodes(t *testing.T) {

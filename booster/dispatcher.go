@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/danielmorandini/booster-network/socks5"

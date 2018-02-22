@@ -1,8 +1,8 @@
 package packet
 
 import (
-	"io"
 	"fmt"
+	"io"
 )
 
 type Decoder struct {
@@ -19,7 +19,7 @@ func NewDecoder(r io.Reader) *Decoder {
 func (d *Decoder) Decode(packet *Packet) error {
 	otr := NewTagReader(d.r, PacketOpeningTag) // open tag reader
 	ctr := NewTagReader(d.r, PacketClosingTag) // close tag reader
-	md := NewModuleDecoder(d.r) // module decoder
+	md := NewModuleDecoder(d.r)                // module decoder
 
 	buf := make([]byte, 4)
 	_, err := otr.Read(buf)
@@ -78,7 +78,7 @@ func NewModuleDecoder(r io.Reader) *ModuleDecoder {
 
 func (d *ModuleDecoder) Decode(m *Module) error {
 	r := d.r
-	sr := NewTagReader(r, Separator) // separator reader
+	sr := NewTagReader(r, Separator)          // separator reader
 	otr := NewTagReader(r, PayloadOpeningTag) // open tag reader
 	ctr := NewTagReader(r, PayloadClosingTag) // close tag reader
 
@@ -132,4 +132,3 @@ func (d *ModuleDecoder) Decode(m *Module) error {
 
 	return nil
 }
-

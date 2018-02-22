@@ -12,7 +12,7 @@ type Conn struct {
 	conn net.Conn
 
 	mutex sync.Mutex
-	ped *packet.EncoderDecoder
+	ped   *packet.EncoderDecoder
 }
 
 func (c *Conn) Accept() (*packet.Packet, error) {
@@ -42,11 +42,11 @@ type Dialer struct {
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, error) {
 	conn, err := d.d.DialContext(ctx, network, addr)
 	if err != nil {
-		nil, err
+		return nil, err
 	}
 
 	return &Conn{
 		conn: conn,
-		ped: packet.NewEncoderDecoder(conn),
+		ped:  packet.NewEncoderDecoder(conn),
 	}, nil
 }

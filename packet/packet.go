@@ -10,16 +10,16 @@ const (
 )
 
 const (
-	ModuleHeader string = "HE"
-	ModulePayload = "PA"
+	ModuleHeader  string = "HE"
+	ModulePayload        = "PA"
 )
 
 const (
-	PacketOpeningTag = ">"
-	PacketClosingTag = "<"
+	PacketOpeningTag  = ">"
+	PacketClosingTag  = "<"
 	PayloadOpeningTag = "["
 	PayloadClosingTag = "]"
-	Separator = ":"
+	Separator         = ":"
 )
 
 type EncoderDecoder struct {
@@ -39,7 +39,7 @@ type Packet struct {
 }
 
 func New() *Packet {
-	return &Packet {
+	return &Packet{
 		modules: make(map[string]*Module),
 	}
 }
@@ -74,10 +74,10 @@ func (p *Packet) Header() (*Module, error) {
 }
 
 type Module struct {
-	id string
-	size uint16
+	id       string
+	size     uint16
 	encoding uint8
-	payload []byte
+	payload  []byte
 }
 
 func NewModule(id string, payload []byte) (*Module, error) {
@@ -90,11 +90,11 @@ func NewModule(id string, payload []byte) (*Module, error) {
 		return nil, fmt.Errorf("module: payload size out of bounds: %v", size)
 	}
 
-	return &Module {
-		id: id,
-		size: uint16(size),
+	return &Module{
+		id:       id,
+		size:     uint16(size),
 		encoding: EncodingProto,
-		payload: payload,
+		payload:  payload,
 	}, nil
 }
 
@@ -114,4 +114,3 @@ func (m *Module) Encoding() string {
 		return "undefined"
 	}
 }
-

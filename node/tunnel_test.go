@@ -19,4 +19,3 @@ func TestNewTunnel(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.ID(), id)
 	}
 }
-

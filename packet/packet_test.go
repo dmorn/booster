@@ -1,8 +1,8 @@
 package packet_test
 
 import (
-	"testing"
 	"io"
+	"testing"
 
 	"github.com/danielmorandini/booster-network/packet"
 )

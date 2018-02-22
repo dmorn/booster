@@ -1,8 +1,8 @@
 package packet
 
 import (
-	"io"
 	"fmt"
+	"io"
 )
 
 type Encoder struct {

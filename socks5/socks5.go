@@ -4,11 +4,11 @@ package socks5
 
 import (
 	"context"
+	"crypto/sha1"
 	"errors"
+	"fmt"
 	"io"
 	"log"
-	"fmt"
-	"crypto/sha1"
 	"net"
 	"os"
 	"strconv"
@@ -83,7 +83,7 @@ type Event int
 // Possible proxy operations.
 const (
 	EventPush = 0
-	EventPop = 1
+	EventPop  = 1
 )
 
 // PubSub describes the required functionalities of a publication/subscription object.
@@ -427,7 +427,7 @@ func (s *Socks5) Port() int {
 // a canonical address.
 type TunnelMessage struct {
 	Target string
-	Event Event
+	Event  Event
 }
 
 func (s *Socks5) pushLoad(target string) {
@@ -444,11 +444,10 @@ func (s *Socks5) popLoad(target string) {
 	s.pub(EventPop, target)
 }
 
-
 func (s *Socks5) pub(event Event, target string) {
 	tm := TunnelMessage{
 		Target: target,
-		Event: event,
+		Event:  event,
 	}
 
 	if err := s.Pub(tm, TopicTunnels); err != nil {

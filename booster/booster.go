@@ -2,13 +2,10 @@ package booster
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/danielmorandini/booster-network/net"
 )
@@ -62,7 +59,7 @@ func (b *Booster) Run(pport, bport int) error {
 }
 
 func (b *Booster) Close() error {
-	b.stop <- struct{}
+	b.stop <- struct{}{}
 	return nil
 }
 
@@ -103,7 +100,7 @@ func (b *Booster) ListenAndServe(port int) error {
 
 			go acceptPackets(ctx, conn)
 		}
-	}
+	}()
 
 	select {
 	case err := <-errc:
@@ -116,4 +113,3 @@ func (b *Booster) ListenAndServe(port int) error {
 
 func (b *Booster) Handle(ctx context.Context, p Packet) {
 }
-

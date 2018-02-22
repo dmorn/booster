@@ -159,7 +159,7 @@ func TestStop(t *testing.T) {
 
 	go func() {
 		<-n.Stop()
-		wait<-struct{}{}
+		wait <- struct{}{}
 	}()
 
 	if err := n.Close(); err != nil {
@@ -168,8 +168,7 @@ func TestStop(t *testing.T) {
 
 	select {
 	case <-wait:
-	case <-time.After(1*time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("timeout")
 	}
 }
-

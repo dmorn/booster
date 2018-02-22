@@ -1,17 +1,17 @@
 package packet
 
 import (
-	"io"
 	"bufio"
 	"fmt"
+	"io"
 )
 
 type TagReader struct {
 	tag string
-	r io.Reader
+	r   io.Reader
 
 	tagRaw []byte
-	cur int
+	cur    int
 }
 
 func NewTagReader(r io.Reader, tag string) *TagReader {
@@ -19,11 +19,11 @@ func NewTagReader(r io.Reader, tag string) *TagReader {
 		r = bufio.NewReader(r)
 	}
 
-	return &TagReader {
-		r: r,
-		tag: tag,
+	return &TagReader{
+		r:      r,
+		tag:    tag,
 		tagRaw: []byte(tag),
-		cur: 0,
+		cur:    0,
 	}
 }
 
@@ -71,7 +71,7 @@ type TagWriter struct {
 }
 
 func NewTagWriter(w io.Writer) *TagWriter {
-	return &TagWriter {
+	return &TagWriter{
 		w: w,
 	}
 }
@@ -85,4 +85,3 @@ func (w *TagWriter) Write(tag string) (int, error) {
 
 	return n, err
 }
-

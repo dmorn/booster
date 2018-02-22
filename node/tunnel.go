@@ -1,27 +1,27 @@
 package node
 
 import (
-	"sync"
+	"errors"
 	"fmt"
 	"io"
-	"errors"
 	"net"
+	"sync"
 
 	"github.com/danielmorandini/booster-network/socks5"
 )
 
 type Tunnel struct {
-	id []byte
+	id     []byte
 	Target net.Addr
 
 	sync.Mutex
 	copies int // number of copies
-	acks int // number of acknoledged copies
+	acks   int // number of acknoledged copies
 }
 
 func NewTunnel(target net.Addr) *Tunnel {
-	return &Tunnel {
-		id: sha1Hash([]byte(target.String())),
+	return &Tunnel{
+		id:     sha1Hash([]byte(target.String())),
 		Target: target,
 		copies: 1,
 	}
@@ -89,7 +89,7 @@ func (t *Tunnel) EncodeBinary() ([]byte, error) {
 		return nil, err
 	}
 
-	hbuf, err := socks5.EncodeHostBinary(host)   // host buffer
+	hbuf, err := socks5.EncodeHostBinary(host) // host buffer
 	pbuf, err := socks5.EncodePortBinary(port) // proxy port buffer
 	buf := make([]byte, len(hbuf)+len(pbuf)+len(t.id)+2)
 

@@ -1,16 +1,13 @@
 package node
 
 import (
-	"crypto/sha1"
 	"context"
+	"crypto/sha1"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/danielmorandini/booster-network/socks5"
 )
 
 // Node represents a remote booster node.
@@ -21,8 +18,8 @@ type Node struct {
 	isLocal bool
 
 	sync.Mutex
-	stop chan struct{}
-	active     bool // tells wether the node is updating its status or not
+	stop    chan struct{}
+	active  bool // tells wether the node is updating its status or not
 	tunnels map[string]*Tunnel
 }
 

@@ -1,7 +1,6 @@
 package net
 
 import (
-	"context"
 	"net"
 
 	"github.com/danielmorandini/booster-network/packet"
@@ -12,7 +11,7 @@ type Listener struct {
 }
 
 func Listen(network, addr string) (*Listener, error) {
-	return l, err := net.Listen(network, addr)
+	return net.Listen(network, addr)
 }
 
 func (l *Listener) Accept() (*Conn, error) {
@@ -23,7 +22,7 @@ func (l *Listener) Accept() (*Conn, error) {
 
 	return &Conn{
 		conn: conn,
-		ped: packet.NewEncoderDecoder(conn),
+		ped:  packet.NewEncoderDecoder(conn),
 	}, nil
 }
 
