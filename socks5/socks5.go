@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster-network/pubsub"
-	"github.com/danielmorandini/booster-network/proxy"
 )
 
 const (
@@ -94,6 +93,13 @@ type PubSub interface {
 	Pub(message interface{}, topic string) error
 }
 
+// Dialer is the interface that wraps the DialContext function.
+type Dialer interface {
+	// DialContext opens a connection to addr, which should
+	// be a canonical address with host and port.
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
+}
+
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
 	*log.Logger
@@ -103,18 +109,13 @@ type Socks5 struct {
 	ChunkSize        int64
 
 	sync.Mutex
-	proxy.Dialer
+	Dialer
 	port     int
 	workload int
 }
 
 // SOCKS5 returns a new Socks5 instance with default logger and dialer.
-func New() *Socks5 {
-	d := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}
+func New(d Dialer) *Socks5 {
 	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
 	ps := pubsub.New()
 
@@ -155,12 +156,6 @@ func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
 			}
 		}()
 	}
-}
-
-func (s *Socks5) SetDialer(dialer proxy.Dialer) {
-	s.Lock()
-	s.Dialer = dialer
-	s.Unlock()
 }
 
 // Handle performs the steps required to be SOCKS5 compliant.
