@@ -16,8 +16,8 @@ func TestGetNodes(t *testing.T) {
 		t.Fatalf("unexpected nodes list (wanted []): %v", nodes)
 	}
 
-	n1, _ := node.NewNode("localhost", "1111", "1111")
-	n2, _ := node.NewNode("localhost", "1112", "1112")
+	n1, _ := node.New("localhost", "1111", "1111", false)
+	n2, _ := node.New("localhost", "1112", "1112", false)
 
 	b.AddNode(n1)
 	b.AddNode(n2)
@@ -31,7 +31,7 @@ func TestGetNodes(t *testing.T) {
 
 func TestCloseNode(t *testing.T) {
 	b := booster.NewBoosterDefault()
-	n, _ := node.NewNode("localhost", "1111", "1111")
+	n, _ := node.New("localhost", "1111", "1111", false)
 	b.AddNode(n)
 
 	nodes := b.GetNodes()
@@ -40,33 +40,25 @@ func TestCloseNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	n1, err := b.CloseNode(n.ID())
+	n1, err := b.CloseNode(n)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if n1.IsActive {
+	if n1.IsActive() {
 		t.Fatal("node should not be active")
 	}
 
-	if n1.LastOperation() != booster.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeClosed)
-	}
-
 	// now let's check if the node in the list was actually updated
-	n, err = b.GetNode(n1.ID())
+	_, err = b.GetNode(n1.ID())
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if n.LastOperation() != booster.BoosterNodeClosed {
-		t.Fatalf("unexpected node last operation in nodes list: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeClosed)
 	}
 }
 
 func TestRemoveNode(t *testing.T) {
 	b := booster.NewBoosterDefault()
-	n, _ := node.NewNode("localhost", "1111", "1111")
+	n, _ := node.New("localhost", "1111", "1111", false)
 	b.AddNode(n)
 
 	nodes := b.GetNodes()
@@ -75,12 +67,12 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	stream, _ := b.Sub(node.TopicNodes)
+	stream, _ := b.Sub(booster.TopicNodes)
 	defer func() {
-		b.Unsub(stream, node.TopicNodes)
+		b.Unsub(stream, booster.TopicNodes)
 	}()
 
-	n, err := b.RemoveNode(n.ID())
+	_, err := b.RemoveNode(n)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,11 +83,7 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatalf("unexpected value from stream: %v type %T", i, i)
 	}
 
-	if n.IsActive == true {
+	if n.IsActive() == true {
 		t.Fatal("node not properly closed")
-	}
-
-	if n.LastOperation() != booster.BoosterNodeRemoved {
-		t.Fatalf("unexpected node last operation: found %v, wanted %v", n.LastOperation(), booster.BoosterNodeRemoved)
 	}
 }

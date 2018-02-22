@@ -15,6 +15,7 @@ import (
 	"github.com/danielmorandini/booster-network/socks5"
 	"github.com/danielmorandini/booster-network/tracer"
 	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster-network/proxy"
 )
 
 // Booster versions
@@ -100,13 +101,21 @@ type Booster struct {
 	PubSub
 	Tracer
 
-	Proxy *Proxy
+	Proxy proxy.Proxy
 	NodeIdleTimeout time.Duration // time before closing an idle remote node
 	stop chan struct{}
 }
 
-// NewBooster returns a booster instance.
-func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps PubSub, tr Tracer) *Booster {
+func New() *Booster {
+	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+	ps := pubsub.New()
+	tr := tracer.New(log, pubsub)
+	balancer := NewBalancer(log, pubsub)
+	proxy := socks5.New()
+	dialer := NewDialer(balancer)
+
+	proxy.SetDialer(dialer)
+
 	b := new(Booster)
 	b.Proxy = proxy
 	b.Balancer = balancer
@@ -115,21 +124,7 @@ func NewBooster(proxy *Proxy, balancer *Balancer, log *log.Logger, ps PubSub, tr
 	b.PubSub = ps
 	b.Tracer = tr
 
-	b.NodeIdleTimeout = 3 * time.Second
-
-
-	return b
-}
-
-// NewBoosterDefault returns a new booster instance with initialized logger, balancer, pubsub, tracer and proxy.
-func NewBoosterDefault() *Booster {
-	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
-	pubsub := pubsub.New()
-	tracer := tracer.New(log, pubsub)
-	balancer := NewBalancer(log, pubsub)
-	proxy := NewProxyBalancer(balancer, pubsub)
-
-	return NewBooster(proxy, balancer, log, pubsub, tracer)
+	b.NacerodeIdleTimeout = 3 * time.Second
 }
 
 // ListenAndServe listens and serves tcp connections.
@@ -161,6 +156,8 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 // and a socks5 compliant tcp server.
 func (b *Booster) Start(pport, bport int) error {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	errc := make(chan error)
 	b.stop = make(chan struct{})
 
@@ -185,12 +182,10 @@ func (b *Booster) Start(pport, bport int) error {
 
 	select {
 	case err := <- errc:
-		cancel()
 		return err
 	case <-ctx.Done():
 		return errors.New("booster: start: " + ctx.Err().Error())
 	case <-b.stop:
-		cancel()
 		return errors.New("booster: stopped")
 	}
 }
@@ -242,7 +237,9 @@ func (b *Booster) Stop() {
 // It expects to receive only "Hello", "Connect", "Inspect" or "Disconnect" requests.
 // Ends serving forever the state of the proxy.
 func (b *Booster) Handle(ctx context.Context, conn net.Conn) error {
+	_ctx := ctx
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	defer conn.Close()
 
 	buf := make([]byte, 3)
@@ -267,11 +264,11 @@ func (b *Booster) Handle(ctx context.Context, conn net.Conn) error {
 				errc <- err
 			}
 
-			if err := b.Ping(ctx, node); err != nil {
+			if err := b.Ping(_ctx, node); err != nil {
 				errc <- err
 			}
 
-			if err = b.Status(ctx, node); err != nil {
+			if err = b.Status(_ctx, node); err != nil {
 				errc <- err
 			}
 
@@ -297,7 +294,6 @@ func (b *Booster) Handle(ctx context.Context, conn net.Conn) error {
 
 	select {
 	case <-b.stop:
-		cancel()
 		return errors.New("booster: stopped")
 	case <- ctx.Done():
 		return errors.New("booster: " + ctx.Err().Error())
@@ -354,26 +350,27 @@ func (b *Booster) updateRootNode(c <-chan interface{}) error {
 			return fmt.Errorf("unable to recognise workload message: %v", wm)
 		}
 
+		b.Printf("booster: WM received: %+v", wm)
 		target, err := net.ResolveTCPAddr("tcp", wm.Target)
 		if err != nil {
 			b.Printf("booster: unable to create addr: %v", err.Error())
 			continue
 		}
 
-		if wm.Event == socks5.EventPush {
+		switch wm.Event {
+		case socks5.EventPush:
 			if err := b.Ack(b.RootNode(), target); err != nil {
 				b.Printf("booster: %v", err)
 				continue
 			}
-		}
-
-		if wm.Event == socks5.EventPop {
+		case socks5.EventPop:
 			if err := b.RemoveTunnel(b.RootNode(), target); err != nil {
 				b.Printf("booster: %v", err)
 				continue
 			}
+		default:
+			b.Printf("booster: unrecognised WM event: %v", wm.Event)
 		}
-
 	}
 
 	return nil

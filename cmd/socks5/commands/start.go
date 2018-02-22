@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/danielmorandini/booster-network/socks5"
@@ -13,8 +14,9 @@ var startCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.TODO()
 		p := socks5.SOCKS5()
-		if err := p.ListenAndServe(pport); err != nil {
+		if err := p.ListenAndServe(ctx, pport); err != nil {
 			fmt.Println(err)
 		}
 	},

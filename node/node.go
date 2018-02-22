@@ -2,7 +2,6 @@ package node
 
 import (
 	"crypto/sha1"
-	"encoding/hex"
 	"context"
 	"errors"
 	"fmt"
@@ -55,7 +54,12 @@ func (n *Node) Workload() int {
 	n.Lock()
 	defer n.Unlock()
 
-	return len(n.tunnels)
+	wl := 0
+	for _, t := range n.tunnels {
+		wl += t.Copies()
+	}
+
+	return wl
 }
 
 // IsLocal returns true if the node is a local node.
@@ -94,29 +98,31 @@ func (n *Node) ProxyAddr() net.Addr {
 // tunnel to it. If the node as already a tunnel with this
 // target connected to it, it increments the copies of the
 // tunnel.
-func (n *Node) AddTunnel(target net.Addr) {
+func (n *Node) AddTunnel(target net.Addr) string {
 	n.SetIsActive(true)
+	nt := NewTunnel(target)
 
-	if t, ok := n.tunnels[target.String()]; ok {
+	if t, ok := n.tunnels[nt.ID()]; ok {
 		t.Lock()
 		defer t.Unlock()
 
 		t.copies++
-		return
+		return t.ID()
 	}
 
-	t := NewTunnel(target)
 	n.Lock()
 	defer n.Unlock()
-	n.tunnels[target.String()] = t
+	n.tunnels[nt.ID()] = nt
+
+	return nt.ID()
 }
 
 // Ack acknoledges the target tunnel, impling that the node is actually working on it.
-func (n *Node) Ack(target net.Addr) error {
+func (n *Node) Ack(id string) error {
 	n.Lock()
-	t, ok := n.tunnels[target.String()]
+	t, ok := n.tunnels[id]
 	if !ok {
-		return fmt.Errorf("node: cannot ack [%v], no such tunnel", target)
+		return fmt.Errorf("node: cannot ack [%v], no such tunnel", id)
 	}
 	n.Unlock()
 
@@ -124,27 +130,26 @@ func (n *Node) Ack(target net.Addr) error {
 	defer t.Unlock()
 
 	if t.acks >= t.copies {
-		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", target, t.acks, t.copies)
+		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", id, t.acks, t.copies)
 	}
 
 	t.acks++
 	return nil
 }
 
-// Nack
-func (n *Node) RemoveTunnel(target net.Addr) error {
+func (n *Node) RemoveTunnel(id string) error {
 	n.Lock()
 	defer n.Unlock()
 
-	t, ok := n.tunnels[target.String()]
+	t, ok := n.tunnels[id]
 	if !ok {
-		return fmt.Errorf("node: cannot delete [%v], no such tunnel", target)
+		return fmt.Errorf("node: cannot delete [%v], no such tunnel", id)
 	}
 
 	t.Lock()
 	defer t.Unlock()
 	if t.copies == 1 {
-		delete(n.tunnels, target.String())
+		delete(n.tunnels, id)
 		return nil
 	}
 
@@ -152,12 +157,25 @@ func (n *Node) RemoveTunnel(target net.Addr) error {
 	return nil
 }
 
-func (n *Node) Close() error {
+func (n *Node) Tunnel(id string) (*Tunnel, error) {
 	n.Lock()
 	defer n.Unlock()
 
+	t, ok := n.tunnels[id]
+	if !ok {
+		return nil, fmt.Errorf("node: no such tunnel [%v]", id)
+	}
+
+	return t, nil
+}
+
+func (n *Node) Close() error {
 	n.SetIsActive(false)
+
+	n.Lock()
 	close(n.stop)
+	n.Unlock()
+
 	return nil
 }
 
@@ -179,111 +197,6 @@ func (n *Node) String() string {
 	_, pport, _ := net.SplitHostPort(n.PAddr.String())
 
 	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v", n.ID(), host, bport, pport, activeStr, n.Workload())
-}
-
-// Read  reads from reader expecting it to contain a node.
-func (n *Node) Read(r io.Reader) error {
-	buf := make([]byte, 20) // sha1 len
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return errors.New("node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
-	}
-
-	id := buf
-	host, err := socks5.ReadHost(r)
-	if err != nil {
-		return errors.New("node: unable to decode host: " + err.Error())
-	}
-	pport, err := socks5.ReadPort(r)
-	if err != nil {
-		return errors.New("node: unable to decode p port: " + err.Error())
-	}
-	bport, err := socks5.ReadPort(r)
-	if err != nil {
-		return errors.New("node: unable to decode b port: " + err.Error())
-	}
-
-	buf = buf[:2]
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return errors.New("node: unable to decode state: " + err.Error())
-	}
-
-	active := buf[0]
-	count := int(buf[1])
-
-	tns := make(map[string]*Tunnel)
-	for i := 0; i < count; i++ {
-		t := new(Tunnel)
-		if err := t.Read(r); err != nil {
-			return err
-		}
-
-		tns[t.ID()] = t
-	}
-
-	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
-	if err != nil {
-		return errors.New("node: unable to create baddr: " + err.Error())
-	}
-	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
-	if err != nil {
-		return errors.New("node: unable to create paddr: " + err.Error())
-	}
-
-	n.id = id
-	n.BAddr = baddr
-	n.PAddr = paddr
-	n.active = active != 0
-	n.tunnels = tns
-
-	return nil
-}
-
-// EncodeBinary encodes the node into its binary
-// representation.
-func (n *Node) EncodeBinary() ([]byte, error) {
-	if n == nil {
-		return nil, errors.New("node: trying to encode nil")
-	}
-
-	host, bport, err := net.SplitHostPort(n.BAddr.String())
-	_, pport, err := net.SplitHostPort(n.PAddr.String())
-	if err != nil {
-		return nil, errors.New("node: unable to split address: " + err.Error())
-	}
-
-	idbuf, err := hex.DecodeString(n.ID())
-	hbuf, err := socks5.EncodeHostBinary(host)   // host buffer
-	ppbuf, err := socks5.EncodePortBinary(pport) // proxy port buffer
-	bpbuf, err := socks5.EncodePortBinary(bport) // booster port buffer
-	if err != nil {
-		return nil, errors.New("node: unable to encode: " + err.Error())
-	}
-	active := 0
-	if n.IsActive() {
-		active = 1
-	}
-
-	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3+518)
-	buf = append(buf, idbuf...)
-	buf = append(buf, hbuf...)
-	buf = append(buf, ppbuf...)
-	buf = append(buf, bpbuf...)
-	buf = append(buf, byte(active))
-	buf = append(buf, byte(n.Workload()))
-
-	n.Lock()
-	defer n.Unlock()
-
-	for _, t := range n.tunnels {
-		tbuf, err := t.EncodeBinary()
-		if err != nil {
-			return nil, errors.New("node: unable to encode tunnel: " + err.Error())
-		}
-
-		buf = append(buf, tbuf...)
-	}
-
-	return buf, nil
 }
 
 // Ping dials with the node with little timeout. Returns an error

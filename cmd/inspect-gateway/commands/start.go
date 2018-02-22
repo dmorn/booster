@@ -53,7 +53,7 @@ var startCmd = &cobra.Command{
 			case err := <-errc:
 				log.Fatalf("inspect error: %v", err)
 			case node := <-stream:
-				log.Println("[%v] msg received", node.ID())
+				log.Printf("[%v] msg received", node.ID())
 				msg := newMsg(node)
 
 				if err = c.Update(msg); err != nil {
@@ -85,10 +85,6 @@ func newMsg(n *node.Node) *nodeMsg {
 		BAddr:     n.BAddr.String(),
 		PAddr:     n.PAddr.String(),
 		Workload:  n.Workload(),
-		LastOp: &operation{
-			ID:   n.LastOperation().ID,
-			Code: int(n.LastOperation().Op),
-		},
 	}
 }
 

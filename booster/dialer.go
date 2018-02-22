@@ -12,82 +12,18 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// LoadBalancer is a wrapper around the GetNodeBalanced and CloseNode functions.
 type LoadBalancer interface {
-	// GetNodeBalanced should returns a node id, using internally a
-	// balancing algorithm.
-	GetNodeBalanced(exp ...string) (Node, error)
+	GetNodeBalanced(exep ...string) (Node, error)
 	AddTunnel(node Node, target net.Addr)
 	RemoveTunnel(node Node, target net.Addr) error
 }
 
-// Proxy is a SOCK5 server.
-type Proxy struct {
-	*socks5.Socks5
+// FallbackDialer combines DialContext and Dial methods.
+type FallbackDialer interface {
+	Dialer
+	proxy.Dialer
 }
 
-// NewProxy returns a new proxy instance.
-func NewProxy(dialer socks5.Dialer, log *log.Logger, ps PubSub) *Proxy {
-	p := new(Proxy)
-	p.Socks5 = socks5.NewSOCKS5(dialer, log, ps)
-
-	return p
-}
-
-// NewProxyBalancer returns a new proxy instance. balancer is passed as
-// a paramenter to the dialer that the proxy will use.
-// balancer will be used by the proxy dialer to fetch the
-// proxy addresses that can be chained to this proxy.
-func NewProxyBalancer(balancer LoadBalancer, ps PubSub) *Proxy {
-	d := NewDialer(balancer)
-	log := log.New(os.Stdout, "PROXY   ", log.LstdFlags)
-	p := NewProxy(d, log, ps)
-	d.Logger = log
-
-	return p
-}
-
-type socks5Dialer struct {
-	dialer proxy.Dialer
-}
-
-func newSocks5Dialer(forward proxy.Dialer, network, addr string) (*socks5Dialer, error) {
-	sd := new(socks5Dialer)
-	dialer, err := proxy.SOCKS5(network, addr, nil, forward)
-	if err != nil {
-		return nil, err
-	}
-
-	sd.dialer = dialer
-
-	return sd, nil
-}
-
-func (d *socks5Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	errc := make(chan error)
-	connc := make(chan net.Conn)
-
-	go func() {
-		conn, err := d.dialer.Dial(network, address)
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		connc <- conn
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case err := <-errc:
-		return nil, err
-	case conn := <-connc:
-		return conn, nil
-	}
-}
-
-// Dialer implements the DialContext method.
 type Dialer struct {
 	*log.Logger
 	LoadBalancer
@@ -95,13 +31,7 @@ type Dialer struct {
 	Fallback FallbackDialer
 }
 
-// FallbackDialer combines DialContext and Dial methods.
-type FallbackDialer interface {
-	socks5.Dialer
-	proxy.Dialer
-}
-
-// NewDialer returns a Dialer instance.
+// NewBalancedDialer returns a Dialer instance.
 func NewDialer(balancer LoadBalancer) *Dialer {
 	d := new(Dialer)
 	d.LoadBalancer = balancer
@@ -194,5 +124,45 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 			}
 			return nil, cerr
 		}
+	}
+}
+
+type socks5Dialer struct {
+	dialer proxy.Dialer
+}
+
+func newSocks5Dialer(forward proxy.Dialer, network, addr string) (*socks5Dialer, error) {
+	sd := new(socks5Dialer)
+	dialer, err := proxy.SOCKS5(network, addr, nil, forward)
+	if err != nil {
+		return nil, err
+	}
+
+	sd.dialer = dialer
+
+	return sd, nil
+}
+
+func (d *socks5Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	errc := make(chan error)
+	connc := make(chan net.Conn)
+
+	go func() {
+		conn, err := d.dialer.Dial(network, address)
+		if err != nil {
+			errc <- err
+			return
+		}
+
+		connc <- conn
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case err := <-errc:
+		return nil, err
+	case conn := <-connc:
+		return conn, nil
 	}
 }

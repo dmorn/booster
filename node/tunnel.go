@@ -51,7 +51,7 @@ func (t *Tunnel) Read(r io.Reader) error {
 		return errors.New("tunnel: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
 	}
 
-	t.id = buf
+	copy(buf, t.id)
 
 	host, err := socks5.ReadHost(r)
 	if err != nil {
@@ -70,7 +70,7 @@ func (t *Tunnel) Read(r io.Reader) error {
 
 	buf = make([]byte, 2)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return errors.New("tunnel: unable to devode acks and copies: " + err.Error())
+		return errors.New("tunnel: unable to decode acks and copies: " + err.Error())
 	}
 
 	t.copies = int(buf[0])
