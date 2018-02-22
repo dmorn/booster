@@ -1,39 +1,41 @@
 package packet
 
 import (
-	"io"
+	"fmt"
+)
+
+const (
+	EncodingProto uint8 = 1
+)
+
+const (
+	ModuleHeader string = "HE"
+	ModulePayload = "PA"
 )
 
 type Packet struct {
-	HeaderSize uint16
-	Header []byte
+	modules map[string]*Module
+}
 
-	PayloadSize uint16
+func New() *Packet {
+	return &Packet {
+		modules: make(map[string]*Module),
+	}
+}
+
+type Module struct {
+	ID string
+	Size uint16
+	Encoding uint8
 	Payload []byte
 }
 
-type Decoder struct {
-	r io.Reader
-}
-
-func NewDecoder(r io.Reader) *Decoder {
-	d := new(Decoder)
-	if _, ok := r.(io.ByteReader); !ok {
-		r = bufio.NewReader(r)
+func (p *Packet) Header() (*Module, error) {
+	m, ok := p.modules[ModuleHeader]
+	if !ok {
+		return nil, fmt.Errorf("packet: no header module")
 	}
 
-	d.r = r
-
-	return d
+	return m, nil
 }
 
-func (d *Decoder) Decode(p *Packet) error {
-	hs, err := d.r.ReadByte()
-	if err != nil {
-		return fmt.Errorf("packet: read header failed: %v", err)
-	}
-	if hs != 'h' {
-		return fmt.Errorf("packet: unrecognised header start: %v, wanted h", hs)
-	}
-
-}
