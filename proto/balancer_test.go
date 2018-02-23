@@ -1,14 +1,14 @@
-package booster_test
+package proto_test
 
 import (
 	"testing"
 
-	"github.com/danielmorandini/booster-network/booster"
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster/proto"
+	"github.com/danielmorandini/booster/node"
 )
 
 func TestGetNodes(t *testing.T) {
-	b := booster.NewBoosterDefault()
+	b := proto.NewBoosterDefault()
 	nodes := b.GetNodes()
 
 	// first, check that there are no nodes at the beginning
@@ -30,7 +30,7 @@ func TestGetNodes(t *testing.T) {
 }
 
 func TestCloseNode(t *testing.T) {
-	b := booster.NewBoosterDefault()
+	b := proto.NewBoosterDefault()
 	n, _ := node.New("localhost", "1111", "1111", false)
 	b.AddNode(n)
 
@@ -57,7 +57,7 @@ func TestCloseNode(t *testing.T) {
 }
 
 func TestRemoveNode(t *testing.T) {
-	b := booster.NewBoosterDefault()
+	b := proto.NewBoosterDefault()
 	n, _ := node.New("localhost", "1111", "1111", false)
 	b.AddNode(n)
 
@@ -67,9 +67,9 @@ func TestRemoveNode(t *testing.T) {
 		t.Fatalf("unexpected node list size: %v", len(nodes))
 	}
 
-	stream, _ := b.Sub(booster.TopicNodes)
+	stream, _ := b.Sub(proto.TopicNodes)
 	defer func() {
-		b.Unsub(stream, booster.TopicNodes)
+		b.Unsub(stream, proto.TopicNodes)
 	}()
 
 	_, err := b.RemoveNode(n)

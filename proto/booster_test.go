@@ -1,4 +1,4 @@
-package booster_test
+package proto_test
 
 import (
 	"context"

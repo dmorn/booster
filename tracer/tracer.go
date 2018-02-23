@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/danielmorandini/booster-network/pubsub"
+	"github.com/danielmorandini/booster/pubsub"
 )
 
 // Topic used to publish connectin discovery messgages.

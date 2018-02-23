@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielmorandini/booster-network/packet"
+	"github.com/danielmorandini/booster/packet"
 )
 
 func TestTagRead(t *testing.T) {

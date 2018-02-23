@@ -1,4 +1,4 @@
-package booster
+package proto
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster/socks5"
 	"golang.org/x/net/proxy"
 )
 

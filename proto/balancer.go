@@ -1,4 +1,4 @@
-package booster
+package proto
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/danielmorandini/booster-network/tracer"
+	"github.com/danielmorandini/booster/tracer"
 )
 
 type Node interface {

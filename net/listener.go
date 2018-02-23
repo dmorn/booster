@@ -3,7 +3,7 @@ package net
 import (
 	"net"
 
-	"github.com/danielmorandini/booster-network/packet"
+	"github.com/danielmorandini/booster/packet"
 )
 
 type Listener struct {
@@ -11,7 +11,14 @@ type Listener struct {
 }
 
 func Listen(network, addr string) (*Listener, error) {
-	return net.Listen(network, addr)
+	l, err :=  net.Listen(network, addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Listener{
+		l: l,
+	}, nil
 }
 
 func (l *Listener) Accept() (*Conn, error) {

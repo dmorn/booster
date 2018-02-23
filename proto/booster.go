@@ -1,4 +1,4 @@
-package booster
+package proto
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/danielmorandini/booster-network/net"
+	"github.com/danielmorandini/booster/net"
 )
 
 type Packet interface {

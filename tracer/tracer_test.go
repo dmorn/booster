@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/danielmorandini/booster-network/tracer"
+	"github.com/danielmorandini/booster/tracer"
 )
 
 type pg struct {
