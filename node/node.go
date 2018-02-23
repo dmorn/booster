@@ -12,7 +12,7 @@ import (
 
 // Node represents a remote booster node.
 type Node struct {
-	id      []byte // sha1
+	id      string
 	BAddr   net.Addr
 	PAddr   net.Addr
 	isLocal bool
@@ -83,7 +83,7 @@ func (n *Node) IsActive() bool {
 
 // ID returns the node's sha1 identifier.
 func (n *Node) ID() string {
-	return fmt.Sprintf("%x", n.id)
+	return n.id
 }
 
 // ProxyAddr returns the proxy address of the node.
@@ -176,13 +176,6 @@ func (n *Node) Close() error {
 	return nil
 }
 
-func (n *Node) Stop() chan struct{} {
-	n.Lock()
-	defer n.Unlock()
-
-	return n.stop
-}
-
 // Desc returns the description of the node in a multiline string.
 func (n *Node) String() string {
 	activeStr := "inactive"
@@ -216,11 +209,11 @@ func (n *Node) Addr() net.Addr {
 	return n.BAddr
 }
 
-func sha1Hash(images ...[]byte) []byte {
+func sha1Hash(images ...[]byte) string {
 	h := sha1.New()
 	for _, image := range images {
 		h.Write(image)
 	}
 
-	return h.Sum(nil)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

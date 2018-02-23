@@ -2,7 +2,6 @@ package node_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/danielmorandini/booster/node"
 )
@@ -146,29 +145,5 @@ func TestAck(t *testing.T) {
 
 	if n.Workload() != 0 {
 		t.Fatalf("workload: %v, wanted 0", n.Workload())
-	}
-}
-
-func TestStop(t *testing.T) {
-	n, err := node.New("localhost", "1080", "4884", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	wait := make(chan struct{})
-
-	go func() {
-		<-n.Stop()
-		wait <- struct{}{}
-	}()
-
-	if err := n.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case <-wait:
-	case <-time.After(1 * time.Second):
-		t.Fatal("timeout")
 	}
 }
