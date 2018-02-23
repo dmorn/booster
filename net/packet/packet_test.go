@@ -4,7 +4,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/danielmorandini/booster/packet"
+	"github.com/danielmorandini/booster/net/packet"
 )
 
 func TestAddModule(t *testing.T) {

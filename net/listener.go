@@ -3,7 +3,7 @@ package net
 import (
 	"net"
 
-	"github.com/danielmorandini/booster/packet"
+	"github.com/danielmorandini/booster/net/packet"
 )
 
 type Listener struct {

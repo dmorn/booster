@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/danielmorandini/booster/packet"
+	"github.com/danielmorandini/booster/net/packet"
 )
 
 type Conn struct {
