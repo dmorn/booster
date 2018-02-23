@@ -11,7 +11,7 @@ type Listener struct {
 }
 
 func Listen(network, addr string) (*Listener, error) {
-	l, err :=  net.Listen(network, addr)
+	l, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}

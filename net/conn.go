@@ -2,6 +2,7 @@ package net
 
 import (
 	"context"
+	"errors"
 	"net"
 	"sync"
 
@@ -11,7 +12,7 @@ import (
 type Conn struct {
 	Err error
 
-	conn net.Conn
+	conn    net.Conn
 	running bool
 
 	mutex sync.Mutex
@@ -31,7 +32,7 @@ func (c *Conn) Accept() (<-chan *packet.Packet, error) {
 		c.running = false
 		close(ch)
 		close(errc)
-	}
+	}()
 
 	go func() {
 		for {

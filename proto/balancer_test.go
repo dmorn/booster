@@ -3,8 +3,8 @@ package proto_test
 import (
 	"testing"
 
-	"github.com/danielmorandini/booster/proto"
 	"github.com/danielmorandini/booster/node"
+	"github.com/danielmorandini/booster/proto"
 )
 
 func TestGetNodes(t *testing.T) {
