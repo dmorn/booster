@@ -21,9 +21,10 @@ type Module interface {
 }
 
 type Conn interface {
-	Accept() (Packet, error)
+	Consume() (<-chan Packet, error)
 	Send(Packet) error
 	Close() error
+	Err() error
 }
 
 type Booster struct {
@@ -78,27 +79,20 @@ func (b *Booster) ListenAndServe(port int) error {
 
 	errc := make(chan error)
 
-	acceptPackets := func(ctx context.Context, conn Conn) {
-		for {
-			p, err := conn.Accept()
-			if err != nil {
-				b.Printf("booster: unable to accept packet: %v", err)
-				return
-			}
-
-			b.Handle(ctx, p)
-		}
-	}
-
 	go func() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				errc <- fmt.Errorf("booster: cannot accept packet: %v", err)
+				errc <- fmt.Errorf("booster: cannot accept conn: %v", err)
 				return
 			}
 
-			go acceptPackets(ctx, conn)
+			pkts, err := conn.Consume()
+			if err != nil {
+				errc <- fmt.Errorf("booster: cannot consume packets: %v", err)
+			}
+
+			go b.Handle(ctx, pkts)
 		}
 	}()
 
@@ -111,5 +105,5 @@ func (b *Booster) ListenAndServe(port int) error {
 	}
 }
 
-func (b *Booster) Handle(ctx context.Context, p Packet) {
+func (b *Booster) Handle(ctx context.Context, pkts <-chan Packet) {
 }
