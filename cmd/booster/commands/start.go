@@ -3,7 +3,7 @@ package commands
 import (
 	"fmt"
 
-	"github.com/danielmorandini/booster-network/booster"
+	"github.com/danielmorandini/booster/booster"
 	"github.com/spf13/cobra"
 )
 

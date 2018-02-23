@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster/node"
 )
 
 type addr struct {

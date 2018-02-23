@@ -3,7 +3,7 @@ package node_test
 import (
 	"testing"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster/node"
 )
 
 func TestNewTunnel(t *testing.T) {

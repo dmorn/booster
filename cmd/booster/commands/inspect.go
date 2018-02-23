@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/danielmorandini/booster-network/booster"
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/node"
 	"github.com/spf13/cobra"
 )
 

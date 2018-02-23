@@ -1,6 +1,6 @@
-# booster-network
-[![Build Status](https://travis-ci.org/danielmorandini/booster-network.svg?branch=master)](https://travis-ci.org/danielmorandini/booster-network)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster-network/node)
+# booster
+[![Build Status](https://travis-ci.org/danielmorandini/booster.svg?branch=master)](https://travis-ci.org/danielmorandini/booster)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster/node)
 
 # Table of Contents
 
@@ -20,7 +20,7 @@ limited Internet usage per month, and a slow Internet connection.
 Even if in need, we always use just one device at once, and usually it is the
 slowest one.
 
-This is were **booster-network** comes into play. Its aim is to create a network
+This is were **booster** comes into play. Its aim is to create a network
 of peer nodes, each of them with an active Internet connection, that balance the
 network usage between their interfaces.
 
@@ -30,7 +30,7 @@ summary, the former one is a SOCKS5 proxy that keeps track of the number of open
 channels of data that is proxing. When we want to enable booster on a device, we
 just have to make it exploit the booster-proxy when networking, and use the
 booster instance to connect nodes to it, and manage them. This way we can use
-our device as always, while transparently in the background **booster-network**
+our device as always, while transparently in the background **booster**
 will balance the network usage between each node, with all the consequences that
 come along with it.
 
@@ -51,12 +51,12 @@ With a [correctly configured](https://golang.org/doc/code.html#GOPATH) Go instal
 
 get the repo with:
 ```
-go get -u github.com/danielmorandini/booster-network/node
+go get -u github.com/danielmorandini/booster/node
 ```
 
 build the executable:
 ```
-cd $GOPATH/src/github.com/danielmorandini/booster-network
+cd $GOPATH/src/github.com/danielmorandini/booster
 go build -o booster cmd/booster/main.go
 ```
 
@@ -64,12 +64,12 @@ With Makefile (thanks to [Filippo's](https://github.com/FiloSottile) [hellogophe
 
 clone the repo:
 ```
-git clone https://github.com/danielmorandini/booster-network.git
+git clone https://github.com/danielmorandini/booster.git
 ```
 
 test & build:
 ```
-cd booster-network
+cd booster
 make setup
 make test
 make
@@ -78,7 +78,7 @@ make
 a `bin` folder will be produced inside the repo.
 
 #### Binary:
-Pick your [release!](https://github.com/danielmorandini/booster-network/releases)
+Pick your [release!](https://github.com/danielmorandini/booster/releases)
 
 ## Usage
 ```

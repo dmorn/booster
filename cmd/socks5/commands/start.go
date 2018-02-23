@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster/socks5"
 	"github.com/spf13/cobra"
 )
 

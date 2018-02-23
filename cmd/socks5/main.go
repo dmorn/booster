@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/danielmorandini/booster-network/cmd/socks5/commands"
+	"github.com/danielmorandini/booster/cmd/socks5/commands"
 )
 
 // Version and BuildTime are filled in during build by the Makefile

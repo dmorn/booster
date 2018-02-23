@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/danielmorandini/booster-network/cmd/inspect-gateway/commands"
+	"github.com/danielmorandini/booster/cmd/inspect-gateway/commands"
 )
 
 // Version and BuildTime are filled in during build by the Makefile

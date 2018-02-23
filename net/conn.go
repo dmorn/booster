@@ -9,19 +9,43 @@ import (
 )
 
 type Conn struct {
+	Err error
+
 	conn net.Conn
+	running bool
 
 	mutex sync.Mutex
 	ped   *packet.EncoderDecoder
 }
 
-func (c *Conn) Accept() (*packet.Packet, error) {
-	c.mutex.Lock()
-	p := packet.New()
-	err := c.ped.Decode(p)
-	c.mutex.Unlock()
+func (c *Conn) Accept() (<-chan *packet.Packet, error) {
+	if c.running {
+		return nil, errors.New("conn: already running")
+	}
 
-	return p, err
+	c.running = true
+	ch := make(chan *packet.Packet)
+	errc := make(chan error)
+
+	defer func() {
+		c.running = false
+		close(ch)
+		close(errc)
+	}
+
+	go func() {
+		for {
+			p := packet.New()
+			if err := c.ped.Decode(p); err != nil {
+				c.Err = err
+				return
+			}
+
+			ch <- p
+		}
+	}()
+
+	return ch, err
 }
 
 func (c *Conn) Send(p *packet.Packet) error {

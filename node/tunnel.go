@@ -7,7 +7,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 type Tunnel struct {
