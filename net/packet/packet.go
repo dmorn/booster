@@ -58,16 +58,16 @@ func (p *Packet) AddModule(id string, payload []byte) (*Module, error) {
 	return m, nil
 }
 
-func (p *Packet) RemoveModule(id string) error {
+func (p *Packet) DelModule(id string) error {
 	delete(p.modules, id)
 
 	return nil
 }
 
-func (p *Packet) Header() (*Module, error) {
-	m, ok := p.modules[ModuleHeader]
+func (p *Packet) Module(id string) (*Module, error) {
+	m, ok := p.modules[id]
 	if !ok {
-		return nil, fmt.Errorf("packet: no header module")
+		return nil, fmt.Errorf("packet: module [%v] not found", id)
 	}
 
 	return m, nil
@@ -91,7 +91,7 @@ func NewModule(id string, payload []byte) (*Module, error) {
 	}
 
 	return &Module{
-		id:       id,
+		id:       string(id),
 		size:     uint16(size),
 		encoding: EncodingProto,
 		payload:  payload,

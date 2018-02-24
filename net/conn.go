@@ -16,7 +16,16 @@ type Conn struct {
 	running bool
 
 	mutex sync.Mutex
-	ped   *packet.EncoderDecoder
+	pe   *packet.Encoder
+	pd   *packet.Decoder
+}
+
+func NewConn(conn net.Conn, pe *packet.Encoder, pd *packet.Decoder) *Conn {
+	return &Conn{
+		conn: conn,
+		pe: pe,
+		pd: pd,
+	}
 }
 
 func (c *Conn) Accept() (<-chan *packet.Packet, error) {
@@ -26,18 +35,15 @@ func (c *Conn) Accept() (<-chan *packet.Packet, error) {
 
 	c.running = true
 	ch := make(chan *packet.Packet)
-	errc := make(chan error)
 
 	defer func() {
 		c.running = false
-		close(ch)
-		close(errc)
 	}()
 
 	go func() {
 		for {
 			p := packet.New()
-			if err := c.ped.Decode(p); err != nil {
+			if err := c.pd.Decode(p); err != nil {
 				c.Err = err
 				return
 			}
@@ -46,14 +52,14 @@ func (c *Conn) Accept() (<-chan *packet.Packet, error) {
 		}
 	}()
 
-	return ch, err
+	return ch, nil
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	return c.ped.Encode(p)
+	return c.pe.Encode(p)
 }
 
 func (c *Conn) Close() error {
@@ -72,6 +78,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 
 	return &Conn{
 		conn: conn,
-		ped:  packet.NewEncoderDecoder(conn),
+		pe:  packet.NewEncoder(conn),
+		pd:  packet.NewDecoder(conn),
 	}, nil
 }

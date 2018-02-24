@@ -18,13 +18,34 @@ func TestAddModule(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hm, err := p.Header()
+	hm, err := p.Module(id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if hm.ID() != m.ID() {
 		t.Fatalf("wanted %v, found %v", m.ID, hm.ID)
+	}
+
+	// try to add a custom module
+	id = "fo"
+	m, err = p.AddModule(id, pl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hm, err = p.Module(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if hm.ID() != m.ID() {
+		t.Fatalf("wanted %v, found %v", m.ID(), hm.ID())
+	}
+
+	id = "fk"
+	if _, err = p.Module(id); err == nil {
+		t.Fatalf("unexpected module [%v] found", id)
 	}
 }
 
@@ -54,7 +75,7 @@ func TestEncodeDecode(t *testing.T) {
 	}
 
 	// check that the received packet also has the header module
-	hm, err := pr.Header()
+	hm, err := pr.Module(packet.ModuleHeader)
 	if err != nil {
 		t.Fatal(err)
 	}
