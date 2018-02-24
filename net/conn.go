@@ -45,13 +45,11 @@ func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 		for {
 			p := packet.New()
 
-			fmt.Println("connectionn is decoding...")
 			err := c.pd.Decode(p)
 			if err != nil {
 				c.Err = err
 				return
 			}
-			fmt.Println("connectio decoded.")
 
 			ch <- p
 		}
