@@ -28,12 +28,9 @@ func Execute() {
 	// parse flags
 	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
-	connectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
-	disconnectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
-	inspectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
 
 	// add commands
-	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd)
+	rootCmd.AddCommand(versionCmd, startCmd)
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {
