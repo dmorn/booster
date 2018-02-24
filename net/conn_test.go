@@ -1,18 +1,18 @@
 package net_test
 
 import (
-	"testing"
 	"io"
-	"time"
 	"net"
+	"testing"
+	"time"
 
 	bnet "github.com/danielmorandini/booster/net"
 	"github.com/danielmorandini/booster/net/packet"
 )
 
 type conn struct {
-	server     io.ReadWriteCloser
-	client     io.ReadWriteCloser
+	server io.ReadWriteCloser
+	client io.ReadWriteCloser
 }
 
 func newConn() *conn {
@@ -25,7 +25,7 @@ func newConn() *conn {
 }
 
 // protocol stubs
-func (c *conn) Close() error                       { return nil }
+func (c *conn) Close() error { return nil }
 
 func TestAcceptSend(t *testing.T) {
 	mc := newConn()
@@ -38,7 +38,7 @@ func TestAcceptSend(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		c <- <- pkts
+		c <- <-pkts
 	}()
 
 	p := packet.New()
@@ -60,7 +60,7 @@ func TestAcceptSend(t *testing.T) {
 			t.Fatalf("packet %+v: %v", p1, err)
 		}
 
-	case <-time.After(1*time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("timeout: couldn't read packet")
 	}
 }

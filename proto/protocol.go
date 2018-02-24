@@ -16,4 +16,3 @@ type Conn interface {
 	Close() error
 	Err() error
 }
-

@@ -29,8 +29,8 @@ func (l *Listener) Accept() (*Conn, error) {
 
 	return &Conn{
 		conn: conn,
-		pe:  packet.NewEncoder(conn),
-		pd:  packet.NewDecoder(conn),
+		pe:   packet.NewEncoder(conn),
+		pd:   packet.NewDecoder(conn),
 	}, nil
 }
 

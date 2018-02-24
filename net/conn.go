@@ -15,15 +15,15 @@ type Conn struct {
 	conn    io.ReadWriteCloser
 	running bool
 
-	pe   *packet.Encoder
-	pd   *packet.Decoder
+	pe *packet.Encoder
+	pd *packet.Decoder
 }
 
 func NewConn(conn io.ReadWriteCloser, pe *packet.Encoder, pd *packet.Decoder) *Conn {
 	return &Conn{
 		conn: conn,
-		pe: pe,
-		pd: pd,
+		pe:   pe,
+		pd:   pd,
 	}
 }
 
@@ -77,7 +77,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 
 	return &Conn{
 		conn: conn,
-		pe:  packet.NewEncoder(conn),
-		pd:  packet.NewDecoder(conn),
+		pe:   packet.NewEncoder(conn),
+		pd:   packet.NewDecoder(conn),
 	}, nil
 }
