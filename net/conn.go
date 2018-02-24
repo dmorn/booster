@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"fmt"
 
 	"github.com/danielmorandini/booster/net/packet"
 )
