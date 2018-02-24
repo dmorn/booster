@@ -2,17 +2,17 @@ package net_test
 
 import (
 	"testing"
-	"net"
+	"io"
 	"time"
+	"net"
 
 	bnet "github.com/danielmorandini/booster/net"
 	"github.com/danielmorandini/booster/net/packet"
 )
 
 type conn struct {
-	server     net.Conn
-	client     net.Conn
-	remoteAddr net.Addr
+	server     io.ReadWriteCloser
+	client     io.ReadWriteCloser
 }
 
 func newConn() *conn {
@@ -26,11 +26,6 @@ func newConn() *conn {
 
 // protocol stubs
 func (c *conn) Close() error                       { return nil }
-func (c *conn) LocalAddr() net.Addr                { return nil }
-func (c *conn) RemoteAddr() net.Addr               { return c.remoteAddr }
-func (c *conn) SetDeadline(t time.Time) error      { return nil }
-func (c *conn) SetReadDeadline(t time.Time) error  { return nil }
-func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
 
 func TestAcceptSend(t *testing.T) {
 	mc := newConn()
@@ -38,7 +33,7 @@ func TestAcceptSend(t *testing.T) {
 
 	c := make(chan *packet.Packet)
 	go func() {
-		pkts, err := conn.Accept()
+		pkts, err := conn.Consume()
 		if err != nil {
 			t.Fatal(err)
 		}

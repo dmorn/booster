@@ -69,7 +69,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	// module id
 	buf := []byte(m.id)
 	if len(buf) != 2 {
-		return fmt.Errorf("module: ID must be a 2 letters identifier, found %v", m.ID)
+		return fmt.Errorf("module: ID must be a 2 letters identifier, found %v", m.ID())
 	}
 
 	if _, err := e.w.Write(buf); err != nil {

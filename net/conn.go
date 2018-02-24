@@ -3,8 +3,9 @@ package net
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
-	"sync"
+	"fmt"
 
 	"github.com/danielmorandini/booster/net/packet"
 )
@@ -12,15 +13,14 @@ import (
 type Conn struct {
 	Err error
 
-	conn    net.Conn
+	conn    io.ReadWriteCloser
 	running bool
 
-	mutex sync.Mutex
 	pe   *packet.Encoder
 	pd   *packet.Decoder
 }
 
-func NewConn(conn net.Conn, pe *packet.Encoder, pd *packet.Decoder) *Conn {
+func NewConn(conn io.ReadWriteCloser, pe *packet.Encoder, pd *packet.Decoder) *Conn {
 	return &Conn{
 		conn: conn,
 		pe: pe,
@@ -28,7 +28,7 @@ func NewConn(conn net.Conn, pe *packet.Encoder, pd *packet.Decoder) *Conn {
 	}
 }
 
-func (c *Conn) Accept() (<-chan *packet.Packet, error) {
+func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 	if c.running {
 		return nil, errors.New("conn: already running")
 	}
@@ -41,12 +41,17 @@ func (c *Conn) Accept() (<-chan *packet.Packet, error) {
 	}()
 
 	go func() {
+		defer close(ch)
 		for {
 			p := packet.New()
-			if err := c.pd.Decode(p); err != nil {
+
+			fmt.Println("connectionn is decoding...")
+			err := c.pd.Decode(p)
+			if err != nil {
 				c.Err = err
 				return
 			}
+			fmt.Println("connectio decoded.")
 
 			ch <- p
 		}
@@ -56,9 +61,6 @@ func (c *Conn) Accept() (<-chan *packet.Packet, error) {
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	return c.pe.Encode(p)
 }
 
