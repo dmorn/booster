@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/danielmorandini/booster/proto"
+	"github.com/danielmorandini/booster/protocol"
 )
 
 type Decoder struct {
@@ -19,8 +19,8 @@ func NewDecoder(r io.Reader) *Decoder {
 }
 
 func (d *Decoder) Decode(packet *Packet) error {
-	otr := NewTagReader(d.r, proto.PacketOpeningTag) // open tag reader
-	ctr := NewTagReader(d.r, proto.PacketClosingTag) // close tag reader
+	otr := NewTagReader(d.r, protocol.PacketOpeningTag) // open tag reader
+	ctr := NewTagReader(d.r, protocol.PacketClosingTag) // close tag reader
 	md := NewModuleDecoder(d.r)                // module decoder
 
 	buf := make([]byte, 4)
@@ -80,9 +80,9 @@ func NewModuleDecoder(r io.Reader) *ModuleDecoder {
 
 func (d *ModuleDecoder) Decode(m *Module) error {
 	r := d.r
-	sr := NewTagReader(r, proto.Separator)          // separator reader
-	otr := NewTagReader(r, proto.PayloadOpeningTag) // open tag reader
-	ctr := NewTagReader(r, proto.PayloadClosingTag) // close tag reader
+	sr := NewTagReader(r, protocol.Separator)          // separator reader
+	otr := NewTagReader(r, protocol.PayloadOpeningTag) // open tag reader
+	ctr := NewTagReader(r, protocol.PayloadClosingTag) // close tag reader
 
 	// read module id
 	buf := make([]byte, 2)

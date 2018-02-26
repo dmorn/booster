@@ -3,7 +3,7 @@ package packet
 import (
 	"fmt"
 
-	"github.com/danielmorandini/booster/proto"
+	"github.com/danielmorandini/booster/protocol"
 )
 
 type Packet struct {
@@ -80,7 +80,7 @@ func (m *Module) Payload() []byte {
 
 func (m *Module) Encoding() string {
 	switch m.encoding {
-	case proto.EncodingProtobuf:
+	case protocol.EncodingProtobuf:
 		return "protobuf"
 	default:
 		return "undefined"

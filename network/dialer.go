@@ -1,10 +1,10 @@
-package net
+package network
 
 import (
 	"context"
 	"net"
 
-	"github.com/danielmorandini/booster/net/packet"
+	"github.com/danielmorandini/booster/network/packet"
 )
 
 // Dialer wraps a network dialer.
@@ -25,4 +25,3 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 		pd:   packet.NewDecoder(conn),
 	}, nil
 }
-

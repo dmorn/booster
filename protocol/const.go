@@ -1,4 +1,4 @@
-package proto
+package protocol
 
 const (
 	EncodingProtobuf uint8 = 1

@@ -1,4 +1,4 @@
-package proto
+package protocol
 
 type Packet interface {
 	Module(id string) (Module, error)

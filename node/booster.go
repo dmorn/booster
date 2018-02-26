@@ -7,21 +7,32 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"net"
 
-	"github.com/danielmorandini/booster/net"
+	"github.com/danielmorandini/booster/network"
+	"github.com/danielmorandini/booster/socks5"
 )
+type Proxy interface {
+	NotifyTunnel() (<-chan interface{}, error)
+	ListenAndServe(ctx context.Context, port int) error
+}
 
 type Booster struct {
 	*log.Logger
+
+	Proxy Proxy
 
 	stop chan struct{}
 }
 
 func NewBooster() *Booster {
-	log := log.New(os.Stdout, "BOOSTER ", log.LstdFlags)
+	log := log.New(os.Stdout, "BOOSTER  ", log.LstdFlags)
+	dialer := new(net.Dialer)
+	proxy := socks5.New(dialer)
 
 	b := new(Booster)
 	b.Logger = log
+	b.Proxy = proxy
 	b.stop = make(chan struct{})
 
 	return b
@@ -34,6 +45,10 @@ func (b *Booster) Run(pport, bport int) error {
 	errc := make(chan error)
 	go func() {
 		errc <- b.ListenAndServe(ctx, bport)
+	}()
+
+	go func() {
+		errc <- b.Proxy.ListenAndServe(ctx, pport)
 	}()
 
 	// trap exit signals
@@ -50,9 +65,12 @@ func (b *Booster) Run(pport, bport int) error {
 
 	select {
 	case err := <-errc:
+		cancel()
+		<-errc // wait for the other goroutine to return
 		return err
 	case <-b.stop:
 		cancel()
+		<-errc // wait for ListenAndServe to return
 		<-errc // wait for ListenAndServe to return
 		return fmt.Errorf("booster: stopped")
 	}
@@ -65,13 +83,13 @@ func (b *Booster) Close() error {
 
 func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	p := strconv.Itoa(port)
-	ln, err := net.Listen("tcp", ":"+p)
+	ln, err := network.Listen("tcp", ":"+p)
 	if err != nil {
 		return err
 	}
 	defer ln.Close()
 
-	b.Printf("booster: listening on port: %v", p)
+	b.Printf("listening on port: %v", p)
 
 	errc := make(chan error)
 	defer close(errc)
@@ -98,7 +116,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 }
 
-func (b *Booster) Handle(ctx context.Context, conn *net.Conn) {
+func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 	defer conn.Close()
 
 	pkts, err := conn.Consume()

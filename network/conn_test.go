@@ -1,4 +1,4 @@
-package net_test
+package network_test
 
 import (
 	"io"
@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	bnet "github.com/danielmorandini/booster/net"
-	"github.com/danielmorandini/booster/net/packet"
+	"github.com/danielmorandini/booster/network"
+	"github.com/danielmorandini/booster/network/packet"
 )
 
 type conn struct {
@@ -29,7 +29,7 @@ func (c *conn) Close() error { return nil }
 
 func TestAcceptSend(t *testing.T) {
 	mc := newConn()
-	conn := bnet.Open(mc.client, packet.NewEncoder(mc.client), packet.NewDecoder(mc.server))
+	conn := network.Open(mc.client, packet.NewEncoder(mc.client), packet.NewDecoder(mc.server))
 
 	c := make(chan *packet.Packet)
 	go func() {

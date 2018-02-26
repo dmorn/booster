@@ -1,9 +1,9 @@
-package net
+package network
 
 import (
 	"net"
 
-	"github.com/danielmorandini/booster/net/packet"
+	"github.com/danielmorandini/booster/network/packet"
 )
 
 // Listener wraps a net.Listener.

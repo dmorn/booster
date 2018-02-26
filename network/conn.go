@@ -1,11 +1,11 @@
-package net
+package network
 
 import (
 	"errors"
 	"io"
 	"sync"
 
-	"github.com/danielmorandini/booster/net/packet"
+	"github.com/danielmorandini/booster/network/packet"
 )
 
 // Conn manages the serialization and deserialization of the entire
