@@ -37,6 +37,7 @@ func (b *Booster) Run(pport, bport int) error {
 		errc <- b.ListenAndServe(ctx, bport)
 	}()
 
+	// trap exit signals
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -84,7 +85,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 				return
 			}
 
-			go b.HandleConn(ctx, conn)
+			go b.Handle(ctx, conn)
 		}
 	}()
 
@@ -98,17 +99,15 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 }
 
-func (b *Booster) HandleConn(ctx context.Context, conn *net.Conn) {
+func (b *Booster) Handle(ctx context.Context, conn *net.Conn) {
+	defer conn.Close()
+
 	pkts, err := conn.Consume()
 	if err != nil {
 		b.Printf("booster: cannot consume packets: %v", err)
 		return
 	}
 
-	b.HandlePkts(ctx, pkts)
-}
-
-func (b *Booster) HandlePkts(ctx context.Context, pkts <-chan *packet.Packet) {
 	b.Println("booster: consuming packets...")
 
 	for p := range pkts {
