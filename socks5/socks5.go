@@ -108,6 +108,8 @@ type Socks5 struct {
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 
+	stop chan struct{}
+
 	sync.Mutex
 	Dialer
 	port     int
@@ -125,36 +127,69 @@ func New(d Dialer) *Socks5 {
 	s.Dialer = d
 	s.Logger = log
 	s.PubSub = ps
+	s.stop = make(chan struct{})
 
 	return s
+}
+
+func (s *Socks5) Run(port int) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errc := make(chan error)
+	go func() {
+		errc <- s.ListenAndServe(ctx, port)
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-s.stop:
+		cancel()
+		<-errc // wait for ListenAndServe to return
+		return fmt.Errorf("socks5: stopped")
+	}
+}
+
+func (s *Socks5) Close() error {
+	s.stop <- struct{}{}
+	return nil
 }
 
 // ListenAndServe accepts and handles TCP connections
 // using the SOCKS5 protocol.
 func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
-	s.Lock()
-	s.port = port
-	s.Unlock()
-
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	p := strconv.Itoa(port)
+	ln, err := net.Listen("tcp", ":"+p)
 	if err != nil {
 		return err
 	}
+	defer ln.Close()
 
 	s.Printf("listening on port: %v", port)
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			s.Printf("tcp accept error: %v", err)
-			continue
-		}
+	errc := make(chan error)
+	defer close(errc)
 
-		go func() {
-			if err := s.Handle(ctx, conn); err != nil {
-				s.Println(err)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				errc <- fmt.Errorf("socks5: cannot accept conn: %v", err)
+				return
 			}
-		}()
+
+			go s.Handle(ctx, conn)
+		}
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		ln.Close()
+		<-errc // wait for listener to return
+		return ctx.Err()
 	}
 }
 
