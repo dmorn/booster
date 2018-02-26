@@ -2,37 +2,9 @@ package packet
 
 import (
 	"fmt"
-	"io"
+
+	"github.com/danielmorandini/booster/proto"
 )
-
-const (
-	EncodingProto uint8 = 1
-)
-
-const (
-	ModuleHeader  string = "HE"
-	ModulePayload        = "PA"
-)
-
-const (
-	PacketOpeningTag  = ">"
-	PacketClosingTag  = "<"
-	PayloadOpeningTag = "["
-	PayloadClosingTag = "]"
-	Separator         = ":"
-)
-
-type EncoderDecoder struct {
-	*Encoder
-	*Decoder
-}
-
-func NewEncoderDecoder(rw io.ReadWriter) *EncoderDecoder {
-	return &EncoderDecoder{
-		Encoder: NewEncoder(rw),
-		Decoder: NewDecoder(rw),
-	}
-}
 
 type Packet struct {
 	modules map[string]*Module
@@ -44,12 +16,12 @@ func New() *Packet {
 	}
 }
 
-func (p *Packet) AddModule(id string, payload []byte) (*Module, error) {
+func (p *Packet) AddModule(id string, payload []byte, encoding uint8) (*Module, error) {
 	if _, ok := p.modules[id]; ok {
 		return nil, fmt.Errorf("packet: module [%v] already present", id)
 	}
 
-	m, err := NewModule(id, payload)
+	m, err := NewModule(id, payload, encoding)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +52,7 @@ type Module struct {
 	payload  []byte
 }
 
-func NewModule(id string, payload []byte) (*Module, error) {
+func NewModule(id string, payload []byte, encoding uint8) (*Module, error) {
 	if len([]byte(id)) != 2 {
 		return nil, fmt.Errorf("module: id must be a 2 letters identifier: example: HE. Found %v", id)
 	}
@@ -93,7 +65,7 @@ func NewModule(id string, payload []byte) (*Module, error) {
 	return &Module{
 		id:       string(id),
 		size:     uint16(size),
-		encoding: EncodingProto,
+		encoding: encoding,
 		payload:  payload,
 	}, nil
 }
@@ -108,7 +80,7 @@ func (m *Module) Payload() []byte {
 
 func (m *Module) Encoding() string {
 	switch m.encoding {
-	case EncodingProto:
+	case proto.EncodingProtobuf:
 		return "protobuf"
 	default:
 		return "undefined"

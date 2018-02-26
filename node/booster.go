@@ -71,7 +71,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 	defer ln.Close()
 
-	b.Printf("listening on port: %v", p)
+	b.Printf("booster: listening on port: %v", p)
 
 	errc := make(chan error)
 	defer close(errc)
@@ -109,4 +109,11 @@ func (b *Booster) HandleConn(ctx context.Context, conn *net.Conn) {
 }
 
 func (b *Booster) HandlePkts(ctx context.Context, pkts <-chan *packet.Packet) {
+	b.Println("booster: consuming packets...")
+
+	for p := range pkts {
+		b.Printf("booster: consuming packet: %+v", p)
+	}
+
+	b.Println("booster: packets consumed.")
 }

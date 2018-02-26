@@ -29,7 +29,7 @@ func (c *conn) Close() error { return nil }
 
 func TestAcceptSend(t *testing.T) {
 	mc := newConn()
-	conn := bnet.NewConn(mc.client, packet.NewEncoder(mc.client), packet.NewDecoder(mc.server))
+	conn := bnet.Open(mc.client, packet.NewEncoder(mc.client), packet.NewDecoder(mc.server))
 
 	c := make(chan *packet.Packet)
 	go func() {
@@ -42,7 +42,7 @@ func TestAcceptSend(t *testing.T) {
 	}()
 
 	p := packet.New()
-	_, err := p.AddModule("fo", []byte{1})
+	_, err := p.AddModule("fo", []byte{1}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

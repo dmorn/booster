@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"github.com/danielmorandini/booster/net/packet"
+	"github.com/danielmorandini/booster/proto"
 )
 
 func TestAddModule(t *testing.T) {
 	p := packet.New()
 	pl := []byte("booster")
-	id := packet.ModuleHeader
+	id := proto.ModuleHeader
 
 	// try to add the header module
-	m, err := p.AddModule(id, pl)
+	m, err := p.AddModule(id, pl, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestAddModule(t *testing.T) {
 
 	// try to add a custom module
 	id = "fo"
-	m, err = p.AddModule(id, pl)
+	m, err = p.AddModule(id, pl, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,9 +53,9 @@ func TestAddModule(t *testing.T) {
 func TestEncodeDecode(t *testing.T) {
 	p := packet.New()
 	pl := []byte("booster")
-	id := packet.ModuleHeader
+	id := proto.ModuleHeader
 
-	m, err := p.AddModule(id, pl)
+	m, err := p.AddModule(id, pl, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestEncodeDecode(t *testing.T) {
 	}
 
 	// check that the received packet also has the header module
-	hm, err := pr.Module(packet.ModuleHeader)
+	hm, err := pr.Module(proto.ModuleHeader)
 	if err != nil {
 		t.Fatal(err)
 	}

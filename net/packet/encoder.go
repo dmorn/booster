@@ -3,6 +3,8 @@ package packet
 import (
 	"fmt"
 	"io"
+
+	"github.com/danielmorandini/booster/proto"
 )
 
 type Encoder struct {
@@ -21,7 +23,7 @@ func (e *Encoder) Encode(p *Packet) error {
 	me := NewModuleEncoder(e.w)
 
 	// starting tag
-	if _, err := tw.Write(PacketOpeningTag); err != nil {
+	if _, err := tw.Write(proto.PacketOpeningTag); err != nil {
 		return fmt.Errorf("packet: write open tag: %v", err)
 	}
 
@@ -45,7 +47,7 @@ func (e *Encoder) Encode(p *Packet) error {
 	}
 
 	// closing tag
-	if _, err := tw.Write(PacketClosingTag); err != nil {
+	if _, err := tw.Write(proto.PacketClosingTag); err != nil {
 		return fmt.Errorf("packet: write close tag: %v", err)
 	}
 
@@ -77,7 +79,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// sepatator
-	if _, err := tw.Write(Separator); err != nil {
+	if _, err := tw.Write(proto.Separator); err != nil {
 		return fmt.Errorf("module: write separator: %v", err)
 	}
 
@@ -89,7 +91,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// sepatator
-	if _, err := tw.Write(Separator); err != nil {
+	if _, err := tw.Write(proto.Separator); err != nil {
 		return fmt.Errorf("module: write separator: %v", err)
 	}
 
@@ -99,7 +101,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// payload open tag
-	if _, err := tw.Write(PayloadOpeningTag); err != nil {
+	if _, err := tw.Write(proto.PayloadOpeningTag); err != nil {
 		return fmt.Errorf("module: write payload open tag: %v", err)
 	}
 
@@ -109,7 +111,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// payload close tag
-	if _, err := tw.Write(PayloadClosingTag); err != nil {
+	if _, err := tw.Write(proto.PayloadClosingTag); err != nil {
 		return fmt.Errorf("module: write payload close tag: %v", err)
 	}
 

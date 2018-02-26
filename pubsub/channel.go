@@ -36,9 +36,9 @@ func newChannel() *channel {
 		for {
 			select {
 			case m := <-ch.sendc:
-				send(m)
+				go send(m)
 			case <-ch.stopc:
-				stop()
+				go stop()
 				return
 			}
 		}
