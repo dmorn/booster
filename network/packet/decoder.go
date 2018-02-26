@@ -21,7 +21,7 @@ func NewDecoder(r io.Reader) *Decoder {
 func (d *Decoder) Decode(packet *Packet) error {
 	otr := NewTagReader(d.r, protocol.PacketOpeningTag) // open tag reader
 	ctr := NewTagReader(d.r, protocol.PacketClosingTag) // close tag reader
-	md := NewModuleDecoder(d.r)                // module decoder
+	md := NewModuleDecoder(d.r)                         // module decoder
 
 	buf := make([]byte, 4)
 	_, err := otr.Read(buf)

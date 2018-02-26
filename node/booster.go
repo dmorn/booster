@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
-	"net"
 
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/socks5"
 )
+
 type Proxy interface {
 	NotifyTunnel() (<-chan interface{}, error)
 	ListenAndServe(ctx context.Context, port int) error
