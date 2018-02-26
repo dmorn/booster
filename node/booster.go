@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/danielmorandini/booster/net"
-	"github.com/danielmorandini/booster/net/packet"
 )
 
 type Booster struct {
