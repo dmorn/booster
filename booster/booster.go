@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
@@ -56,13 +57,18 @@ func (b *Booster) Run(pport, bport int) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errc := make(chan error)
+	errc := make(chan error, 2)
+	var wg sync.WaitGroup
 	go func() {
+		wg.Add(1)
 		errc <- b.ListenAndServe(ctx, bport)
+		wg.Done()
 	}()
 
 	go func() {
+		wg.Add(1)
 		errc <- b.Proxy.ListenAndServe(ctx, pport)
+		wg.Done()
 	}()
 
 	// trap exit signals
@@ -80,12 +86,11 @@ func (b *Booster) Run(pport, bport int) error {
 	select {
 	case err := <-errc:
 		cancel()
-		<-errc // wait for the other goroutine to return
+		wg.Wait()
 		return err
 	case <-b.stop:
 		cancel()
-		<-errc // wait for ListenAndServe to return
-		<-errc // wait for ListenAndServe to return
+		wg.Wait()
 		return fmt.Errorf("booster: stopped")
 	}
 }
