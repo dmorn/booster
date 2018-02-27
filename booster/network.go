@@ -35,7 +35,7 @@ func (b *Booster) Nodes() (*node.Node, []*node.Node) {
 }
 
 func (b *Booster) Ack(node *node.Node, id string) error {
-	b.Printf("balancer: acknoledging (%v) on node (%v)", id, node.ID())
+	b.Printf("booster: acknoledging (%v) on node (%v)", id, node.ID())
 
 	if err := node.Ack(id); err != nil {
 		return err
@@ -46,7 +46,7 @@ func (b *Booster) Ack(node *node.Node, id string) error {
 }
 
 func (b *Booster) RemoveTunnel(node *node.Node, id string) error {
-	b.Printf("balancer: removing (%v) on node (%v)", id, node.ID())
+	b.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
 	if err := node.RemoveTunnel(id); err != nil {
 		return err
@@ -57,7 +57,7 @@ func (b *Booster) RemoveTunnel(node *node.Node, id string) error {
 }
 
 func (b *Booster) AddTunnel(node *node.Node, target string) {
-	b.Printf("balancer: adding tunnel (%v) to node (%v)", target, node.ID())
+	b.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
 
 	node.AddTunnel(target)
 	b.Pub(node, TopicNodes)
