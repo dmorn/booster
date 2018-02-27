@@ -14,8 +14,8 @@ import (
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
-	"github.com/danielmorandini/booster/socks5"
 	"github.com/danielmorandini/booster/pubsub"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 const TopicNodes = "topic_nodes"
@@ -220,7 +220,6 @@ func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 
 	b.Println("booster: packets consumed.")
 }
-
 
 func (b *Booster) DialContext(ctx context.Context, netwk, addr string) (*network.Conn, error) {
 	dialer := network.NewDialer(new(net.Dialer), b.netconfig)
