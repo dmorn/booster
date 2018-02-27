@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster/network"
-	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/protocol"
 )
 
 var netconfig network.Config = network.Config{
@@ -19,7 +19,6 @@ var netconfig network.Config = network.Config{
 		Separator:         protocol.Separator,
 	},
 }
-
 
 type conn struct {
 	server io.ReadWriteCloser
