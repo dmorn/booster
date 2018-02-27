@@ -6,17 +6,6 @@ import (
 	"github.com/danielmorandini/booster/node"
 )
 
-type addr struct {
-}
-
-func (a *addr) String() string {
-	return "localhost:4884"
-}
-
-func (a *addr) Network() string {
-	return "tcp"
-}
-
 func TestNewNode(t *testing.T) {
 	n, err := node.New("localhost", "1080", "4884", true)
 	if err != nil {
@@ -47,18 +36,14 @@ func TestAddTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := new(addr)
-	id := n.AddTunnel(addr)
+	addr := "host:8888"
+	n.AddTunnel(addr)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	id1 := n.AddTunnel(addr)
-
-	if id != id1 {
-		t.Fatalf("%v, wanted %v", id, id1)
-	}
+	n.AddTunnel(addr)
 
 	if n.Workload() != 2 {
 		t.Fatalf("workload: %v, wanted 2", n.Workload())
@@ -71,24 +56,20 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := new(addr)
-	id := n.AddTunnel(addr)
+	addr := "host:8888"
+	n.AddTunnel(addr)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	id1 := n.AddTunnel(addr)
-
-	if id != id1 {
-		t.Fatalf("%v, wanted %v", id, id1)
-	}
+	n.AddTunnel(addr)
 
 	if n.Workload() != 2 {
 		t.Fatalf("workload: %v, wanted 2", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(id); err != nil {
+	if err := n.RemoveTunnel(addr); err != nil {
 		t.Fatal(err)
 	}
 
@@ -96,7 +77,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(id); err != nil {
+	if err := n.RemoveTunnel(addr); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,7 +85,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 0", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(id); err == nil {
+	if err := n.RemoveTunnel(addr); err == nil {
 		t.Fatal("err should not be nil")
 	}
 }
@@ -115,14 +96,14 @@ func TestAck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := new(addr)
-	id := n.AddTunnel(addr)
+	addr := "host:8888"
+	n.AddTunnel(addr)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	tn, err := n.Tunnel(id)
+	tn, err := n.Tunnel(addr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +112,7 @@ func TestAck(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.Acks(), 0)
 	}
 
-	if err = n.Ack(id); err != nil {
+	if err = n.Ack(addr); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,7 +120,7 @@ func TestAck(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.Acks(), 1)
 	}
 
-	if err := n.RemoveTunnel(id); err != nil {
+	if err := n.RemoveTunnel(addr); err != nil {
 		t.Fatal(err)
 	}
 

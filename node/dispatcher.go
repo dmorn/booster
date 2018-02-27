@@ -16,6 +16,12 @@ import (
 // The first node returned is considered as the local/root one.
 type GetNodesFunc func() (*Node, []*Node)
 
+type Noder interface {
+	Nodes() (*Node, []*Node)
+	AddTunnel(node *Node, target string)
+	RemoveTunnel(node *Node, target string) error
+}
+
 // FallbackDialer combines DialContext and Dial methods.
 type FallbackDialer interface {
 	socks5.Dialer
@@ -26,17 +32,16 @@ type FallbackDialer interface {
 type Dispatcher struct {
 	*log.Logger
 
-	Nodes GetNodesFunc
-
+	Noder
 	Fallback FallbackDialer
 }
 
 // NewDialer returns a Dialer instance. f is used each time that the
 // list of node is required.
-func NewDispatcher(f GetNodesFunc) *Dispatcher {
+func NewDispatcher(n Noder) *Dispatcher {
 	d := new(Dispatcher)
 	d.Logger = log.New(os.Stdout, "DISPTCR  ", log.LstdFlags)
-	d.Nodes = f
+	d.Noder = n
 
 	d.Fallback = &net.Dialer{
 		Timeout:   30 * time.Second,
@@ -169,11 +174,17 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 			return nil, errors.New("dialer: " + err.Error())
 		}
 
+		// add the new tunnel
+		d.AddTunnel(node, addr)
+
 		// try to get a connection
 		conn, cerr := dialer.DialContext(ctx, network, addr)
 		if cerr == nil {
 			return conn, cerr
 		}
+
+		// remove tunnel immediately in case of error
+		_ = d.RemoveTunnel(node, addr)
 
 		// simply return if it was a context error
 		if cerr == ctx.Err() {

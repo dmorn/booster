@@ -1,22 +1,21 @@
 package node
 
 import (
-	"net"
 	"sync"
 )
 
 type Tunnel struct {
 	id     string
-	Target net.Addr
+	Target string
 
 	sync.Mutex
 	copies int // number of copies
 	acks   int // number of acknoledged copies
 }
 
-func NewTunnel(target net.Addr) *Tunnel {
+func NewTunnel(target string) *Tunnel {
 	return &Tunnel{
-		id:     sha1Hash([]byte(target.String())),
+		id:     sha1Hash([]byte(target)),
 		Target: target,
 		copies: 1,
 	}

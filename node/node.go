@@ -95,33 +95,31 @@ func (n *Node) ProxyAddr() net.Addr {
 // tunnel to it. If the node as already a tunnel with this
 // target connected to it, it increments the copies of the
 // tunnel.
-func (n *Node) AddTunnel(target net.Addr) string {
+func (n *Node) AddTunnel(target string) {
 	n.SetIsActive(true)
 	nt := NewTunnel(target)
 
-	if t, ok := n.tunnels[nt.ID()]; ok {
+	if t, ok := n.tunnels[target]; ok {
 		t.Lock()
 		defer t.Unlock()
 
 		t.copies++
-		return t.ID()
+		return
 	}
 
 	n.Lock()
 	defer n.Unlock()
-	n.tunnels[nt.ID()] = nt
-
-	return nt.ID()
+	n.tunnels[target] = nt
 }
 
 // Ack acknoledges the target tunnel, impling that the node is actually working on it.
 func (n *Node) Ack(id string) error {
 	n.Lock()
 	t, ok := n.tunnels[id]
+	n.Unlock()
 	if !ok {
 		return fmt.Errorf("node: cannot ack [%v], no such tunnel", id)
 	}
-	n.Unlock()
 
 	t.Lock()
 	defer t.Unlock()

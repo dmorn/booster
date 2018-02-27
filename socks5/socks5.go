@@ -258,8 +258,12 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s *Socks5) NotifyTunnel() (<-chan interface{}, error) {
+func (s *Socks5) NotifyTunnel() (chan interface{}, error) {
 	return s.Sub(TopicTunnels)
+}
+
+func (s *Socks5) StopNotifying(c chan interface{}) {
+	s.Unsub(c, TopicTunnels)
 }
 
 // ProxyData copies data from src to dst and the other way around.
