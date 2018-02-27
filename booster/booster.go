@@ -1,4 +1,4 @@
-package node
+package booster
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"strconv"
 
 	"github.com/danielmorandini/booster/network"
+	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/socks5"
 )
 
@@ -23,17 +25,28 @@ type Booster struct {
 
 	Proxy Proxy
 
+	netconfig network.Config
+
 	stop chan struct{}
 }
 
-func NewBooster() *Booster {
+func New() *Booster {
 	log := log.New(os.Stdout, "BOOSTER  ", log.LstdFlags)
 	dialer := new(net.Dialer)
 	proxy := socks5.New(dialer)
+	netconfig := network.Config{
+		TagSet: packet.TagSet{
+			PacketOpeningTag:  protocol.PacketOpeningTag,
+			PacketClosingTag:  protocol.PacketClosingTag,
+			PayloadClosingTag: protocol.PayloadClosingTag,
+			Separator:         protocol.Separator,
+		},
+	}
 
 	b := new(Booster)
 	b.Logger = log
 	b.Proxy = proxy
+	b.netconfig = netconfig
 	b.stop = make(chan struct{})
 
 	return b
@@ -84,7 +97,7 @@ func (b *Booster) Close() error {
 
 func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	p := strconv.Itoa(port)
-	ln, err := network.Listen("tcp", ":"+p)
+	ln, err := network.Listen("tcp", ":"+p, b.netconfig)
 	if err != nil {
 		return err
 	}

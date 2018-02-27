@@ -3,25 +3,25 @@ package packet
 import (
 	"fmt"
 	"io"
-
-	"github.com/danielmorandini/booster/protocol"
 )
 
 type Decoder struct {
+	TagSet
 	r io.Reader
 }
 
-func NewDecoder(r io.Reader) *Decoder {
+func NewDecoder(r io.Reader, t TagSet) *Decoder {
 	d := new(Decoder)
+	d.TagSet = t
 	d.r = r
 
 	return d
 }
 
 func (d *Decoder) Decode(packet *Packet) error {
-	otr := NewTagReader(d.r, protocol.PacketOpeningTag) // open tag reader
-	ctr := NewTagReader(d.r, protocol.PacketClosingTag) // close tag reader
-	md := NewModuleDecoder(d.r)                         // module decoder
+	otr := NewTagReader(d.r, d.PacketOpeningTag) // open tag reader
+	ctr := NewTagReader(d.r, d.PacketClosingTag) // close tag reader
+	md := NewModuleDecoder(d.r, d.TagSet)        // module decoder
 
 	buf := make([]byte, 4)
 	_, err := otr.Read(buf)
@@ -68,11 +68,13 @@ func (d *Decoder) Decode(packet *Packet) error {
 }
 
 type ModuleDecoder struct {
+	TagSet
 	r io.Reader
 }
 
-func NewModuleDecoder(r io.Reader) *ModuleDecoder {
+func NewModuleDecoder(r io.Reader, t TagSet) *ModuleDecoder {
 	d := new(ModuleDecoder)
+	d.TagSet = t
 	d.r = r
 
 	return d
@@ -80,9 +82,9 @@ func NewModuleDecoder(r io.Reader) *ModuleDecoder {
 
 func (d *ModuleDecoder) Decode(m *Module) error {
 	r := d.r
-	sr := NewTagReader(r, protocol.Separator)          // separator reader
-	otr := NewTagReader(r, protocol.PayloadOpeningTag) // open tag reader
-	ctr := NewTagReader(r, protocol.PayloadClosingTag) // close tag reader
+	sr := NewTagReader(r, d.Separator)          // separator reader
+	otr := NewTagReader(r, d.PayloadOpeningTag) // open tag reader
+	ctr := NewTagReader(r, d.PayloadClosingTag) // close tag reader
 
 	// read module id
 	buf := make([]byte, 2)

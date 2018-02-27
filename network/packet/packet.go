@@ -6,6 +6,14 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 )
 
+type TagSet struct {
+	PacketOpeningTag  string
+	PacketClosingTag  string
+	PayloadOpeningTag string
+	PayloadClosingTag string
+	Separator         string
+}
+
 type Packet struct {
 	modules map[string]*Module
 }

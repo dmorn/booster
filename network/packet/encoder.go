@@ -3,16 +3,16 @@ package packet
 import (
 	"fmt"
 	"io"
-
-	"github.com/danielmorandini/booster/protocol"
 )
 
 type Encoder struct {
+	TagSet
 	w io.Writer
 }
 
-func NewEncoder(w io.Writer) *Encoder {
+func NewEncoder(w io.Writer, t TagSet) *Encoder {
 	e := new(Encoder)
+	e.TagSet = t
 	e.w = w
 
 	return e
@@ -20,10 +20,10 @@ func NewEncoder(w io.Writer) *Encoder {
 
 func (e *Encoder) Encode(p *Packet) error {
 	tw := NewTagWriter(e.w)
-	me := NewModuleEncoder(e.w)
+	me := NewModuleEncoder(e.w, e.TagSet)
 
 	// starting tag
-	if _, err := tw.Write(protocol.PacketOpeningTag); err != nil {
+	if _, err := tw.Write(e.PacketOpeningTag); err != nil {
 		return fmt.Errorf("packet: write open tag: %v", err)
 	}
 
@@ -47,7 +47,7 @@ func (e *Encoder) Encode(p *Packet) error {
 	}
 
 	// closing tag
-	if _, err := tw.Write(protocol.PacketClosingTag); err != nil {
+	if _, err := tw.Write(e.PacketClosingTag); err != nil {
 		return fmt.Errorf("packet: write close tag: %v", err)
 	}
 
@@ -55,11 +55,13 @@ func (e *Encoder) Encode(p *Packet) error {
 }
 
 type ModuleEncoder struct {
+	TagSet
 	w io.Writer
 }
 
-func NewModuleEncoder(w io.Writer) *ModuleEncoder {
+func NewModuleEncoder(w io.Writer, t TagSet) *ModuleEncoder {
 	e := new(ModuleEncoder)
+	e.TagSet = t
 	e.w = w
 
 	return e
@@ -79,7 +81,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// sepatator
-	if _, err := tw.Write(protocol.Separator); err != nil {
+	if _, err := tw.Write(e.Separator); err != nil {
 		return fmt.Errorf("module: write separator: %v", err)
 	}
 
@@ -91,7 +93,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// sepatator
-	if _, err := tw.Write(protocol.Separator); err != nil {
+	if _, err := tw.Write(e.Separator); err != nil {
 		return fmt.Errorf("module: write separator: %v", err)
 	}
 
@@ -101,7 +103,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// payload open tag
-	if _, err := tw.Write(protocol.PayloadOpeningTag); err != nil {
+	if _, err := tw.Write(e.PayloadOpeningTag); err != nil {
 		return fmt.Errorf("module: write payload open tag: %v", err)
 	}
 
@@ -111,7 +113,7 @@ func (e *ModuleEncoder) Encode(m *Module) error {
 	}
 
 	// payload close tag
-	if _, err := tw.Write(protocol.PayloadClosingTag); err != nil {
+	if _, err := tw.Write(e.PayloadClosingTag); err != nil {
 		return fmt.Errorf("module: write payload close tag: %v", err)
 	}
 

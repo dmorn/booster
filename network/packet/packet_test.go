@@ -8,6 +8,13 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 )
 
+var tagset packet.TagSet = packet.TagSet{
+	PacketOpeningTag:  protocol.PacketOpeningTag,
+	PacketClosingTag:  protocol.PacketClosingTag,
+	PayloadClosingTag: protocol.PayloadClosingTag,
+	Separator:         protocol.Separator,
+}
+
 func TestAddModule(t *testing.T) {
 	p := packet.New()
 	pl := []byte("booster")
@@ -61,8 +68,8 @@ func TestEncodeDecode(t *testing.T) {
 	}
 
 	r, w := io.Pipe()
-	pe := packet.NewEncoder(w)
-	pd := packet.NewDecoder(r)
+	pe := packet.NewEncoder(w, tagset)
+	pd := packet.NewDecoder(r, tagset)
 
 	go func() {
 		if err = pe.Encode(p); err != nil {

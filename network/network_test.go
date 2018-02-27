@@ -7,8 +7,19 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster/network"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/network/packet"
 )
+
+var netconfig network.Config = network.Config{
+	TagSet: packet.TagSet{
+		PacketOpeningTag:  protocol.PacketOpeningTag,
+		PacketClosingTag:  protocol.PacketClosingTag,
+		PayloadClosingTag: protocol.PayloadClosingTag,
+		Separator:         protocol.Separator,
+	},
+}
+
 
 type conn struct {
 	server io.ReadWriteCloser
@@ -29,11 +40,12 @@ func (c *conn) Close() error { return nil }
 
 func TestAcceptSend(t *testing.T) {
 	mc := newConn()
-	conn := network.Open(mc.client, packet.NewEncoder(mc.client), packet.NewDecoder(mc.server))
+	client := network.Open(mc.client, netconfig)
+	server := network.Open(mc.server, netconfig)
 
 	c := make(chan *packet.Packet)
 	go func() {
-		pkts, err := conn.Consume()
+		pkts, err := server.Consume()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -46,7 +58,7 @@ func TestAcceptSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.Send(p); err != nil {
+	if err := client.Send(p); err != nil {
 		t.Fatal(err)
 	}
 

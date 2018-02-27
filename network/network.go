@@ -14,10 +14,12 @@ import (
 // communication system between booster nodes. Only one consumer
 // per time is allowed.
 type Conn struct {
+	conn   io.ReadWriteCloser
+	config Config
+
 	// Err is filled when the connection gets closed.
 	Err error
 
-	conn    io.ReadWriteCloser
 	running bool
 
 	mutex sync.Mutex
@@ -25,13 +27,18 @@ type Conn struct {
 	pd    *packet.Decoder
 }
 
+type Config struct {
+	packet.TagSet
+}
+
 // Open creates a new Conn. Used mainly for testing outside of the package.
 // Usally connections are created using the listener.
-func Open(conn io.ReadWriteCloser, pe *packet.Encoder, pd *packet.Decoder) *Conn {
+func Open(conn io.ReadWriteCloser, config Config) *Conn {
 	return &Conn{
-		conn: conn,
-		pe:   pe,
-		pd:   pd,
+		conn:   conn,
+		config: config,
+		pe:     packet.NewEncoder(conn, config.TagSet),
+		pd:     packet.NewDecoder(conn, config.TagSet),
 	}
 }
 
@@ -85,18 +92,20 @@ func (c *Conn) Close() error {
 
 // Listener wraps a net.Listener.
 type Listener struct {
-	l net.Listener
+	config Config
+	l      net.Listener
 }
 
 // Listen announces to the local network address.
-func Listen(network, addr string) (*Listener, error) {
+func Listen(network, addr string, config Config) (*Listener, error) {
 	l, err := net.Listen(network, addr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Listener{
-		l: l,
+		l:      l,
+		config: config,
 	}, nil
 }
 
@@ -108,7 +117,7 @@ func (l *Listener) Accept() (*Conn, error) {
 		return nil, err
 	}
 
-	return Open(conn, packet.NewEncoder(conn), packet.NewDecoder(conn)), nil
+	return Open(conn, l.config), nil
 }
 
 // Close closes the underlying listener, macking Accecpt to quit
@@ -119,7 +128,8 @@ func (l *Listener) Close() error {
 
 // Dialer wraps a network dialer.
 type Dialer struct {
-	d net.Dialer
+	config Config
+	d      net.Dialer
 }
 
 // DialContext dials a new booster connection, starting the heartbeat procedure on it.
@@ -129,9 +139,5 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 		return nil, err
 	}
 
-	return &Conn{
-		conn: conn,
-		pe:   packet.NewEncoder(conn),
-		pd:   packet.NewDecoder(conn),
-	}, nil
+	return Open(conn, d.config), nil
 }
