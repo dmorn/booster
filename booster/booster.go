@@ -12,9 +12,9 @@ import (
 
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/socks5"
-	"github.com/danielmorandini/booster/node"
 )
 
 type Proxy interface {
@@ -25,13 +25,13 @@ type Proxy interface {
 type Conn struct {
 	network.Conn
 
-	ID string
+	ID         string
 	RemoteNode *node.Node
 }
 
 type Network struct {
 	LocalNode *node.Node
-	Conns []*Conn
+	Conns     []*Conn
 }
 
 // Booster wraps the parts that compose a booster node together.
@@ -40,11 +40,11 @@ type Booster struct {
 
 	Proxy Proxy
 
-	mux sync.Mutex
+	mux     sync.Mutex
 	Network *Network
 
 	netconfig network.Config
-	stop chan struct{}
+	stop      chan struct{}
 }
 
 // New creates a new configured booster node. Creates a network configuration
@@ -72,9 +72,9 @@ func New(pport, bport int) (*Booster, error) {
 	if err != nil {
 		return nil, err
 	}
-	network := &Network {
+	network := &Network{
 		LocalNode: node,
-		Conns: []*Conn{},
+		Conns:     []*Conn{},
 	}
 
 	b.Logger = log

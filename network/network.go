@@ -135,7 +135,7 @@ type Dialer struct {
 // NewDialer returns a new dialer instance.
 func NewDialer(d *net.Dialer, config Config) *Dialer {
 	return &Dialer{
-		d: d,
+		d:      d,
 		config: config,
 	}
 }

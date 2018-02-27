@@ -9,5 +9,3 @@ type Module interface {
 	Payload() []byte
 	Encoding() string
 }
-
-

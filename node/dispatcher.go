@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
 	"net"
+	"os"
 	"time"
 
 	"github.com/danielmorandini/booster/socks5"
@@ -188,7 +188,6 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 		}
 	}
 }
-
 
 type socks5Dialer struct {
 	dialer proxy.Dialer
