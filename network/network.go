@@ -129,7 +129,15 @@ func (l *Listener) Close() error {
 // Dialer wraps a network dialer.
 type Dialer struct {
 	config Config
-	d      net.Dialer
+	d      *net.Dialer
+}
+
+// NewDialer returns a new dialer instance.
+func NewDialer(d *net.Dialer, config Config) *Dialer {
+	return &Dialer{
+		d: d,
+		config: config,
+	}
 }
 
 // DialContext dials a new booster connection, starting the heartbeat procedure on it.
