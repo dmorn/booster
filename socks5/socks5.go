@@ -458,6 +458,11 @@ func (s *Socks5) Port() int {
 	return s.port
 }
 
+// Proto returns the protocol used by the proxy in string format.
+func (s *Socks5) Proto() string {
+	return "socks5"
+}
+
 // TunnelMessage contains a workload value and an ID, usually the hash of
 // a canonical address.
 type TunnelMessage struct {

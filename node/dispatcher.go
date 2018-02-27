@@ -12,6 +12,8 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+// GetNodesFunc describes a simple node getter function.
+// The first node returned is considered as the local/root one.
 type GetNodesFunc func() (*Node, []*Node)
 
 // FallbackDialer combines DialContext and Dial methods.
@@ -29,7 +31,8 @@ type Dispatcher struct {
 	Fallback FallbackDialer
 }
 
-// NewDialer returns a Dialer instance.
+// NewDialer returns a Dialer instance. f is used each time that the
+// list of node is required.
 func NewDispatcher(f GetNodesFunc) *Dispatcher {
 	d := new(Dispatcher)
 	d.Logger = log.New(os.Stdout, "DISPTCR  ", log.LstdFlags)
