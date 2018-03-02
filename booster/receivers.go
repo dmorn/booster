@@ -58,10 +58,7 @@ func RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
 	// extract node information from the message
 	pp := pl.PPort
 	bp := pl.BPort
-	host, _, err := net.SplitHostPort(conn.RemoteAddr().String())
-	if err != nil {
-		return fail(err)
-	}
+	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
 	// create new node with the information collected
 	node, err := node.New(host, pp, bp, false)

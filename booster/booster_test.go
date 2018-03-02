@@ -16,11 +16,23 @@ type conn struct {
 	remoteAddr net.Addr
 }
 
+type addr struct {
+}
+
+func (a addr) Network() string {
+	return "tcp"
+}
+
+func (a addr) String() string {
+	return "localhost:1234"
+}
+
 func newConn() *conn {
 	conn := new(conn)
 	client, server := net.Pipe()
 	conn.client = client
 	conn.server = server
+	conn.remoteAddr = addr{}
 
 	return conn
 }

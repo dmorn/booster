@@ -97,4 +97,7 @@ func TestEncodeDecode(t *testing.T) {
 	if hm.ID() != m.ID() {
 		t.Fatalf("wanted %v, found %v", m.ID(), hm.ID())
 	}
+	if len(hm.Payload()) != len(pl) {
+		t.Fatalf("wanted %v, found %v", pl, hm.Payload())
+	}
 }

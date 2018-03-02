@@ -36,7 +36,40 @@ func newConn() *conn {
 // protocol stubs
 func (c *conn) Close() error { return nil }
 
-func TestAcceptSend(t *testing.T) {
+func TestSendRecv(t *testing.T) {
+	mc := newConn()
+	client := network.Open(mc.client, netconfig)
+	server := network.Open(mc.server, netconfig)
+
+	p := packet.New()
+	pl := []byte("hello")
+	_, err := p.AddModule("fo", pl, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		if err := server.Send(p); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	rp, err := client.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := rp.Module("fo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(m.Payload()) != len(pl) {
+		t.Fatalf("%v, wanted %v", m.Payload(), pl)
+	}
+}
+
+func TestSendConsume(t *testing.T) {
 	mc := newConn()
 	client := network.Open(mc.client, netconfig)
 	server := network.Open(mc.server, netconfig)

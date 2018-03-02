@@ -127,6 +127,7 @@ func (d *ModuleDecoder) Decode(m *Module) error {
 	if _, err := io.ReadFull(r, buf); err != nil {
 		return fmt.Errorf("module: unable to read payload: %v", err)
 	}
+	m.payload = make([]byte, m.size)
 	copy(m.payload, buf)
 
 	// payload close tag

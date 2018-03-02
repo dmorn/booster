@@ -217,22 +217,7 @@ func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 
 	b.Printf("booster: <- hello sent!")
 
-	// TODO(daniel): remove return and handle incoming packets
-	return
-
-	pkts, err := conn.Consume()
-	if err != nil {
-		b.Printf("booster: cannot consume packets: %v", err)
-		return
-	}
-
-	b.Println("booster: consuming packets...")
-
-	for p := range pkts {
-		b.Printf("booster: consuming packet: %+v", p)
-	}
-
-	b.Println("booster: packets consumed.")
+	// TODO(daniel): consume packets from connection
 }
 
 func (b *Booster) DialContext(ctx context.Context, netwk, addr string) (*Conn, error) {
