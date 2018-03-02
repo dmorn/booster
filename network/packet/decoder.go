@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 )
@@ -13,6 +14,10 @@ type Decoder struct {
 func NewDecoder(r io.Reader, t TagSet) *Decoder {
 	d := new(Decoder)
 	d.TagSet = t
+
+	if _, ok := r.(io.ByteReader); !ok {
+		r = bufio.NewReader(r)
+	}
 	d.r = r
 
 	return d
