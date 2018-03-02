@@ -19,7 +19,7 @@ type GetNodesFunc func() (*Node, []*Node)
 type Noder interface {
 	Nodes() (*Node, []*Node)
 	AddTunnel(node *Node, target string)
-	RemoveTunnel(node *Node, target string) error
+	RemoveTunnel(node *Node, target string, acknoledged bool) error
 }
 
 // FallbackDialer combines DialContext and Dial methods.
@@ -184,7 +184,7 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 		}
 
 		// remove tunnel immediately in case of error
-		_ = d.RemoveTunnel(node, addr)
+		_ = d.RemoveTunnel(node, addr, false)
 
 		// simply return if it was a context error
 		if cerr == ctx.Err() {

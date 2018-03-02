@@ -1,5 +1,7 @@
 package protocol
 
+const Version = "v0.1.0"
+
 const (
 	EncodingProtobuf uint8 = 1
 )

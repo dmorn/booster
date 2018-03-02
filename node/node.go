@@ -132,7 +132,7 @@ func (n *Node) Ack(id string) error {
 	return nil
 }
 
-func (n *Node) RemoveTunnel(id string) error {
+func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
 	n.Lock()
 	defer n.Unlock()
 
@@ -149,6 +149,10 @@ func (n *Node) RemoveTunnel(id string) error {
 	}
 
 	t.copies--
+	if acknoledged {
+		t.acks--
+	}
+
 	return nil
 }
 

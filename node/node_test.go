@@ -69,7 +69,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 2", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr); err != nil {
+	if err := n.RemoveTunnel(addr, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -77,7 +77,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr); err != nil {
+	if err := n.RemoveTunnel(addr, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,7 +85,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 0", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr); err == nil {
+	if err := n.RemoveTunnel(addr, false); err == nil {
 		t.Fatal("err should not be nil")
 	}
 }
@@ -120,7 +120,7 @@ func TestAck(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.Acks(), 1)
 	}
 
-	if err := n.RemoveTunnel(addr); err != nil {
+	if err := n.RemoveTunnel(addr, true); err != nil {
 		t.Fatal(err)
 	}
 

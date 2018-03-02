@@ -203,8 +203,16 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 }
 
+// Handle takes a network.Conn as input and listens for packets. As first step,
+// it sends a Hello message to the receiver, together with all the information
+// regarding this node.
 func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 	defer conn.Close()
+
+	// send hello message first.
+	if err := b.SendHello(ctx, conn); err != nil {
+		b.Printf("booster: unable to hello: %v", err)
+	}
 
 	pkts, err := conn.Consume()
 	if err != nil {
@@ -268,7 +276,7 @@ func (b *Booster) updateRoot(c <-chan interface{}, errc chan error) {
 		}
 
 		if tm.Event == socks5.EventPop {
-			if err := b.RemoveTunnel(b.Network.LocalNode, target); err != nil {
+			if err := b.RemoveTunnel(b.Network.LocalNode, target, true); err != nil {
 				b.Print(err)
 				continue
 			}

@@ -45,10 +45,10 @@ func (b *Booster) Ack(node *node.Node, id string) error {
 	return nil
 }
 
-func (b *Booster) RemoveTunnel(node *node.Node, id string) error {
+func (b *Booster) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
 	b.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
-	if err := node.RemoveTunnel(id); err != nil {
+	if err := node.RemoveTunnel(id, acknoledged); err != nil {
 		return err
 	}
 
