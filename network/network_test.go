@@ -1,7 +1,6 @@
 package network_test
 
 import (
-	"io"
 	"net"
 	"testing"
 	"time"
@@ -21,8 +20,8 @@ var netconfig network.Config = network.Config{
 }
 
 type conn struct {
-	server io.ReadWriteCloser
-	client io.ReadWriteCloser
+	server net.Conn
+	client net.Conn
 }
 
 func newConn() *conn {
@@ -57,6 +56,11 @@ func TestAcceptSend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = p.AddModule("of", []byte{1}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if err := client.Send(p); err != nil {
 		t.Fatal(err)
 	}

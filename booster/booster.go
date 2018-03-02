@@ -57,7 +57,7 @@ type Booster struct {
 	mux     sync.Mutex
 	Network *Network
 
-	netconfig network.Config
+	Netconfig network.Config
 	stop      chan struct{}
 }
 
@@ -96,7 +96,7 @@ func New(pport, bport int) (*Booster, error) {
 	b.Proxy = proxy
 	b.PubSub = pubsub
 	b.Network = network
-	b.netconfig = netconfig
+	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
 
 	return b, nil
@@ -170,7 +170,7 @@ func (b *Booster) Close() error {
 // turning them into booster connections.
 func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	p := strconv.Itoa(port)
-	ln, err := network.Listen("tcp", ":"+p, b.netconfig)
+	ln, err := network.Listen("tcp", ":"+p, b.Netconfig)
 	if err != nil {
 		return err
 	}
@@ -210,9 +210,15 @@ func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 	defer conn.Close()
 
 	// send hello message first.
+	b.Printf("booster: -> sending hello message to %v", conn.RemoteAddr())
 	if err := b.SendHello(ctx, conn); err != nil {
 		b.Printf("booster: unable to hello: %v", err)
 	}
+
+	b.Printf("booster: <- hello sent!")
+
+	// TODO(daniel): remove return and handle incoming packets
+	return
 
 	pkts, err := conn.Consume()
 	if err != nil {
@@ -229,14 +235,16 @@ func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 	b.Println("booster: packets consumed.")
 }
 
-func (b *Booster) DialContext(ctx context.Context, netwk, addr string) (*network.Conn, error) {
-	dialer := network.NewDialer(new(net.Dialer), b.netconfig)
+func (b *Booster) DialContext(ctx context.Context, netwk, addr string) (*Conn, error) {
+	b.Printf("booster: starting dial procedure to %v", addr)
+
+	dialer := network.NewDialer(new(net.Dialer), b.Netconfig)
 	conn, err := dialer.DialContext(ctx, netwk, addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return conn, err
+	return RecvHello(ctx, conn)
 }
 
 func (b *Booster) UpdateRoot(ctx context.Context) error {

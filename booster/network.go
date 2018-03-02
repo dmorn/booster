@@ -7,7 +7,7 @@ import (
 
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
 type Conn struct {
-	network.Conn
+	*network.Conn
 
 	ID         string // ID is usually the remoteNode identifier.
 	RemoteNode *node.Node

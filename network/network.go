@@ -3,7 +3,6 @@ package network
 import (
 	"context"
 	"errors"
-	"io"
 	"net"
 	"sync"
 
@@ -14,7 +13,7 @@ import (
 // communication system between booster nodes. Only one consumer
 // per time is allowed.
 type Conn struct {
-	conn   io.ReadWriteCloser
+	conn   net.Conn
 	config Config
 
 	// Err is filled when the connection gets closed.
@@ -33,13 +32,18 @@ type Config struct {
 
 // Open creates a new Conn. Used mainly for testing outside of the package.
 // Usally connections are created using the listener.
-func Open(conn io.ReadWriteCloser, config Config) *Conn {
+func Open(conn net.Conn, config Config) *Conn {
 	return &Conn{
 		conn:   conn,
 		config: config,
 		pe:     packet.NewEncoder(conn, config.TagSet),
 		pd:     packet.NewDecoder(conn, config.TagSet),
 	}
+}
+
+// RemoteAddr returns the address of the remote endpoint.
+func (c *Conn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
 // Consume keeps on reading on the connection, decoding each message received and
@@ -74,6 +78,27 @@ func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 	}()
 
 	return ch, nil
+}
+
+// Recv reads one packet from the connection. Returns an error if the connection
+// is already consuming packets.
+func (c *Conn) Recv() (*packet.Packet, error) {
+	if c.running {
+		return nil, errors.New("conn: already consuming messages")
+	}
+
+	c.running = true
+	defer func() {
+		c.running = false
+	}()
+
+	p := packet.New()
+	err := c.pd.Decode(p)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // Send sends the packet trough the connection. It is safe to call from multiple

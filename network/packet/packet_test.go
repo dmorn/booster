@@ -59,10 +59,16 @@ func TestAddModule(t *testing.T) {
 
 func TestEncodeDecode(t *testing.T) {
 	p := packet.New()
-	pl := []byte("booster")
-	id := protocol.ModuleHeader
+	pl := []byte("header")
+	ppl := []byte("payload")
+	hid := protocol.ModuleHeader
+	pid := protocol.ModulePayload
 
-	m, err := p.AddModule(id, pl, 0)
+	m, err := p.AddModule(hid, pl, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = p.AddModule(pid, ppl, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -91,6 +91,18 @@ func (n *Node) ProxyAddr() net.Addr {
 	return n.PAddr
 }
 
+// PPort is a convenience method that returns the proxy port as string.
+func (n *Node) PPort() string {
+	_, p, _ := net.SplitHostPort(n.PAddr.String())
+	return p
+}
+
+// BPort is a convenience method that returns the booster port as string.
+func (n *Node) BPort() string {
+	_, p, _ := net.SplitHostPort(n.BAddr.String())
+	return p
+}
+
 // AddTunnel sets the node's state to active and adds a new
 // tunnel to it. If the node as already a tunnel with this
 // target connected to it, it increments the copies of the

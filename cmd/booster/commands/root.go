@@ -29,8 +29,11 @@ func Execute() {
 	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
+	dialCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
+	dialCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
+
 	// add commands
-	rootCmd.AddCommand(versionCmd, startCmd)
+	rootCmd.AddCommand(versionCmd, startCmd, dialCmd)
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {

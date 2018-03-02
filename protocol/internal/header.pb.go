@@ -6,9 +6,11 @@ Package internal is a generated protocol buffer package.
 
 It is generated from these files:
 	header.proto
+	payload.proto
 
 It has these top-level messages:
 	Header
+	PayloadHello
 */
 package internal
 

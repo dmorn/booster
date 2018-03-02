@@ -1,0 +1,10 @@
+syntax = "proto3";
+package internal;
+
+message PayloadHello {
+	// bport is the booster listening port.
+	string bport = 1;
+
+	// pport is the proxy listening port.
+	string pport = 2;
+}

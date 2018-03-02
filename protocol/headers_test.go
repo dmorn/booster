@@ -17,11 +17,11 @@ func TestEncodeDecode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if h.ID() != protocol.MessageHello {
-		t.Fatalf("%v, wanted %v", h.ID(), protocol.MessageHello)
+	if h.ID != protocol.MessageHello {
+		t.Fatalf("%v, wanted %v", h.ID, protocol.MessageHello)
 	}
 
-	if h.ProtocolVersion() != protocol.Version {
-		t.Fatalf("%v, wanted %v", h.ProtocolVersion(), protocol.Version)
+	if h.ProtocolVersion != protocol.Version {
+		t.Fatalf("%v, wanted %v", h.ProtocolVersion, protocol.Version)
 	}
 }
