@@ -11,6 +11,8 @@ It is generated from these files:
 It has these top-level messages:
 	Header
 	PayloadHello
+	PayloadConnect
+	PayloadNode
 */
 package internal
 

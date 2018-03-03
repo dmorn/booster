@@ -10,7 +10,7 @@ func TestHelloDecodeEncode(t *testing.T) {
 	pp := "1234"
 	bp := "4312"
 
-	p, err := protocol.HelloPayload(bp, pp)
+	p, err := protocol.EncodePayloadHello(bp, pp)
 	if err != nil {
 		t.Fatal(err)
 	}

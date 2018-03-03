@@ -8,10 +8,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
-const (
-	MessageHello int32 = 0
-)
-
 type Header struct {
 	ID              int32
 	ProtocolVersion string
@@ -48,14 +44,26 @@ func DecodeHeader(h []byte) (*Header, error) {
 	}, nil
 }
 
-// HelloHeader creates the hello payload.
-func HelloHeader() ([]byte, error) {
-	h := &internal.Header{
-		Id:              MessageHello,
+func newHP(id int32) *internal.Header {
+	return &internal.Header{
+		Id:              id,
 		Modules:         []string{ModulePayload},
 		SentAt:          ptypes.TimestampNow(),
 		ProtocolVersion: Version,
 	}
+}
 
+func HelloHeader() ([]byte, error) {
+	h := newHP(MessageHello)
+	return proto.Marshal(h)
+}
+
+func ConnectHeader() ([]byte, error) {
+	h := newHP(MessageConnect)
+	return proto.Marshal(h)
+}
+
+func NodeHeader() ([]byte, error) {
+	h := newHP(MessageNode)
 	return proto.Marshal(h)
 }

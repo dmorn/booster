@@ -144,6 +144,13 @@ func (n *Node) Ack(id string) error {
 	return nil
 }
 
+func (n *Node) Tunnels() map[string]*Tunnel {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.tunnels
+}
+
 func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
 	n.Lock()
 	defer n.Unlock()

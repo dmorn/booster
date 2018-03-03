@@ -89,7 +89,7 @@ func New(pport, bport int) (*Booster, error) {
 	}
 	network := &Network{
 		LocalNode: node,
-		Conns:     []*Conn{},
+		Conns:     make(map[string]*Conn),
 	}
 
 	b.Logger = log
@@ -213,23 +213,117 @@ func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
 	b.Printf("booster: -> sending hello message to %v", conn.RemoteAddr())
 	if err := b.SendHello(ctx, conn); err != nil {
 		b.Printf("booster: unable to hello: %v", err)
+		return
 	}
 
 	b.Printf("booster: <- hello sent!")
 
-	// TODO(daniel): consume packets from connection
+	pkts, err := conn.Consume()
+	if err != nil {
+		b.Printf("booster: unable to consume conn: %v", err)
+	}
+
+	for p := range pkts {
+		b.Printf("booster: packet received: %v", p)
+
+		if err := ValidatePacket(p); err != nil {
+			b.Printf("booster: discarding invalid packet: %v", err)
+			continue
+		}
+
+		// extract header from packet
+		hraw, err := p.Module(protocol.ModuleHeader)
+		if err != nil {
+			b.Printf("booster: failed reading module header: %v", err)
+			continue
+		}
+		h, err := protocol.DecodeHeader(hraw.Payload())
+		if err != nil {
+			b.Printf("booster: failed decoding header: %v", err)
+			continue
+		}
+
+		// find the message type and handle accordingly
+		switch h.ID {
+		case protocol.MessageConnect:
+			p, err := b.HandleConnect(ctx, p)
+			if err != nil {
+				b.Println(err)
+			}
+
+			err = conn.Send(p)
+			if err != nil {
+				b.Println(err)
+			}
+
+		default:
+			b.Printf("booster: discarding packet: unexpected message id: %v", h.ID)
+		}
+
+	}
 }
 
-func (b *Booster) DialContext(ctx context.Context, netwk, addr string) (*Conn, error) {
-	b.Printf("booster: starting dial procedure to %v", addr)
-
+func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, error) {
 	dialer := network.NewDialer(new(net.Dialer), b.Netconfig)
-	conn, err := dialer.DialContext(ctx, netwk, addr)
+	conn, err := dialer.DialContext(ctx, netwrk, addr)
 	if err != nil {
 		return nil, err
 	}
 
 	return RecvHello(ctx, conn)
+}
+
+func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, error) {
+	b.Printf("booster: -> wiring with %v", target)
+
+	defer func() {
+		b.Println("booster: <- wiring")
+	}()
+
+	// connect to the target node
+	conn, err := b.DialContext(ctx, network, target)
+	if err != nil {
+		return nil, err
+	}
+
+	// add the connection to the booster network
+	b.mux.Lock()
+	err = b.Network.AddConn(conn)
+	b.mux.Unlock()
+	if err != nil {
+		return nil, err
+	}
+
+	pkts, err := conn.Conn.Consume()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		defer conn.Close()
+
+		handler := func(p *packet.Packet) {
+			b.Printf("packet received: %v", p)
+
+			// TODO(daniel): send heartbeat message on the network
+			// TODO(daniel): handle status updates
+		}
+
+		for {
+			select {
+			case p := <-pkts:
+				if p == nil {
+					return
+				}
+
+				handler(p)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return conn, nil
 }
 
 func (b *Booster) UpdateRoot(ctx context.Context) error {
@@ -244,6 +338,7 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 
 	select {
 	case err := <-errc:
+		b.Proxy.StopNotifying(c)
 		return err
 	case <-ctx.Done():
 		b.Proxy.StopNotifying(c)

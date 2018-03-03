@@ -18,3 +18,16 @@ const (
 	PayloadClosingTag = "]"
 	Separator         = ":"
 )
+
+const (
+	MessageHello int32 = 0
+	MessageConnect = 1
+	MessageNode = 2
+)
+
+// IsVersionSupported returns true if the current protocol version is compatible
+// with the requested version.
+func IsVersionSupported(v string) bool {
+	// TODO(daniel): implement this check
+	return v == Version
+}
