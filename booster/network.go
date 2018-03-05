@@ -36,10 +36,15 @@ type Conn struct {
 	RemoteNode *node.Node
 }
 
+// Close closes the connection and sets the status of the remote node
+// to inactive.
 func (c *Conn) Close() error {
-	// TODO(daniel): remove this connection from the network, updating the node's
-	// status
-	return c.Conn.Close()
+	if err := c.Conn.Close(); err != nil {
+		return err
+	}
+	c.RemoteNode.SetIsActive(false)
+
+	return nil
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
@@ -50,11 +55,7 @@ func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 	return c.Conn.Consume()
 }
 
-// Recv reads packets from the underlying connection, without returning the packet if
-// it is an heartbeat one.
 func (c *Conn) Recv() (*packet.Packet, error) {
-	// TODO(daniel): check if the packet is an heartbeat packet and handle
-	// it accordingly
 	return  c.Conn.Recv()
 }
 
