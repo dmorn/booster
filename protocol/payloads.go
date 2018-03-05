@@ -1,8 +1,11 @@
 package protocol
 
 import (
+	"time"
+
 	"github.com/danielmorandini/booster/protocol/internal"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 )
 
 type PayloadHello struct {
@@ -27,6 +30,12 @@ type PayloadNode struct {
 	PAddr string
 	Active bool
 	Tunnels []*Tunnel
+}
+
+type PayloadHeartbeat struct {
+	ID string
+	Hops int
+	TTL time.Time
 }
 
 func DecodePayloadHello(p []byte) (*PayloadHello, error) {
@@ -115,6 +124,39 @@ func EncodePayloadNode(node *PayloadNode) ([]byte, error) {
 		Paddr: node.PAddr,
 		Active: node.Active,
 		Tunnels: ts,
+	}
+
+	return proto.Marshal(p)
+}
+
+func DecodePayloadHeartbeat(p []byte) (*PayloadHeartbeat, error) {
+	payload := new(internal.PayloadHeartbeat)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	t, err := ptypes.Timestamp(payload.Ttl)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PayloadHeartbeat{
+		ID: payload.Id,
+		Hops: int(payload.Hops),
+		TTL: t,
+	}, nil
+}
+
+func EncodePayloadHeartbeat(h *PayloadHeartbeat) ([]byte, error) {
+	t, err := ptypes.TimestampProto(h.TTL)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &internal.PayloadHeartbeat {
+		Id: h.ID,
+		Ttl: t,
+		Hops: int32(h.Hops),
 	}
 
 	return proto.Marshal(p)

@@ -2,12 +2,31 @@ package booster
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
 )
+
+type SendConsumeCloser interface {
+	SendCloser
+	Consume() (<-chan *packet.Packet, error)
+}
+
+type SendCloser interface {
+	Sender
+	Closer
+}
+
+type Sender interface {
+	Send(p *packet.Packet) error
+}
+
+type Closer interface {
+	Close() error
+}
 
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
 type Conn struct {
@@ -18,11 +37,17 @@ type Conn struct {
 }
 
 func (c *Conn) Close() error {
+	// TODO(daniel): remove this connection from the network, updating the node's
+	// status
 	return c.Conn.Close()
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
 	return c.Conn.Send(p)
+}
+
+func (c *Conn) Consume() (<-chan *packet.Packet, error) {
+	return c.Conn.Consume()
 }
 
 // Recv reads packets from the underlying connection, without returning the packet if
@@ -75,6 +100,57 @@ func ValidatePacket(p *packet.Packet) error {
 	}
 
 	return nil
+}
+
+func ExtractHeader(p *packet.Packet) (*protocol.Header, error) {
+	if err := ValidatePacket(p); err != nil {
+		return nil, fmt.Errorf("booster: discarding invalid packet: %v", err)
+	}
+
+	// extract header from packet
+	hraw, err := p.Module(protocol.ModuleHeader)
+	if err != nil {
+		return nil, fmt.Errorf("booster: failed reading module header: %v", err)
+	}
+	h, err := protocol.DecodeHeader(hraw.Payload())
+	if err != nil {
+		return nil, fmt.Errorf("booster: failed decoding header: %v", err)
+	}
+
+	return h, nil
+}
+
+func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packet, error) {
+	if pl == nil {
+		pl = &protocol.PayloadHeartbeat{
+			Hops: 0,
+			ID: "heartbeat", // TODO(daniel): unused field
+		}
+	}
+
+	pl.Hops++
+	pl.TTL = time.Now().Add(b.HeartbeatTTL)
+
+	h, err := protocol.HeartbeatHeader()
+	if err != nil {
+		return nil, err
+	}
+	hpl, err := protocol.EncodePayloadHeartbeat(pl)
+	if err != nil {
+		return nil, err
+	}
+
+	// compose the packet
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
+		return nil, err
+	}
+	if _, err := p.AddModule(protocol.ModulePayload, hpl, enc); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (b *Booster) Nodes() (*node.Node, []*node.Node) {

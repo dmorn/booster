@@ -13,6 +13,7 @@ It has these top-level messages:
 	PayloadHello
 	PayloadConnect
 	PayloadNode
+	PayloadHeartbeat
 */
 package internal
 

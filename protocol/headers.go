@@ -67,3 +67,8 @@ func NodeHeader() ([]byte, error) {
 	h := newHP(MessageNode)
 	return proto.Marshal(h)
 }
+
+func HeartbeatHeader() ([]byte, error) {
+	h := newHP(MessageHeartbeat)
+	return proto.Marshal(h)
+}

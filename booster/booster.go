@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
@@ -59,6 +60,7 @@ type Booster struct {
 
 	Netconfig network.Config
 	stop      chan struct{}
+	HeartbeatTTL time.Duration
 }
 
 // New creates a new configured booster node. Creates a network configuration
@@ -98,6 +100,7 @@ func New(pport, bport int) (*Booster, error) {
 	b.Network = network
 	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
+	b.HeartbeatTTL = time.Second * 4
 
 	return b, nil
 }
@@ -189,6 +192,12 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 				return
 			}
 
+			// send hello message first.
+			if err := b.SendHello(ctx, conn); err != nil {
+				errc <- err
+				return
+			}
+
 			go b.Handle(ctx, conn)
 		}
 	}()
@@ -200,66 +209,6 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 		ln.Close()
 		<-errc // wait for listener to return
 		return ctx.Err()
-	}
-}
-
-// Handle takes a network.Conn as input and listens for packets. As first step,
-// it sends a Hello message to the receiver, together with all the information
-// regarding this node.
-func (b *Booster) Handle(ctx context.Context, conn *network.Conn) {
-	defer conn.Close()
-
-	// send hello message first.
-	b.Printf("booster: -> sending hello message to %v", conn.RemoteAddr())
-	if err := b.SendHello(ctx, conn); err != nil {
-		b.Printf("booster: unable to hello: %v", err)
-		return
-	}
-
-	b.Printf("booster: <- hello sent!")
-
-	pkts, err := conn.Consume()
-	if err != nil {
-		b.Printf("booster: unable to consume conn: %v", err)
-	}
-
-	for p := range pkts {
-		b.Printf("booster: packet received: %v", p)
-
-		if err := ValidatePacket(p); err != nil {
-			b.Printf("booster: discarding invalid packet: %v", err)
-			continue
-		}
-
-		// extract header from packet
-		hraw, err := p.Module(protocol.ModuleHeader)
-		if err != nil {
-			b.Printf("booster: failed reading module header: %v", err)
-			continue
-		}
-		h, err := protocol.DecodeHeader(hraw.Payload())
-		if err != nil {
-			b.Printf("booster: failed decoding header: %v", err)
-			continue
-		}
-
-		// find the message type and handle accordingly
-		switch h.ID {
-		case protocol.MessageConnect:
-			p, err := b.HandleConnect(ctx, p)
-			if err != nil {
-				b.Println(err)
-			}
-
-			err = conn.Send(p)
-			if err != nil {
-				b.Println(err)
-			}
-
-		default:
-			b.Printf("booster: discarding packet: unexpected message id: %v", h.ID)
-		}
-
 	}
 }
 
@@ -277,7 +226,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	b.Printf("booster: -> wiring with %v", target)
 
 	defer func() {
-		b.Println("booster: <- wiring")
+		b.Println("booster: <- wired")
 	}()
 
 	// connect to the target node
@@ -286,42 +235,30 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return nil, err
 	}
 
+	fail := func(err error) (*Conn, error) {
+		conn.Close()
+		return nil, err
+	}
+
 	// add the connection to the booster network
 	b.mux.Lock()
 	err = b.Network.AddConn(conn)
 	b.mux.Unlock()
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
 
-	pkts, err := conn.Conn.Consume()
+	// inject the heartbeat message in the connection
+	p, err := b.composeHeartbeat(nil)
 	if err != nil {
-		return nil, err
+		return fail(err)
+	}
+	if err = conn.Send(p); err != nil {
+		return fail(err)
 	}
 
-	go func() {
-		defer conn.Close()
-
-		handler := func(p *packet.Packet) {
-			b.Printf("packet received: %v", p)
-
-			// TODO(daniel): send heartbeat message on the network
-			// TODO(daniel): handle status updates
-		}
-
-		for {
-			select {
-			case p := <-pkts:
-				if p == nil {
-					return
-				}
-
-				handler(p)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	// handle the newly added connection in a different goroutine.
+	go b.Handle(ctx, conn)
 
 	return conn, nil
 }

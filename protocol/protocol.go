@@ -23,6 +23,7 @@ const (
 	MessageHello int32 = 0
 	MessageConnect = 1
 	MessageNode = 2
+	MessageHeartbeat = 3
 )
 
 // IsVersionSupported returns true if the current protocol version is compatible

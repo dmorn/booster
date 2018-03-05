@@ -1,6 +1,8 @@
 syntax = "proto3";
 package internal;
 
+import "google/protobuf/timestamp.proto";
+
 message PayloadHello {
 	// bport is the booster listening port.
 	string bport = 1;
@@ -44,4 +46,15 @@ message PayloadNode {
 		// copies are the replications of this tunnel.
 		int32 copies = 4;
 	}
+}
+
+message PayloadHeartbeat {
+	// id is the identifier of the heartbeat message. Should be unique.
+	string id = 1;
+
+	// hops is the number of times that the heartbeat message has been reused.
+	int32 hops = 2;
+
+	// ttl is the time to leave.
+	google.protobuf.Timestamp ttl = 3;
 }
