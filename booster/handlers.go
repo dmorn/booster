@@ -13,6 +13,11 @@ import (
 )
 
 func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
+	b.Println("booster: -> handle")
+	defer func() {
+		b.Println("booster: <- handle")
+	}()
+
 	// consume the connection until pkts is closed
 	pkts, err := conn.Consume()
 	if err != nil {
@@ -164,19 +169,19 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	tunnels := make([]*protocol.Tunnel, len(n.Tunnels()))
 	for _, t := range n.Tunnels() {
 		tunnel := &protocol.Tunnel{
-			ID: t.ID(),
+			ID:     t.ID(),
 			Target: t.Target,
-			Acks: t.Acks(),
+			Acks:   t.Acks(),
 			Copies: t.Copies(),
 		}
 
 		tunnels = append(tunnels, tunnel)
 	}
 	param := &protocol.PayloadNode{
-		ID: n.ID(),
-		BAddr: n.BAddr.String(),
-		PAddr: n.PAddr.String(),
-		Active: n.IsActive(),
+		ID:      n.ID(),
+		BAddr:   n.BAddr.String(),
+		PAddr:   n.PAddr.String(),
+		Active:  n.IsActive(),
 		Tunnels: tunnels,
 	}
 

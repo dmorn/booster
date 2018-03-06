@@ -6,13 +6,11 @@ import "google/protobuf/timestamp.proto";
 message PayloadHello {
 	// bport is the booster listening port.
 	string bport = 1;
-
 	// pport is the proxy listening port.
 	string pport = 2;
 }
 
 message PayloadConnect {
-
 	// target of the connect procedure.
 	string target = 1;
 }
@@ -20,29 +18,22 @@ message PayloadConnect {
 message PayloadNode {
 	// id is the identifier of the node. Usually a sha1 hash.
 	string id = 1;
-
 	// baddr is the booster listening address.
 	string baddr = 2;
-
 	// paddr is the proxy listening address.
 	string paddr = 3;
-
 	// active tells the connection state of the node.
 	bool active = 4;
-
 	// tunnels are the proxy tunnels managed by this node.
 	repeated Tunnel tunnels = 5;
 
 	message Tunnel {
 		// id is the tunnel identifier. Usally a sha1 hash.
 		string id = 1;
-
 		// target is the remote endpoint address of the tunnel.
 		string target = 2;
-
 		// acks is the number of acknoledgments on this tunnel.
 		int32 acks = 3;
-
 		// copies are the replications of this tunnel.
 		int32 copies = 4;
 	}
@@ -51,10 +42,15 @@ message PayloadNode {
 message PayloadHeartbeat {
 	// id is the identifier of the heartbeat message. Should be unique.
 	string id = 1;
-
 	// hops is the number of times that the heartbeat message has been reused.
 	int32 hops = 2;
-
 	// ttl is the time to leave.
 	google.protobuf.Timestamp ttl = 3;
+}
+
+message PayloadTunnelEvent {
+	// target is the remote endpoint address of the tunnel.
+	string target = 1;
+	// event is the operation performed on the tunnel.
+	int32 event = 2;
 }

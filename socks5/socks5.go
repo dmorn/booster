@@ -258,7 +258,7 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s *Socks5) NotifyTunnel() (chan interface{}, error) {
+func (s *Socks5) Notify() (chan interface{}, error) {
 	return s.Sub(TopicTunnels)
 }
 

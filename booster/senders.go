@@ -4,19 +4,34 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
 )
 
-func (b *Booster) SendHello(ctx context.Context, conn *network.Conn) error {
+func (b *Booster) SendStatus(ctx context.Context, conn SendCloser) error {
+	// register for proxy updates
+	c, err := b.Proxy.Notify()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		b.Proxy.StopNotifying(c)
+	}()
+
+	// TODO(daniel): read every tunnel message, compose a packet with them
+	// and send them trough the connection
+	return fmt.Errorf("status not yet implemented")
+}
+
+func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	// create the modules
 	h, err := protocol.HelloHeader()
 	if err != nil {
 		return err
 	}
 
-	n := b.Network.LocalNode
+	n := Nets.Get(b.ID).LocalNode
 	pp := n.PPort()
 	bp := n.BPort()
 
@@ -38,7 +53,6 @@ func (b *Booster) SendHello(ctx context.Context, conn *network.Conn) error {
 	// send
 	return conn.Send(p)
 }
-
 
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
 	conn, err := b.DialContext(ctx, network, laddr)

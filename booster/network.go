@@ -2,30 +2,125 @@ package booster
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster/network"
-	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/pubsub"
 )
 
-type SendConsumeCloser interface {
-	SendCloser
-	Consume() (<-chan *packet.Packet, error)
+type Networks map[string]*Network
+
+var Nets = &Networks{}
+
+func (n Networks) Get(id string) *Network {
+	net, ok := n[id]
+	if !ok {
+		panic("networks: tried to get unregistered network: " + id)
+	}
+
+	return net
 }
 
-type SendCloser interface {
-	Sender
-	Closer
+func (n Networks) Set(id string, net *Network) {
+	_, ok := n[id]
+	if ok {
+		panic("networks: tried to set already registered network: " + id)
+	}
+
+	net.boosterID = id
+	n[id] = net
 }
 
-type Sender interface {
-	Send(p *packet.Packet) error
+// Network describes a booster network: a local node, connected to other booster nodes
+// using network.Conn as connector.
+type Network struct {
+	*log.Logger
+	PubSub
+
+	boosterID string
+
+	mux       sync.Mutex
+	LocalNode *node.Node
+	Conns     map[string]*Conn
 }
 
-type Closer interface {
-	Close() error
+func NewNet(n *node.Node) *Network {
+	return &Network{
+		Logger:    log.New(os.Stdout, "NETWORK  ", log.LstdFlags),
+		PubSub:    pubsub.New(),
+		LocalNode: n,
+		Conns:     make(map[string]*Conn),
+	}
+}
+
+func (n *Network) AddConn(c *Conn) error {
+	n.mux.Lock()
+	defer n.mux.Unlock()
+
+	if _, ok := n.Conns[c.ID]; ok {
+		return fmt.Errorf("network: conn (%v) already present", c.ID)
+	}
+
+	c.boosterID = n.boosterID
+	n.Conns[c.ID] = c
+	return nil
+}
+
+func (n *Network) Notify() (chan interface{}, error) {
+	return n.Sub(TopicNodes)
+}
+
+func (n *Network) StopNotifying(c chan interface{}) {
+	n.Unsub(c, TopicNodes)
+}
+
+func (n *Network) Nodes() (*node.Node, []*node.Node) {
+	n.mux.Lock()
+	defer n.mux.Unlock()
+
+	root := n.LocalNode
+	nodes := []*node.Node{}
+
+	for _, c := range n.Conns {
+		nodes = append(nodes, c.RemoteNode)
+	}
+
+	return root, nodes
+}
+
+func (n *Network) Ack(node *node.Node, id string) error {
+	n.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
+
+	if err := node.Ack(id); err != nil {
+		return err
+	}
+
+	n.Pub(node, TopicNodes)
+	return nil
+}
+
+func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
+	n.Printf("booster: removing (%v) on node (%v)", id, node.ID())
+
+	if err := node.RemoveTunnel(id, acknoledged); err != nil {
+		return err
+	}
+
+	n.Pub(node, TopicNodes)
+	return nil
+}
+
+func (n *Network) AddTunnel(node *node.Node, target string) {
+	n.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
+
+	node.AddTunnel(target)
+	n.Pub(node, TopicNodes)
 }
 
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
@@ -33,16 +128,18 @@ type Conn struct {
 	*network.Conn
 
 	ID         string // ID is usually the remoteNode identifier.
+	boosterID  string
 	RemoteNode *node.Node
 }
 
 // Close closes the connection and sets the status of the remote node
-// to inactive.
+// to inactive and removes the connection from the network.
 func (c *Conn) Close() error {
 	if err := c.Conn.Close(); err != nil {
 		return err
 	}
 	c.RemoteNode.SetIsActive(false)
+	Nets.Get(c.boosterID).Conns[c.ID].Conn = nil
 
 	return nil
 }
@@ -56,23 +153,7 @@ func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 }
 
 func (c *Conn) Recv() (*packet.Packet, error) {
-	return  c.Conn.Recv()
-}
-
-// Network describes a booster network: a local node, connected to other booster nodes
-// using network.Conn as connector.
-type Network struct {
-	LocalNode *node.Node
-	Conns     map[string]*Conn
-}
-
-func (n *Network) AddConn(c *Conn) error {
-	if _, ok := n.Conns[c.ID]; ok {
-		return fmt.Errorf("network: conn (%v) already present", c.ID)
-	}
-
-	n.Conns[c.ID] = c
-	return nil
+	return c.Conn.Recv()
 }
 
 func ValidatePacket(p *packet.Packet) error {
@@ -125,7 +206,7 @@ func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	if pl == nil {
 		pl = &protocol.PayloadHeartbeat{
 			Hops: 0,
-			ID: "heartbeat", // TODO(daniel): unused field
+			ID:   "heartbeat", // TODO(daniel): unused field
 		}
 	}
 
@@ -152,47 +233,4 @@ func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	}
 
 	return p, nil
-}
-
-func (b *Booster) Nodes() (*node.Node, []*node.Node) {
-	b.mux.Lock()
-	defer b.mux.Unlock()
-
-	root := b.Network.LocalNode
-	nodes := []*node.Node{}
-
-	for _, c := range b.Network.Conns {
-		nodes = append(nodes, c.RemoteNode)
-	}
-
-	return root, nodes
-}
-
-func (b *Booster) Ack(node *node.Node, id string) error {
-	b.Printf("booster: acknoledging (%v) on node (%v)", id, node.ID())
-
-	if err := node.Ack(id); err != nil {
-		return err
-	}
-
-	b.Pub(node, TopicNodes)
-	return nil
-}
-
-func (b *Booster) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
-	b.Printf("booster: removing (%v) on node (%v)", id, node.ID())
-
-	if err := node.RemoveTunnel(id, acknoledged); err != nil {
-		return err
-	}
-
-	b.Pub(node, TopicNodes)
-	return nil
-}
-
-func (b *Booster) AddTunnel(node *node.Node, target string) {
-	b.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
-
-	node.AddTunnel(target)
-	b.Pub(node, TopicNodes)
 }

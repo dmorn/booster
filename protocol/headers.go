@@ -72,3 +72,8 @@ func HeartbeatHeader() ([]byte, error) {
 	h := newHP(MessageHeartbeat)
 	return proto.Marshal(h)
 }
+
+func TunnelEventHeader() ([]byte, error) {
+	h := newHP(MessageTunnel)
+	return proto.Marshal(h)
+}

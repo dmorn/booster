@@ -14,6 +14,7 @@ It has these top-level messages:
 	PayloadConnect
 	PayloadNode
 	PayloadHeartbeat
+	PayloadTunnelEvent
 */
 package internal
 
