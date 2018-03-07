@@ -140,6 +140,26 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 		return err
 	}
 
-	// TODO(daniel): should we check if the node actually removed this node?
+	// TODO(daniel): here we reuse the same reponse as for a connect request.
+	// This is not actually very appropriate is it?
+	p, err = conn.Recv()
+	if err != nil {
+		return err
+	}
+
+	if err = ValidatePacket(p); err != nil {
+		return err
+	}
+
+	praw, err := p.Module(protocol.ModulePayload)
+	if err != nil {
+		return err
+	}
+
+	_, err = protocol.DecodePayloadNode(praw.Payload())
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

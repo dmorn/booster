@@ -216,6 +216,20 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 		fail(err)
 		return
 	}
+
+	// TODO(daniel): is this response appropriate?
+	// send back a node packet with the info about the
+	// disconncted node
+	p, err = composeNode(c.RemoteNode)
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	if err = conn.Send(p); err != nil {
+		fail(err)
+		return
+	}
 }
 
 func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
