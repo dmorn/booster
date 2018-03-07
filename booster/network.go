@@ -64,8 +64,12 @@ func (n *Network) AddConn(c *Conn) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
-	if _, ok := n.Conns[c.ID]; ok {
-		return fmt.Errorf("network: conn (%v) already present", c.ID)
+	if cc, ok := n.Conns[c.ID]; ok {
+		// check if the connnection is nil. It that case, simply substitute
+		// it.
+		if cc.Conn != nil {
+			return fmt.Errorf("network: conn (%v) already present", c.ID)
+		}
 	}
 
 	c.boosterID = n.boosterID
