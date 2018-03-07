@@ -12,6 +12,7 @@ It has these top-level messages:
 	Header
 	PayloadHello
 	PayloadConnect
+	PayloadDisconnect
 	PayloadNode
 	PayloadHeartbeat
 	PayloadTunnelEvent

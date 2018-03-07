@@ -88,7 +88,7 @@ func New(pport, bport int) (*Booster, error) {
 	}
 
 	id := sha1Hash([]byte(strconv.Itoa(pport)), []byte(strconv.Itoa(bport)))
-	n := NewNet(rn)
+	n := NewNet(rn, id)
 	log := log.New(os.Stdout, "BOOSTER  ", log.LstdFlags)
 	pubsub := pubsub.New()
 	dialer := node.NewDispatcher(n)
@@ -229,7 +229,7 @@ func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, 
 		return nil, err
 	}
 
-	return RecvHello(ctx, conn)
+	return b.RecvHello(ctx, conn)
 }
 
 func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, error) {

@@ -63,6 +63,11 @@ func ConnectHeader() ([]byte, error) {
 	return proto.Marshal(h)
 }
 
+func DisconnectHeader() ([]byte, error) {
+	h := newHP(MessageDisconnect)
+	return proto.Marshal(h)
+}
+
 func NodeHeader() ([]byte, error) {
 	h := newHP(MessageNode)
 	return proto.Marshal(h)

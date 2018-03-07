@@ -107,3 +107,39 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 
 	return node.ID, nil
 }
+
+func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
+	conn, err := b.DialContext(ctx, network, addr)
+	if err != nil {
+		return fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
+	}
+	defer conn.Close()
+
+	// compose the packet
+	h, err := protocol.DisconnectHeader()
+	if err != nil {
+		return err
+	}
+
+	pl, err := protocol.EncodePayloadDisconnect(id)
+	if err != nil {
+		return err
+	}
+
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
+		return err
+	}
+	if _, err := p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
+		return err
+	}
+
+	// send it
+	if err := conn.Send(p); err != nil {
+		return err
+	}
+
+	// TODO(daniel): should we check if the node actually removed this node?
+	return nil
+}

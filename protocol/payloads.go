@@ -17,6 +17,10 @@ type PayloadConnect struct {
 	Target string
 }
 
+type PayloadDisconnect struct {
+	ID string
+}
+
 type Tunnel struct {
 	ID     string
 	Target string
@@ -78,6 +82,25 @@ func DecodePayloadConnect(p []byte) (*PayloadConnect, error) {
 func EncodePayloadConnect(target string) ([]byte, error) {
 	p := &internal.PayloadConnect{
 		Target: target,
+	}
+
+	return proto.Marshal(p)
+}
+
+func DecodePayloadDisconnect(p []byte) (*PayloadDisconnect, error) {
+	payload := new(internal.PayloadDisconnect)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	return &PayloadDisconnect{
+		ID: payload.Id,
+	}, nil
+}
+
+func EncodePayloadDisconnect(id string) ([]byte, error) {
+	p := &internal.PayloadDisconnect{
+		Id: id,
 	}
 
 	return proto.Marshal(p)

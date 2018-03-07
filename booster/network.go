@@ -50,11 +50,12 @@ type Network struct {
 	Conns     map[string]*Conn
 }
 
-func NewNet(n *node.Node) *Network {
+func NewNet(n *node.Node, boosterID string) *Network {
 	return &Network{
 		Logger:    log.New(os.Stdout, "NETWORK  ", log.LstdFlags),
 		PubSub:    pubsub.New(),
 		LocalNode: n,
+		boosterID: boosterID,
 		Conns:     make(map[string]*Conn),
 	}
 }
@@ -123,6 +124,15 @@ func (n *Network) AddTunnel(node *node.Node, target string) {
 	n.Pub(node, TopicNodes)
 }
 
+func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
+	return &Conn {
+		Conn: conn,
+		RemoteNode: node,
+		ID: id,
+		boosterID: n.boosterID,
+	}
+}
+
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
 type Conn struct {
 	*network.Conn
@@ -135,24 +145,41 @@ type Conn struct {
 // Close closes the connection and sets the status of the remote node
 // to inactive and removes the connection from the network.
 func (c *Conn) Close() error {
+	if c.Conn == nil {
+		return fmt.Errorf("network: connection is closed")
+	}
+
 	if err := c.Conn.Close(); err != nil {
 		return err
 	}
 	c.RemoteNode.SetIsActive(false)
-	Nets.Get(c.boosterID).Conns[c.ID].Conn = nil
+
+	// Remove the connection only if it is actually part of this network
+	if _, ok := Nets.Get(c.boosterID).Conns[c.ID]; ok {
+		Nets.Get(c.boosterID).Conns[c.ID].Conn = nil
+	}
 
 	return nil
 }
 
 func (c *Conn) Send(p *packet.Packet) error {
+	if c.Conn == nil {
+		return fmt.Errorf("network: connection is closed")
+	}
 	return c.Conn.Send(p)
 }
 
 func (c *Conn) Consume() (<-chan *packet.Packet, error) {
+	if c.Conn == nil {
+		return nil, fmt.Errorf("network: connection is closed")
+	}
 	return c.Conn.Consume()
 }
 
 func (c *Conn) Recv() (*packet.Packet, error) {
+	if c.Conn == nil {
+		return nil, fmt.Errorf("network: connection is closed")
+	}
 	return c.Conn.Recv()
 }
 
@@ -229,6 +256,48 @@ func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 		return nil, err
 	}
 	if _, err := p.AddModule(protocol.ModulePayload, hpl, enc); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+func composeNode(n *node.Node) (*packet.Packet, error) {
+	h, err := protocol.NodeHeader()
+	if err != nil {
+		return nil, err
+	}
+
+	tunnels := make([]*protocol.Tunnel, len(n.Tunnels()))
+	for _, t := range n.Tunnels() {
+		tunnel := &protocol.Tunnel{
+			ID:     t.ID(),
+			Target: t.Target,
+			Acks:   t.Acks(),
+			Copies: t.Copies(),
+		}
+
+		tunnels = append(tunnels, tunnel)
+	}
+	param := &protocol.PayloadNode{
+		ID:      n.ID(),
+		BAddr:   n.BAddr.String(),
+		PAddr:   n.PAddr.String(),
+		Active:  n.IsActive(),
+		Tunnels: tunnels,
+	}
+
+	npl, err := protocol.EncodePayloadNode(param)
+	if err != nil {
+		return nil, err
+	}
+
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+	if _, err = p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
+		return nil, err
+	}
+	if _, err = p.AddModule(protocol.ModulePayload, npl, enc); err != nil {
 		return nil, err
 	}
 

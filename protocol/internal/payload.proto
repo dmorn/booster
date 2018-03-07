@@ -15,6 +15,11 @@ message PayloadConnect {
 	string target = 1;
 }
 
+message PayloadDisconnect {
+	// id is the identifier of the node that should be disconnected
+	string id = 1;
+}
+
 message PayloadNode {
 	// id is the identifier of the node. Usually a sha1 hash.
 	string id = 1;

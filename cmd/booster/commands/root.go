@@ -30,7 +30,7 @@ func Execute() {
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
 	// add commands
-	rootCmd.AddCommand(versionCmd, startCmd, connectCmd)
+	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd)
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {

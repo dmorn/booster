@@ -37,6 +37,9 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageConnect:
 			b.HandleConnect(ctx, conn, p)
 
+		case protocol.MessageDisconnect:
+			b.HandleDisconnect(ctx, conn, p)
+
 		case protocol.MessageHeartbeat:
 			b.HandleHeartbeat(ctx, conn, p)
 
@@ -159,45 +162,8 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 
 	// send back a node packet with the info about the
 	// newly connected node
-	h, err := protocol.NodeHeader()
+	p, err = composeNode(tc.RemoteNode)
 	if err != nil {
-		fail(err)
-		return
-	}
-
-	n := tc.RemoteNode
-	tunnels := make([]*protocol.Tunnel, len(n.Tunnels()))
-	for _, t := range n.Tunnels() {
-		tunnel := &protocol.Tunnel{
-			ID:     t.ID(),
-			Target: t.Target,
-			Acks:   t.Acks(),
-			Copies: t.Copies(),
-		}
-
-		tunnels = append(tunnels, tunnel)
-	}
-	param := &protocol.PayloadNode{
-		ID:      n.ID(),
-		BAddr:   n.BAddr.String(),
-		PAddr:   n.PAddr.String(),
-		Active:  n.IsActive(),
-		Tunnels: tunnels,
-	}
-
-	npl, err := protocol.EncodePayloadNode(param)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	p = packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err = p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		fail(err)
-		return
-	}
-	if _, err = p.AddModule(protocol.ModulePayload, npl, enc); err != nil {
 		fail(err)
 		return
 	}
@@ -208,7 +174,51 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	}
 }
 
-func RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
+func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *packet.Packet) {
+	// TODO: add some more information to the errors printed.
+	b.Println("booster: -> disconnect")
+	defer func() {
+		conn.Close()
+		b.Println("booster: <- disconnect")
+	}()
+
+	fail := func(err error) {
+		b.Printf("booster: disconnect error: %v", err)
+	}
+
+	if err := ValidatePacket(p); err != nil {
+		fail(err)
+		return
+	}
+
+	// extract information
+	praw, err := p.Module(protocol.ModulePayload)
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	pl, err := protocol.DecodePayloadDisconnect(praw.Payload())
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	// retrieve the connection we're trying to disconnect from
+	c, ok := Nets.Get(b.ID).Conns[pl.ID]
+	if !ok {
+		fail(fmt.Errorf("unexpected identifier [%v]", pl.ID))
+		return
+	}
+
+	// perform the actual disconnection
+	if err = c.Close(); err != nil {
+		fail(err)
+		return
+	}
+}
+
+func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
 	fail := func(err error) (*Conn, error) {
 		conn.Close()
 		return nil, err
@@ -264,9 +274,5 @@ func RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
 		return fail(err)
 	}
 
-	return &Conn{
-		ID:         node.ID(),
-		Conn:       conn,
-		RemoteNode: node,
-	}, nil
+	return Nets.Get(b.ID).NewConn(conn, node, node.ID()), nil
 }
