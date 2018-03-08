@@ -102,6 +102,25 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	return root, nodes
 }
 
+// NodeOf returns the pointer of the node inside the network that has the same ID as
+// the requested node.
+func (n *Network) NodeOf(node *node.Node) (*node.Node, error) {
+	if node.IsLocal() {
+		if node.ID() != n.LocalNode.ID() {
+			return nil, fmt.Errorf("network: unexpected node %v, wanted %v", node.ID(), n.LocalNode.ID())
+		}
+
+		return n.LocalNode, nil
+	}
+
+	conn, ok := n.Conns[node.ID()]
+	if !ok {
+		return nil, fmt.Errorf("network: couldn't find node %v", node.ID())
+	}
+
+	return conn.RemoteNode, nil
+}
+
 func (n *Network) Ack(node *node.Node, id string) error {
 	n.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
 
