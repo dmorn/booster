@@ -202,7 +202,7 @@ func DecodePayloadTunnelEvent(p []byte) (*PayloadTunnelEvent, error) {
 	}, nil
 }
 
-func EncodePaylaodTunnelEvent(target string, event int) ([]byte, error) {
+func EncodePayloadTunnelEvent(target string, event int) ([]byte, error) {
 	p := &internal.PayloadTunnelEvent{
 		Target: target,
 		Event:  int32(event),

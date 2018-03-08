@@ -256,8 +256,21 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return fail(err)
 	}
 
+	// compose the notify packet which tells the reveiver to start sending
+	// information about its proxy tunnels
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+	h, err := protocol.TunnelNotifyHeader()
+	_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+	if err != nil {
+		return fail(err)
+	}
+	if err = conn.Send(p); err != nil {
+		return fail(err)
+	}
+
 	// inject the heartbeat message in the connection
-	p, err := b.composeHeartbeat(nil)
+	p, err = b.composeHeartbeat(nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -267,6 +280,9 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// handle the newly added connection in a different goroutine.
 	go b.Handle(ctx, conn)
+
+	// set the connection as active
+	conn.RemoteNode.SetIsActive(true)
 
 	return conn, nil
 }
@@ -278,7 +294,23 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 		return err
 	}
 
-	go b.updateRoot(c, errc)
+	go func() {
+		for i := range c {
+			tm, ok := i.(socks5.TunnelMessage)
+			if !ok {
+				errc <- fmt.Errorf("unable to recognise workload message: %v", tm)
+				return
+			}
+			node := Nets.Get(b.ID).LocalNode
+			if err := b.UpdateNode(node, &tm, true); err != nil {
+				errc <- err
+				return
+			}
+		}
+
+		errc <- nil
+	}()
+
 	defer close(errc)
 
 	select {
@@ -287,33 +319,8 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		b.Proxy.StopNotifying(c)
+		<- errc
 		return ctx.Err()
-	}
-}
-
-func (b *Booster) updateRoot(c <-chan interface{}, errc chan error) {
-	for i := range c {
-		tm, ok := i.(socks5.TunnelMessage)
-		if !ok {
-			errc <- fmt.Errorf("unable to recognise workload message: %v", tm)
-			return
-		}
-
-		target := tm.Target
-
-		if tm.Event == socks5.EventPush {
-			if err := Nets.Get(b.ID).Ack(Nets.Get(b.ID).LocalNode, target); err != nil {
-				b.Print(err)
-				continue
-			}
-		}
-
-		if tm.Event == socks5.EventPop {
-			if err := Nets.Get(b.ID).RemoveTunnel(Nets.Get(b.ID).LocalNode, target, true); err != nil {
-				b.Print(err)
-				continue
-			}
-		}
 	}
 }
 

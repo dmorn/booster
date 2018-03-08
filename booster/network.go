@@ -12,6 +12,7 @@ import (
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/pubsub"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 type Networks map[string]*Network
@@ -93,7 +94,9 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	nodes := []*node.Node{}
 
 	for _, c := range n.Conns {
-		nodes = append(nodes, c.RemoteNode)
+		if c.RemoteNode.IsActive() {
+			nodes = append(nodes, c.RemoteNode)
+		}
 	}
 
 	return root, nodes
@@ -122,11 +125,34 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 }
 
 func (n *Network) AddTunnel(node *node.Node, target string) {
+	if !node.IsLocal() {
+		// add the tunnel also to the local node. Every tunnel passes
+		// also trough it
+		n.AddTunnel(n.LocalNode, target)
+	}
+
 	n.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
 
 	node.AddTunnel(target)
 	n.Pub(node, TopicNodes)
 }
+
+func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoledged bool) error {
+	if tm.Event == socks5.EventPush {
+		if err := Nets.Get(b.ID).Ack(node, tm.Target); err != nil {
+			return err
+		}
+	}
+
+	if tm.Event == socks5.EventPop {
+		if err := Nets.Get(b.ID).RemoveTunnel(node, tm.Target, acknoledged); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
 	return &Conn {

@@ -6,22 +6,66 @@ import (
 
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/socks5"
 )
 
-func (b *Booster) SendStatus(ctx context.Context, conn SendCloser) error {
+func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
+	b.Println("booster: -> serve status")
+	defer func() {
+		b.Println("booster: <- serve status")
+	}()
+
+	fail := func(err error) {
+		b.Printf("booster: serve status error: %v", err)
+		conn.Close()
+	}
+
 	// register for proxy updates
 	c, err := b.Proxy.Notify()
 	if err != nil {
-		return err
+		fail(err)
+		return
 	}
 
 	defer func() {
 		b.Proxy.StopNotifying(c)
 	}()
 
-	// TODO(daniel): read every tunnel message, compose a packet with them
+	// Read every tunnel message, compose a packet with them
 	// and send them trough the connection
-	return fmt.Errorf("status not yet implemented")
+	h, err := protocol.TunnelEventHeader()
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	for i := range c {
+		tm, ok := i.(socks5.TunnelMessage)
+		if !ok {
+			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
+			return
+		}
+
+		pl, err := protocol.EncodePayloadTunnelEvent(tm.Target, int(tm.Event))
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		p := packet.New()
+		enc := protocol.EncodingProtobuf
+		_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+		_, err = p.AddModule(protocol.ModulePayload, pl, enc)
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		if err = conn.Send(p); err != nil {
+			fail(err)
+			return
+		}
+	}
 }
 
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {

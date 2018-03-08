@@ -3,13 +3,11 @@ package booster
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
-	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
-	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
@@ -43,6 +41,15 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageHeartbeat:
 			b.HandleHeartbeat(ctx, conn, p)
 
+		case protocol.MessageTunnel:
+			if bc, ok := conn.(*Conn); ok {
+				b.HandleTunnel(ctx, bc, p)
+			} else {
+				b.Println("booster: discarding packet: this connection cannot tunnel packets")
+			}
+		case protocol.MessageNotify:
+			go b.ServeStatus(ctx, conn)
+
 		default:
 			b.Printf("booster: discarding packet: unexpected message id: %v", h.ID)
 		}
@@ -64,11 +71,6 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 //
 // Closes the connection in case of any kind of failure.
 func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packet.Packet) {
-	b.Println("booster: -> heartbeat")
-	defer func() {
-		b.Print("booster: <- heartbeat")
-	}()
-
 	fail := func(err error) {
 		b.Printf("booster: heartbeat error: %v", err)
 		conn.Close()
@@ -122,7 +124,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 // the information regarding the added node back. The node identifier contained in
 // the packet is used as connection identifier in the network.
 //
-// Should run in its own gorounting. Closes the connection used to perform the
+// Should run in its own gorountine. Closes the connection used to perform the
 // request when done.
 func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
@@ -232,61 +234,42 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	}
 }
 
-func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
-	fail := func(err error) (*Conn, error) {
-		conn.Close()
-		return nil, err
+func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet) {
+	// TODO: add some more information to the errors printed.
+	b.Println("booster: -> tunnel")
+	defer func() {
+		b.Println("booster: <- tunnel")
+	}()
+
+	fail := func(err error) {
+		b.Printf("booster: tunnel error: %v", err)
 	}
 
-	// Read the hello packet
-	p, err := conn.Recv()
-	if err != nil {
-		return fail(err)
+	if err := ValidatePacket(p); err != nil {
+		fail(err)
+		return
 	}
 
-	// Find header
-	hraw, err := p.Module(protocol.ModuleHeader)
-	if err != nil {
-		return fail(err)
-	}
-
-	h, err := protocol.DecodeHeader(hraw.Payload())
-	if err != nil {
-		return fail(err)
-	}
-
-	// check that it is a hello message
-	if h.ID != protocol.MessageHello {
-		return fail(fmt.Errorf("booster: expected HelloMessage (%v), found: %v", protocol.MessageHello, h.ID))
-	}
-
-	// check what the header says about the package before trying to take
-	// the payload
-	if err = ValidatePacket(p); err != nil {
-		return fail(fmt.Errorf("booster: hello: %v", err))
-	}
-
-	// take the payload module
+	// extract information
 	praw, err := p.Module(protocol.ModulePayload)
 	if err != nil {
-		return fail(err)
+		fail(err)
+		return
 	}
 
-	pl, err := protocol.DecodePayloadHello(praw.Payload())
+	pl, err := protocol.DecodePayloadTunnelEvent(praw.Payload())
 	if err != nil {
-		return fail(err)
+		fail(err)
+		return
 	}
 
-	// extract node information from the message
-	pp := pl.PPort
-	bp := pl.BPort
-	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-
-	// create new node with the information collected
-	node, err := node.New(host, pp, bp, false)
-	if err != nil {
-		return fail(err)
+	tm := &socks5.TunnelMessage{
+		Target: pl.Target,
+		Event: socks5.Event(pl.Event),
 	}
-
-	return Nets.Get(b.ID).NewConn(conn, node, node.ID()), nil
+	if err = b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
+		fail(err)
+		return
+	}
 }
+

@@ -26,6 +26,7 @@ const (
 	MessageNode            = 3
 	MessageHeartbeat       = 4
 	MessageTunnel          = 5
+	MessageNotify          = 6
 )
 
 // IsVersionSupported returns true if the current protocol version is compatible
