@@ -11,6 +11,7 @@ import (
 )
 
 func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
+
 	fail := func(err error) (*Conn, error) {
 		conn.Close()
 		return nil, err
@@ -59,6 +60,8 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 	pp := pl.PPort
 	bp := pl.BPort
 	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
+
+	b.Printf("booster: <- hello: %v %v-%v", host, pp, bp)
 
 	// create new node with the information collected
 	node, err := node.New(host, pp, bp, false)

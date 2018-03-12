@@ -10,10 +10,7 @@ import (
 )
 
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
-	b.Println("booster: -> serve status")
-	defer func() {
-		b.Println("booster: <- serve status")
-	}()
+	b.Println("booster: -> serving status...")
 
 	fail := func(err error) {
 		b.Printf("booster: serve status error: %v", err)
@@ -61,6 +58,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			return
 		}
 
+		b.Printf("booster: -> tunnel update: %v", tm)
 		if err = conn.Send(p); err != nil {
 			fail(err)
 			return
@@ -69,6 +67,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 }
 
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
+	b.Println("booster: -> hello")
+
 	// create the modules
 	h, err := protocol.HelloHeader()
 	if err != nil {
@@ -99,6 +99,8 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 }
 
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
+	b.Println("booster: -> connect")
+
 	conn, err := b.DialContext(ctx, network, laddr)
 	if err != nil {
 		return "", fmt.Errorf("booster: unable to connect to (%v): %v", laddr, err)
@@ -153,6 +155,8 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 }
 
 func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
+	b.Println("booster: -> disconnect")
+
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
 		return fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)

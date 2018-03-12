@@ -11,11 +11,6 @@ import (
 )
 
 func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
-	b.Println("booster: -> handle")
-	defer func() {
-		b.Println("booster: <- handle")
-	}()
-
 	// consume the connection until pkts is closed
 	pkts, err := conn.Consume()
 	if err != nil {
@@ -128,12 +123,6 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 // request when done.
 func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
-	b.Println("booster: -> connect")
-	defer func() {
-		conn.Close()
-		b.Println("booster: <- connect")
-	}()
-
 	fail := func(err error) {
 		b.Printf("booster: connect error: %v", err)
 	}
@@ -162,6 +151,8 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 		return
 	}
 
+	b.Printf("booster: <- connect: %v", pl.Target)
+
 	// send back a node packet with the info about the
 	// newly connected node
 	p, err = composeNode(tc.RemoteNode)
@@ -176,12 +167,15 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	}
 }
 
+// HandleDisconnect takes a disconnect packet, unwraps its information and removes the
+// target node in this node's network, closing the connection between the two.
+//
+// Disconnect also closes the connection used to perform this operation upon error or
+// when done.
 func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
-	b.Println("booster: -> disconnect")
 	defer func() {
 		conn.Close()
-		b.Println("booster: <- disconnect")
 	}()
 
 	fail := func(err error) {
@@ -205,6 +199,8 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 		fail(err)
 		return
 	}
+
+	b.Printf("booster: <- disconnect: %v", pl.ID)
 
 	// retrieve the connection we're trying to disconnect from
 	c, ok := Nets.Get(b.ID).Conns[pl.ID]
@@ -236,11 +232,6 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 
 func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
-	b.Println("booster: -> tunnel")
-	defer func() {
-		b.Println("booster: <- tunnel")
-	}()
-
 	fail := func(err error) {
 		b.Printf("booster: tunnel error: %v", err)
 	}
@@ -262,6 +253,8 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 		fail(err)
 		return
 	}
+
+	b.Printf("booster: <- tunnel: %v", pl)
 
 	tm := &socks5.TunnelMessage{
 		Target: pl.Target,

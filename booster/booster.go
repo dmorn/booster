@@ -233,12 +233,6 @@ func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, 
 }
 
 func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, error) {
-	b.Printf("booster: -> wiring with %v", target)
-
-	defer func() {
-		b.Println("booster: <- wired")
-	}()
-
 	// connect to the target node
 	conn, err := b.DialContext(ctx, network, target)
 	if err != nil {
@@ -268,6 +262,8 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	if err = conn.Send(p); err != nil {
 		return fail(err)
 	}
+
+	b.Printf("booster: -> wire: %v", target)
 
 	// inject the heartbeat message in the connection
 	p, err = b.composeHeartbeat(nil)

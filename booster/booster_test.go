@@ -58,7 +58,7 @@ func TestSendRecvHello(t *testing.T) {
 		}
 	}()
 
-	_, err := booster.RecvHello(ctx, client)
+	_, err := b.RecvHello(ctx, client)
 	if err != nil {
 		t.Fatal(err)
 	}

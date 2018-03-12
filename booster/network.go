@@ -49,6 +49,7 @@ type Network struct {
 	mux       sync.Mutex
 	LocalNode *node.Node
 	Conns     map[string]*Conn
+	IOTimeout time.Duration
 }
 
 func NewNet(n *node.Node, boosterID string) *Network {
@@ -57,6 +58,7 @@ func NewNet(n *node.Node, boosterID string) *Network {
 		PubSub:    pubsub.New(),
 		LocalNode: n,
 		boosterID: boosterID,
+		IOTimeout: 2*time.Second,
 		Conns:     make(map[string]*Conn),
 	}
 }
@@ -124,6 +126,11 @@ func (n *Network) NodeOf(node *node.Node) (*node.Node, error) {
 func (n *Network) Ack(node *node.Node, id string) error {
 	n.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
 
+	node, err := n.NodeOf(node)
+	if err != nil {
+		return err
+	}
+
 	if err := node.Ack(id); err != nil {
 		return err
 	}
@@ -135,6 +142,11 @@ func (n *Network) Ack(node *node.Node, id string) error {
 func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
 	n.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
+	node, err := n.NodeOf(node)
+	if err != nil {
+		return err
+	}
+
 	if err := node.RemoveTunnel(id, acknoledged); err != nil {
 		return err
 	}
@@ -144,6 +156,11 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 }
 
 func (n *Network) AddTunnel(node *node.Node, target string) {
+	node, err := n.NodeOf(node)
+	if err != nil {
+		return
+	}
+
 	if !node.IsLocal() {
 		// add the tunnel also to the local node. Every tunnel passes
 		// also trough it
@@ -172,13 +189,13 @@ func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoled
 	return nil
 }
 
-
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
 	return &Conn {
 		Conn: conn,
 		RemoteNode: node,
 		ID: id,
 		boosterID: n.boosterID,
+		IOTimeout: n.IOTimeout,
 	}
 }
 
@@ -189,6 +206,7 @@ type Conn struct {
 	ID         string // ID is usually the remoteNode identifier.
 	boosterID  string
 	RemoteNode *node.Node
+	IOTimeout time.Duration
 }
 
 // Close closes the connection and sets the status of the remote node
@@ -215,7 +233,20 @@ func (c *Conn) Send(p *packet.Packet) error {
 	if c.Conn == nil {
 		return fmt.Errorf("network: connection is closed")
 	}
-	return c.Conn.Send(p)
+
+	errc := make(chan error, 1)
+
+	go func() {
+		errc <- c.Conn.Send(p)
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-time.After(time.Second*2):
+		c.Close()
+		return fmt.Errorf("network: couldn't send after %v", c.IOTimeout)
+	}
 }
 
 func (c *Conn) Consume() (<-chan *packet.Packet, error) {

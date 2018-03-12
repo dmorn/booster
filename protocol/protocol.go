@@ -29,6 +29,11 @@ const (
 	MessageNotify          = 6
 )
 
+const (
+	TunnelAck int32 = 0
+	TunnelRemove = 1
+)
+
 // IsVersionSupported returns true if the current protocol version is compatible
 // with the requested version.
 func IsVersionSupported(v string) bool {
