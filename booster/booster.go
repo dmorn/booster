@@ -315,7 +315,7 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 		return err
 	case <-ctx.Done():
 		b.Proxy.StopNotifying(c)
-		<- errc
+		<-errc
 		return ctx.Err()
 	}
 }

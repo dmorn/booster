@@ -258,11 +258,10 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 
 	tm := &socks5.TunnelMessage{
 		Target: pl.Target,
-		Event: socks5.Event(pl.Event),
+		Event:  socks5.Event(pl.Event),
 	}
 	if err = b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
 		fail(err)
 		return
 	}
 }
-

@@ -10,8 +10,12 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 )
 
+// RecvHello takes a raw network connection and reads the next message coming. It is expected
+// to be an hello message, introducing a new remote booster instance.
+//
+// With the informations contained in the packet, it creates a new booster connection
+// and returns it.
 func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, error) {
-
 	fail := func(err error) (*Conn, error) {
 		conn.Close()
 		return nil, err

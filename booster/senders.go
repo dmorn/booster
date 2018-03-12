@@ -9,6 +9,8 @@ import (
 	"github.com/danielmorandini/booster/socks5"
 )
 
+// ServeStatus listens on the local proxy for tunnel events, sending then them though the
+// connection. In case of error closes the connection.
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	b.Println("booster: -> serving status...")
 
@@ -66,6 +68,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	}
 }
 
+// SendHello composes and sends an hello packet trough conn.
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	b.Println("booster: -> hello")
 
@@ -98,6 +101,10 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	return conn.Send(p)
 }
 
+// Connect dials with laddr, creates a connect packet using raddr and tells laddr
+// to connect with raddr. Both laddr and raddr are expected to point to a booster node.
+//
+// Closes the connection when done.
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
 	b.Println("booster: -> connect")
 
@@ -154,6 +161,10 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	return node.ID, nil
 }
 
+// Disconnect dials a booster connection with addr, expecting it to be a booster node.
+// It then creates a disconnect packet, telling the node to disconnect from id.
+//
+// Closes the connection when done.
 func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
 	b.Println("booster: -> disconnect")
 

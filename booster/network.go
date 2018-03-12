@@ -58,7 +58,7 @@ func NewNet(n *node.Node, boosterID string) *Network {
 		PubSub:    pubsub.New(),
 		LocalNode: n,
 		boosterID: boosterID,
-		IOTimeout: 2*time.Second,
+		IOTimeout: 2 * time.Second,
 		Conns:     make(map[string]*Conn),
 	}
 }
@@ -190,12 +190,12 @@ func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoled
 }
 
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
-	return &Conn {
-		Conn: conn,
+	return &Conn{
+		Conn:       conn,
 		RemoteNode: node,
-		ID: id,
-		boosterID: n.boosterID,
-		IOTimeout: n.IOTimeout,
+		ID:         id,
+		boosterID:  n.boosterID,
+		IOTimeout:  n.IOTimeout,
 	}
 }
 
@@ -206,7 +206,7 @@ type Conn struct {
 	ID         string // ID is usually the remoteNode identifier.
 	boosterID  string
 	RemoteNode *node.Node
-	IOTimeout time.Duration
+	IOTimeout  time.Duration
 }
 
 // Close closes the connection and sets the status of the remote node
@@ -243,7 +243,7 @@ func (c *Conn) Send(p *packet.Packet) error {
 	select {
 	case err := <-errc:
 		return err
-	case <-time.After(time.Second*2):
+	case <-time.After(time.Second * 2):
 		c.Close()
 		return fmt.Errorf("network: couldn't send after %v", c.IOTimeout)
 	}
