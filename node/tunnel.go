@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -20,10 +19,6 @@ func NewTunnel(target string) *Tunnel {
 		Target: target,
 		copies: 1,
 	}
-}
-
-func (t *Tunnel) String() string {
-	return fmt.Sprintf("[tunnel (%v): %v]: copies: %v, acks: %v", t.ID(), t.Target, t.Copies(), t.Acks())
 }
 
 func (t *Tunnel) ID() string {

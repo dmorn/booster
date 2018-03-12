@@ -112,7 +112,7 @@ func DecodePayloadNode(p []byte) (*PayloadNode, error) {
 		return nil, err
 	}
 
-	ts := make([]*Tunnel, len(payload.Tunnels))
+	ts := []*Tunnel{}
 	for _, t := range payload.Tunnels {
 		tunnel := &Tunnel{
 			ID:     t.Id,
@@ -134,7 +134,7 @@ func DecodePayloadNode(p []byte) (*PayloadNode, error) {
 }
 
 func EncodePayloadNode(node *PayloadNode) ([]byte, error) {
-	ts := make([]*internal.PayloadNode_Tunnel, len(node.Tunnels))
+	ts := []*internal.PayloadNode_Tunnel{}
 	for _, t := range node.Tunnels {
 		tunnel := &internal.PayloadNode_Tunnel{
 			Id:     t.ID,

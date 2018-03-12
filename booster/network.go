@@ -348,8 +348,12 @@ func composeNode(n *node.Node) (*packet.Packet, error) {
 		return nil, err
 	}
 
-	tunnels := make([]*protocol.Tunnel, len(n.Tunnels()))
+	tunnels := []*protocol.Tunnel{}
 	for _, t := range n.Tunnels() {
+		if t == nil {
+			continue
+		}
+
 		tunnel := &protocol.Tunnel{
 			ID:     t.ID(),
 			Target: t.Target,

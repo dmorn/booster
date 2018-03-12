@@ -6,67 +6,7 @@ import (
 
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
-	"github.com/danielmorandini/booster/socks5"
 )
-
-// ServeStatus listens on the local proxy for tunnel events, sending then them though the
-// connection. In case of error closes the connection.
-func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
-	b.Println("booster: -> serving status...")
-
-	fail := func(err error) {
-		b.Printf("booster: serve status error: %v", err)
-		conn.Close()
-	}
-
-	// register for proxy updates
-	c, err := b.Proxy.Notify()
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	defer func() {
-		b.Proxy.StopNotifying(c)
-	}()
-
-	// Read every tunnel message, compose a packet with them
-	// and send them trough the connection
-	h, err := protocol.TunnelEventHeader()
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	for i := range c {
-		tm, ok := i.(socks5.TunnelMessage)
-		if !ok {
-			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
-			return
-		}
-
-		pl, err := protocol.EncodePayloadTunnelEvent(tm.Target, int(tm.Event))
-		if err != nil {
-			fail(err)
-			return
-		}
-
-		p := packet.New()
-		enc := protocol.EncodingProtobuf
-		_, err = p.AddModule(protocol.ModuleHeader, h, enc)
-		_, err = p.AddModule(protocol.ModulePayload, pl, enc)
-		if err != nil {
-			fail(err)
-			return
-		}
-
-		b.Printf("booster: -> tunnel update: %v", tm)
-		if err = conn.Send(p); err != nil {
-			fail(err)
-			return
-		}
-	}
-}
 
 // SendHello composes and sends an hello packet trough conn.
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
@@ -166,7 +106,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 //
 // Closes the connection when done.
 func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
-	b.Println("booster: -> disconnect")
+	b.Printf("booster: -> disconnect: %v", id)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
@@ -214,11 +154,89 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	if err != nil {
 		return err
 	}
-
 	_, err = protocol.DecodePayloadNode(praw.Payload())
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *protocol.PayloadNode, error) {
+	b.Printf("booster: -> inspect: %v", addr)
+
+	conn, err := b.DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
+	}
+
+	// compose & send the inspect packet
+	h, err := protocol.InspectHeader()
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+	p := packet.New()
+	if _, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	if err = conn.Send(p); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	// consume every message from the connection in a different goroutine.
+	pkts, err := conn.Consume()
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	stream := make(chan *protocol.PayloadNode, 1)
+	go func() {
+		defer func() {
+			close(stream)
+		}()
+
+		fail := func(err error) {
+			b.Printf("booster: inspect error: %v", err)
+			conn.Close()
+		}
+
+		for p := range pkts {
+			if err = ValidatePacket(p); err != nil {
+				fail(err)
+				return
+			}
+
+			h, err := ExtractHeader(p)
+			if err != nil {
+				fail(err)
+				return
+			}
+			// take only node packets
+			if h.ID != protocol.MessageNode {
+				b.Printf("booster: inspect: discarding packet: unexpected header: %v", h)
+				continue
+			}
+
+			// extract node from payload
+			praw, err := p.Module(protocol.ModulePayload)
+			if err != nil {
+				fail(err)
+				return
+			}
+			pl, err := protocol.DecodePayloadNode(praw.Payload())
+			if err != nil {
+				fail(err)
+				return
+			}
+
+			stream <- pl
+		}
+	}()
+
+	return stream, nil
 }

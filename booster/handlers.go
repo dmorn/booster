@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/socks5"
 )
@@ -14,6 +15,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	// consume the connection until pkts is closed
 	pkts, err := conn.Consume()
 	if err != nil {
+		conn.Close()
 		b.Printf("booster: unable to consume conn: %v", err)
 		return
 	}
@@ -21,8 +23,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	handler := func(p *packet.Packet) error {
 		h, err := ExtractHeader(p)
 		if err != nil {
-			b.Println(err)
-			return nil
+			return err
 		}
 
 		// find the message type and handle accordingly
@@ -45,8 +46,11 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageNotify:
 			go b.ServeStatus(ctx, conn)
 
+		case protocol.MessageInspect:
+			go b.ServeInspect(ctx, conn)
+
 		default:
-			b.Printf("booster: discarding packet: unexpected message id: %v", h.ID)
+			return fmt.Errorf("booster: discarding packet: unexpected message id: %v", h.ID)
 		}
 
 		return nil
@@ -55,6 +59,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	for p := range pkts {
 		if err := handler(p); err != nil {
 			b.Println(err)
+			conn.Close()
 			return
 		}
 	}
@@ -263,5 +268,107 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	if err = b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
 		fail(err)
 		return
+	}
+}
+
+// ServeStatus listens on the local proxy for tunnel events, sending then them though the
+// connection. In case of error closes the connection.
+func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
+	b.Println("booster: <- status...")
+
+	fail := func(err error) {
+		b.Printf("booster: serve status error: %v", err)
+		conn.Close()
+	}
+
+	// register for proxy updates
+	c, err := b.Proxy.Notify()
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	defer func() {
+		b.Proxy.StopNotifying(c)
+	}()
+
+	// Read every tunnel message, compose a packet with them
+	// and send them trough the connection
+	h, err := protocol.TunnelEventHeader()
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	for i := range c {
+		tm, ok := i.(socks5.TunnelMessage)
+		if !ok {
+			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
+			return
+		}
+
+		pl, err := protocol.EncodePayloadTunnelEvent(tm.Target, int(tm.Event))
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		p := packet.New()
+		enc := protocol.EncodingProtobuf
+		_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+		_, err = p.AddModule(protocol.ModulePayload, pl, enc)
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		b.Printf("booster: -> tunnel update: %v", tm)
+
+		if err = conn.Send(p); err != nil {
+			fail(err)
+			return
+		}
+	}
+}
+
+func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
+	b.Println("booster: <- serving inspect...")
+
+	fail := func(err error) {
+		b.Printf("booster: serve inspect error: %v", err)
+		conn.Close()
+	}
+
+	// register for node updates
+	net := Nets.Get(b.ID)
+	c, err := net.Notify()
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	defer func() {
+		net.StopNotifying(c)
+	}()
+
+	// Read every node udpate message, compose a packet with it
+	// and send them trough the connection
+	for i := range c {
+		n, ok := i.(*node.Node)
+		if !ok {
+			fail(fmt.Errorf("unrecognised node message: %v", i))
+			return
+		}
+
+		p, err := composeNode(n)
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		if err = conn.Send(p); err != nil {
+			fail(err)
+			return
+		}
 	}
 }

@@ -197,19 +197,6 @@ func (n *Node) Close() error {
 	return nil
 }
 
-// Desc returns the description of the node in a multiline string.
-func (n *Node) String() string {
-	activeStr := "inactive"
-	if n.IsActive() {
-		activeStr = "active"
-	}
-
-	host, bport, _ := net.SplitHostPort(n.BAddr.String())
-	_, pport, _ := net.SplitHostPort(n.PAddr.String())
-
-	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v", n.ID(), host, bport, pport, activeStr, n.Workload())
-}
-
 // Ping dials with the node with little timeout. Returns an error
 // if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
 func (n *Node) Ping(ctx context.Context) error {

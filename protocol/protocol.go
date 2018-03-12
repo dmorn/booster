@@ -27,6 +27,7 @@ const (
 	MessageHeartbeat        = 4
 	MessageTunnel           = 5
 	MessageNotify           = 6
+	MessageInspect          = 7
 )
 
 const (
