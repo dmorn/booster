@@ -148,7 +148,13 @@ func (n *Node) Tunnels() map[string]*Tunnel {
 	n.Lock()
 	defer n.Unlock()
 
-	return n.tunnels
+	// make a copy of the map to avoid concurrent edit
+	tcopy := make(map[string]*Tunnel)
+	for k, v := range n.tunnels {
+		tcopy[k] = v
+	}
+
+	return tcopy
 }
 
 func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
