@@ -45,11 +45,11 @@ type Network struct {
 	PubSub
 
 	boosterID string
+	IOTimeout time.Duration
 
 	mux       sync.Mutex
 	LocalNode *node.Node
 	Conns     map[string]*Conn
-	IOTimeout time.Duration
 }
 
 func NewNet(n *node.Node, boosterID string) *Network {
@@ -205,10 +205,11 @@ type Conn struct {
 	*network.Conn
 	*log.Logger
 
-	ID         string // ID is usually the remoteNode identifier.
-	boosterID  string
-	RemoteNode *node.Node
-	IOTimeout  time.Duration
+	ID             string // ID is usually the remoteNode identifier.
+	boosterID      string
+	RemoteNode     *node.Node
+	IOTimeout      time.Duration
+	HeartbeatTimer *time.Timer
 }
 
 // Close closes the connection and sets the status of the remote node
@@ -325,7 +326,7 @@ func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	}
 
 	pl.Hops++
-	pl.TTL = time.Now().Add(b.HeartbeatTTL)
+	pl.TTL = time.Now().Add(b.HeartbeatTTL / 2)
 
 	h, err := protocol.HeartbeatHeader()
 	if err != nil {

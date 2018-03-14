@@ -99,8 +99,16 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 		return
 	}
 
-	// wait until ttl finishes
+	// stop the timer or it will close the connection
+	if c, ok := conn.(*Conn); ok {
+		c.HeartbeatTimer.Stop()
+	}
+
+	// wait until ttl finishes & reset the timer
 	<-time.After(pl.TTL.Sub(time.Now()))
+	if c, ok := conn.(*Conn); ok {
+		c.HeartbeatTimer.Reset(b.HeartbeatTTL)
+	}
 
 	// compose a new heartbeat message
 	p, err = b.composeHeartbeat(pl)
