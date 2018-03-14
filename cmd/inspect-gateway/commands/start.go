@@ -18,9 +18,9 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "inspect [host:port -- optional]",
+	Use:   "start [host:port -- optional]",
 	Short: "inspects the node's activity and sends the data to the target API",
-	Long:  `inspect inspects (by default) the local node listening @ localhost:4884, takes the messages received and sends them to the APIEndpoint, json encoded. An optional booster address could be passed as paramenter.`,
+	Long:  `start inspects (by default) the local node listening @ localhost:4884, takes the messages received and sends them to the APIEndpoint, json encoded. An optional booster address could be passed as paramenter.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		addr := "localhost:4884"
