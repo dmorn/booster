@@ -13,8 +13,9 @@ var (
 )
 
 var (
-	targetAddr  string
-	boosterAddr string
+	pport       int
+	bport       int
+	APIEndpoint string
 )
 
 var rootCmd = &cobra.Command{
@@ -26,11 +27,12 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	// parse flags
-	startCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
-	startCmd.Flags().StringVarP(&targetAddr, "taddr", "t", ":4000", "target API address")
+	startCmd.Flags().StringVar(&APIEndpoint, "api", ":4000", "API endpoint address")
+	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
+	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
 	// add commands
-	rootCmd.AddCommand(versionCmd, startCmd)
+	rootCmd.AddCommand(startCmd)
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {

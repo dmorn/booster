@@ -12,17 +12,23 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/spf13/cobra"
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start",
+	Use:   "inspect [host:port -- optional]",
 	Short: "inspects the node's activity and sends the data to the target API",
-	Long:  ``,
-	Args:  cobra.MaximumNArgs(0),
+	Long:  `inspect inspects (by default) the local node listening @ localhost:4884, takes the messages received and sends them to the APIEndpoint, json encoded. An optional booster address could be passed as paramenter.`,
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		host, port, err := net.SplitHostPort(targetAddr)
+		addr := "localhost:4884"
+		if len(args) == 1 {
+			addr = args[0]
+		}
+
+		host, port, err := net.SplitHostPort(APIEndpoint)
 		if err != nil {
 			log.Fatalf("unable to split host port: %v", err)
 		}
@@ -50,7 +56,7 @@ var startCmd = &cobra.Command{
 		}
 
 		for node := range stream {
-			log.Println("[%v] msg received", node.ID())
+			log.Println("[%v] msg received", node.ID)
 
 			if err = c.Update(node); err != nil {
 				log.Fatalf("[%v] unable to send msg: %v", node.ID, err)

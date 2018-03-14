@@ -13,9 +13,8 @@ var (
 )
 
 var (
-	pport       int
-	bport       int
-	boosterAddr string
+	pport int
+	bport int
 )
 
 var rootCmd = &cobra.Command{
