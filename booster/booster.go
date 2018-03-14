@@ -244,10 +244,14 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return nil, err
 	}
 
-	// add the connection to the booster network
+	// add the connection to the booster network. In case of an error,
+	// i.e. such connection is already present, just close the underlying
+	// network.Conn and return. Calling conn.Close() will close even the
+	// other connection!
 	err = Nets.Get(b.ID).AddConn(conn)
 	if err != nil {
-		return fail(err)
+		conn.Conn.Close()
+		return nil, err
 	}
 
 	// compose the notify packet which tells the reveiver to start sending

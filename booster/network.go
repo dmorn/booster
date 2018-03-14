@@ -63,6 +63,7 @@ func NewNet(n *node.Node, boosterID string) *Network {
 	}
 }
 
+// AddConn adds c to network. Returns an error if the connection is already present.
 func (n *Network) AddConn(c *Conn) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
@@ -96,7 +97,7 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	nodes := []*node.Node{}
 
 	for _, c := range n.Conns {
-		if c.RemoteNode.IsActive() {
+		if c.RemoteNode.IsActive() && c.Conn != nil {
 			nodes = append(nodes, c.RemoteNode)
 		}
 	}
