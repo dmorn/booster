@@ -1,5 +1,5 @@
-package booster
-
+// Package provides the higher interface for dealing with booster instances
+// that follow the booster protocol. It wraps togheter node, proxy, network.
 import (
 	"context"
 	"crypto/sha1"
@@ -19,8 +19,6 @@ import (
 	"github.com/danielmorandini/booster/pubsub"
 	"github.com/danielmorandini/booster/socks5"
 )
-
-const TopicNodes = "topic_nodes"
 
 // Proxy wraps that booster requires a proxy to implement.
 type Proxy interface {

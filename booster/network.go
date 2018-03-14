@@ -15,10 +15,16 @@ import (
 	"github.com/danielmorandini/booster/socks5"
 )
 
+const TopicNodes = "topic_nodes"
+
+// Networks is a convenience type that wraps a map of Network instances.
 type Networks map[string]*Network
 
+// Nets will be populated with the networks of every booster node started.
 var Nets = &Networks{}
 
+// Get returns a network associated with id. Panics if the network was not
+// previously registered.
 func (n Networks) Get(id string) *Network {
 	net, ok := n[id]
 	if !ok {
@@ -28,6 +34,8 @@ func (n Networks) Get(id string) *Network {
 	return net
 }
 
+// Set associates net with id inside of networks. Panics if the network
+// labeled with id was alreaduy registered.
 func (n Networks) Set(id string, net *Network) {
 	_, ok := n[id]
 	if ok {
@@ -81,14 +89,21 @@ func (n *Network) AddConn(c *Conn) error {
 	return nil
 }
 
+// Notify subscribes to the underlying pubsub with topic TopicNodes. The channel
+// returned will produce node messages, containing information about the changes
+// and updates performed in the network.
 func (n *Network) Notify() (chan interface{}, error) {
 	return n.Sub(TopicNodes)
 }
 
+// StopNotifying usubscribes c from receiving notifications on TopicNodes.
+// Closes the channel.
 func (n *Network) StopNotifying(c chan interface{}) {
 	n.Unsub(c, TopicNodes)
 }
 
+// Nodes returns the root node of the network, togheter with all the remote
+// nodes connected to it.
 func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
@@ -124,6 +139,8 @@ func (n *Network) NodeOf(node *node.Node) (*node.Node, error) {
 	return conn.RemoteNode, nil
 }
 
+// Ack finds the node in the network and acknoledges the tunnel labeled
+// with id. Publishes the node in TopicNodes.
 func (n *Network) Ack(node *node.Node, id string) error {
 	n.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
 
@@ -140,6 +157,8 @@ func (n *Network) Ack(node *node.Node, id string) error {
 	return nil
 }
 
+// RemoveTunnel finds the node in the network and removes the tunnel labeled
+// with id from it. Publishes the node in TopicNodes.
 func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
 	n.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
@@ -156,6 +175,8 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 	return nil
 }
 
+// AddTunnel finds the node in the network, creates a new tunnel using target
+// and adds the tunnel to the node. Publishes the node in TopicNodes.
 func (n *Network) AddTunnel(node *node.Node, target string) {
 	node, err := n.NodeOf(node)
 	if err != nil {
@@ -174,6 +195,8 @@ func (n *Network) AddTunnel(node *node.Node, target string) {
 	n.Pub(node, TopicNodes)
 }
 
+// UpdateNode acknoledges or remove a tunnel of node, depending on the tm's
+// content.
 func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoledged bool) error {
 	if tm.Event == socks5.EventPush {
 		if err := Nets.Get(b.ID).Ack(node, tm.Target); err != nil {
@@ -190,6 +213,7 @@ func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoled
 	return nil
 }
 
+// NewConn creates a new connection and associates it with the network.
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
 	return &Conn{
 		Conn:       conn,
