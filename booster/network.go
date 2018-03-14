@@ -192,6 +192,7 @@ func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoled
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
 	return &Conn{
 		Conn:       conn,
+		Logger:     n.Logger,
 		RemoteNode: node,
 		ID:         id,
 		boosterID:  n.boosterID,
@@ -202,6 +203,7 @@ func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn 
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
 type Conn struct {
 	*network.Conn
+	*log.Logger
 
 	ID         string // ID is usually the remoteNode identifier.
 	boosterID  string
@@ -212,6 +214,8 @@ type Conn struct {
 // Close closes the connection and sets the status of the remote node
 // to inactive and removes the connection from the network.
 func (c *Conn) Close() error {
+	c.Printf("network: closing conn (%v)", c.ID)
+
 	if c.Conn == nil {
 		return fmt.Errorf("network: connection is closed")
 	}
@@ -221,10 +225,13 @@ func (c *Conn) Close() error {
 	}
 	c.RemoteNode.SetIsActive(false)
 
+	n := Nets.Get(c.boosterID)
 	// Remove the connection only if it is actually part of this network
-	if _, ok := Nets.Get(c.boosterID).Conns[c.ID]; ok {
-		Nets.Get(c.boosterID).Conns[c.ID].Conn = nil
+	if _, ok := n.Conns[c.ID]; ok {
+		n.Conns[c.ID].Conn = nil
 	}
+
+	n.Pub(c.RemoteNode, TopicNodes)
 
 	return nil
 }

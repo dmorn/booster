@@ -128,6 +128,10 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 // request when done.
 func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
+	defer func() {
+		conn.Close()
+	}()
+
 	fail := func(err error) {
 		b.Printf("booster: connect error: %v", err)
 	}
