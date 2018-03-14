@@ -148,9 +148,6 @@ func TestMultiSub_concurrent(t *testing.T) {
 }
 
 func TestMultiSub(t *testing.T) {
-	// TODO(daniel): remove this skip when the pubsub is fixed. Sometimes this produces a deadlock.
-	t.Skip()
-
 	ps := pubsub.New()
 
 	var ch1 chan interface{}

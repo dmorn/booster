@@ -1,7 +1,9 @@
 package pubsub
 
 import (
+	"fmt"
 	"sync"
+	"time"
 )
 
 type channel struct {
@@ -13,38 +15,53 @@ type channel struct {
 	ch     chan interface{}
 }
 
-func newChannel() *channel {
-	ch := &channel{
-		sendc:  make(chan interface{}),
-		stopc:  make(chan interface{}),
-		ch:     make(chan interface{}),
-		active: true,
+func (c *channel) run() (chan interface{}, error) {
+	if c.isActive() {
+		return nil, fmt.Errorf("channel: unable to run: already active")
+	}
+
+	// create output channel
+	c.Lock()
+	c.ch = make(chan interface{})
+	c.active = true
+	c.Unlock()
+
+	send := func(m interface{}) {
+		defer func() {
+			if err := recover(); err != nil {
+				// we tried to send somethign trough ch and we found it closed.
+				// need to remove this channel.
+				c.stop()
+			}
+		}()
+
+		select {
+		case c.out() <- m:
+		case <-time.After(time.Second * 2):
+			c.stop()
+		}
 	}
 
 	go func() {
-		send := func(m interface{}) {
-			ch.out() <- m
-		}
-
-		stop := func() {
-			ch.setIsActive(false)
-			closeChanSafe(ch.sendc)
-			closeChanSafe(ch.stopc)
-			closeChanSafe(ch.out())
-		}
-
 		for {
 			select {
-			case m := <-ch.sendc:
+			case m := <-c.sendc:
 				go send(m)
-			case <-ch.stopc:
-				go stop()
+			case <-c.stopc:
 				return
 			}
 		}
 	}()
 
-	return ch
+	return c.out(), nil
+}
+
+func newChannel() *channel {
+	return &channel{
+		sendc:  make(chan interface{}),
+		stopc:  make(chan interface{}),
+		active: false,
+	}
 }
 
 func (c *channel) send(m interface{}) {
@@ -54,9 +71,16 @@ func (c *channel) send(m interface{}) {
 }
 
 func (c *channel) stop() {
-	if c.isActive() {
-		c.stopc <- struct{}{}
+	if !c.isActive() {
+		return
 	}
+
+	c.stopc <- struct{}{} // stop run()
+	c.setIsActive(false)  // set inactive so we don't forward messages anymore
+	c.Lock()
+	closeChanSafe(c.ch) // close output channel
+	c.ch = nil          // and remove it
+	c.Unlock()
 }
 
 func (c *channel) isActive() bool {
@@ -77,4 +101,14 @@ func (c *channel) out() chan interface{} {
 	defer c.Unlock()
 
 	return c.ch
+}
+
+func closeChanSafe(c chan interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			// tried to close c, which was already closed.
+		}
+	}()
+
+	close(c)
 }

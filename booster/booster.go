@@ -299,7 +299,7 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 			}
 			node := Nets.Get(b.ID).LocalNode
 			if err := b.UpdateNode(node, &tm, true); err != nil {
-				b.Print("booster: %v", err)
+				b.Printf("booster: %v", err)
 			}
 		}
 

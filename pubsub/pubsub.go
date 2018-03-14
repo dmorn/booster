@@ -62,7 +62,12 @@ func (ps *PubSub) Sub(tname string) (chan interface{}, error) {
 		return nil, errors.New("pubsub: too many subscribers")
 	}
 
-	return ch.out(), nil
+	c, err := ch.run()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // Unsub removes c from the list of subscribed channels of topic.
@@ -87,9 +92,10 @@ func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
 
 		ch.stop()
 		t.chs[i] = nil
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("pubsub: unable to unsub: channel with topic %v not found", topic)
 }
 
 // Close removes a topic and closes its related channels.
@@ -168,14 +174,4 @@ func hash(images ...string) string {
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func closeChanSafe(c chan interface{}) {
-	defer func() {
-		if r := recover(); r != nil {
-			// tried to close c, which was already closed.
-		}
-	}()
-
-	close(c)
 }
