@@ -1,5 +1,7 @@
 // Package provides the higher interface for dealing with booster instances
 // that follow the booster protocol. It wraps togheter node, proxy, network.
+package booster
+
 import (
 	"context"
 	"crypto/sha1"

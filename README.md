@@ -172,3 +172,4 @@ Flags:
 ## Booster protocol specification (todo)
 
 ## Connecting through bluetooth (todo)
+[ssh into Android device](https://wiki.termux.com/wiki/SSH)

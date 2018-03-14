@@ -83,11 +83,11 @@ func EncodePayloadDisconnect(id string) ([]byte, error) {
 }
 
 type PayloadNode struct {
-	ID      string
-	BAddr   string
-	PAddr   string
-	Active  bool
-	Tunnels []*Tunnel
+	ID      string    `json:"id"`
+	BAddr   string    `json:"baddr"`
+	PAddr   string    `json:"paddr"`
+	Active  bool      `json:"active"`
+	Tunnels []*Tunnel `json:"tunnels"`
 }
 
 func (n *PayloadNode) String() string {
@@ -114,10 +114,10 @@ func (n *PayloadNode) String() string {
 }
 
 type Tunnel struct {
-	ID     string
-	Target string
-	Acks   int
-	Copies int
+	ID     string `json:"id"`
+	Target string `json:"target"`
+	Acks   int    `json:"acks"`
+	Copies int    `json:"copies"`
 }
 
 func (t *Tunnel) String() string {
