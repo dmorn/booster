@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/danielmorandini/booster/protocol/internal"
@@ -11,40 +13,6 @@ import (
 type PayloadHello struct {
 	BPort string
 	PPort string
-}
-
-type PayloadConnect struct {
-	Target string
-}
-
-type PayloadDisconnect struct {
-	ID string
-}
-
-type Tunnel struct {
-	ID     string
-	Target string
-	Acks   int
-	Copies int
-}
-
-type PayloadNode struct {
-	ID      string
-	BAddr   string
-	PAddr   string
-	Active  bool
-	Tunnels []*Tunnel
-}
-
-type PayloadHeartbeat struct {
-	ID   string
-	Hops int
-	TTL  time.Time
-}
-
-type PayloadTunnelEvent struct {
-	Target string
-	Event  int
 }
 
 func DecodePayloadHello(p []byte) (*PayloadHello, error) {
@@ -68,6 +36,10 @@ func EncodePayloadHello(bport, pport string) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
+type PayloadConnect struct {
+	Target string
+}
+
 func DecodePayloadConnect(p []byte) (*PayloadConnect, error) {
 	payload := new(internal.PayloadConnect)
 	if err := proto.Unmarshal(p, payload); err != nil {
@@ -87,6 +59,10 @@ func EncodePayloadConnect(target string) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
+type PayloadDisconnect struct {
+	ID string
+}
+
 func DecodePayloadDisconnect(p []byte) (*PayloadDisconnect, error) {
 	payload := new(internal.PayloadDisconnect)
 	if err := proto.Unmarshal(p, payload); err != nil {
@@ -104,6 +80,52 @@ func EncodePayloadDisconnect(id string) ([]byte, error) {
 	}
 
 	return proto.Marshal(p)
+}
+
+type PayloadNode struct {
+	ID      string
+	BAddr   string
+	PAddr   string
+	Active  bool
+	Tunnels []*Tunnel
+}
+
+func (n *PayloadNode) String() string {
+	var b strings.Builder
+	b.WriteString("{\n")
+
+	id := string([]byte(n.ID)[:10])
+	b.WriteString(fmt.Sprintf("\tid: %v active: %v\n", id, n.Active))
+	b.WriteString(fmt.Sprintf("\tba: %v pa: %v\n", n.BAddr, n.PAddr))
+	b.WriteString("\ttunnels:\n")
+	b.WriteString("\t[")
+	if len(n.Tunnels) == 0 {
+		b.WriteString("]")
+	} else {
+		b.WriteString("\n")
+		for _, t := range n.Tunnels {
+			b.WriteString(fmt.Sprintf("\t\t%v\n", t))
+		}
+		b.WriteString("\t]")
+	}
+	b.WriteString("\n}\n")
+
+	return b.String()
+}
+
+type Tunnel struct {
+	ID     string
+	Target string
+	Acks   int
+	Copies int
+}
+
+func (t *Tunnel) String() string {
+	id := string([]byte(t.ID)[:10])
+	return fmt.Sprintf(
+		"{id: %v target: %v acks: %v copies %v}",
+		id, t.Target, t.Acks, t.Copies,
+	)
 }
 
 func DecodePayloadNode(p []byte) (*PayloadNode, error) {
@@ -157,6 +179,12 @@ func EncodePayloadNode(node *PayloadNode) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
+type PayloadHeartbeat struct {
+	ID   string
+	Hops int
+	TTL  time.Time
+}
+
 func DecodePayloadHeartbeat(p []byte) (*PayloadHeartbeat, error) {
 	payload := new(internal.PayloadHeartbeat)
 	if err := proto.Unmarshal(p, payload); err != nil {
@@ -188,6 +216,11 @@ func EncodePayloadHeartbeat(h *PayloadHeartbeat) ([]byte, error) {
 	}
 
 	return proto.Marshal(p)
+}
+
+type PayloadTunnelEvent struct {
+	Target string
+	Event  int
 }
 
 func DecodePayloadTunnelEvent(p []byte) (*PayloadTunnelEvent, error) {
