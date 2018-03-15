@@ -254,8 +254,8 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return nil, err
 	}
 
-	// compose the notify packet which tells the reveiver to start sending
-	// information about its proxy tunnels
+	// compose the notify packet which tells the receiver to start sending
+	// information notifications when its state changes
 	p := packet.New()
 	enc := protocol.EncodingProtobuf
 	h, err := protocol.TunnelNotifyHeader()
