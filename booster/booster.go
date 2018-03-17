@@ -111,7 +111,7 @@ func New(pport, bport int) (*Booster, error) {
 	b.PubSub = pubsub
 	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
-	b.HeartbeatTTL = time.Second * 4
+	b.HeartbeatTTL = time.Second * 5
 	b.DialTimeout = time.Second * 4
 
 	return b, nil

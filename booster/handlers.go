@@ -77,7 +77,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	}
 
 	if err := ValidatePacket(p); err != nil {
-		fail(fmt.Errorf("booster: connect: %v", err))
+		fail(err)
 		return
 	}
 
