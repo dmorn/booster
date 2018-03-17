@@ -226,6 +226,9 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 		return
 	}
 
+	// do not trace this node as it was manually disconnected
+	c.RemoteNode.ToBeTraced = false
+
 	// perform the actual disconnection
 	if err = c.Close(); err != nil {
 		fail(err)

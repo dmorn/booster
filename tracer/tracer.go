@@ -50,9 +50,10 @@ type Tracer struct {
 	PubSub
 	*log.Logger
 
-	refreshc chan struct{}
-	stopc    chan struct{}
-	conns    map[string]Pinger
+	refreshc    chan struct{}
+	stopc       chan struct{}
+	conns       map[string]Pinger
+	RefreshRate time.Duration
 
 	sync.Mutex
 	status int
@@ -63,25 +64,19 @@ type Message struct {
 	Err error
 }
 
-// New returns a new instance of Tracer. Calls Run before returning.
-func New(lg *log.Logger, ps PubSub) *Tracer {
+// New returns a new instance of Tracer.
+func New() *Tracer {
 	t := &Tracer{
-		Logger:   lg,
-		PubSub:   ps,
-		conns:    make(map[string]Pinger),
-		refreshc: make(chan struct{}),
-		stopc:    make(chan struct{}),
-		status:   StatusStopped,
+		Logger:      log.New(os.Stdout, "TRACER   ", log.LstdFlags),
+		PubSub:      pubsub.New(),
+		conns:       make(map[string]Pinger),
+		refreshc:    make(chan struct{}),
+		stopc:       make(chan struct{}),
+		status:      StatusStopped,
+		RefreshRate: time.Second * 4,
 	}
-	t.Run()
 
 	return t
-}
-
-// NewDefault instantiates a new Tracer with default pubsub and logger.
-func NewDefault() *Tracer {
-	log := log.New(os.Stdout, "", log.LstdFlags)
-	return New(log, pubsub.New())
 }
 
 // Run makes the tracer listen for refresh calls and perform ping operations
@@ -128,13 +123,21 @@ func (t *Tracer) Run() error {
 					cancel()
 				}
 				return
-			case <-time.After(2 * time.Second):
+			case <-time.After(t.RefreshRate):
 				refresh()
 			}
 		}
 	}()
 
 	return nil
+}
+
+func (t *Tracer) Notify() (chan interface{}, error) {
+	return t.Sub(TopicConnDiscovered)
+}
+
+func (t *Tracer) StopNotifying(c chan interface{}) {
+	t.Unsub(c, TopicConnDiscovered)
 }
 
 // Trace makes the tracer keep track of the entity at addr.

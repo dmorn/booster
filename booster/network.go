@@ -1,6 +1,7 @@
 package booster
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/pubsub"
 	"github.com/danielmorandini/booster/socks5"
+	"github.com/danielmorandini/booster/tracer"
 )
 
 const TopicNodes = "topic_nodes"
@@ -51,6 +53,7 @@ func (n Networks) Set(id string, net *Network) {
 type Network struct {
 	*log.Logger
 	PubSub
+	*tracer.Tracer
 
 	boosterID string
 	IOTimeout time.Duration
@@ -64,10 +67,75 @@ func NewNet(n *node.Node, boosterID string) *Network {
 	return &Network{
 		Logger:    log.New(os.Stdout, "NETWORK  ", log.LstdFlags),
 		PubSub:    pubsub.New(),
+		Tracer:    tracer.New(),
 		LocalNode: n,
 		boosterID: boosterID,
 		IOTimeout: 2 * time.Second,
 		Conns:     make(map[string]*Conn),
+	}
+}
+
+func (n *Network) TraceNodes(ctx context.Context) error {
+	if err := n.Tracer.Run(); err != nil {
+		return fmt.Errorf("booster: trace nodes: %v", err)
+	}
+
+	errc := make(chan error)
+	stream, err := n.Tracer.Notify()
+	if err != nil {
+		return fmt.Errorf("booster: trace nodes: %v", err)
+	}
+
+	b, err := New(1111, 1111)
+	if err != nil {
+		return fmt.Errorf("network: tracer: %v", err)
+	}
+
+	go func() {
+		for i := range stream {
+			m, ok := i.(tracer.Message)
+			if !ok {
+				errc <- fmt.Errorf("booster: unable to recognise tracer message %v", m)
+				return
+			}
+
+			// means that the device is still offline.
+			if m.Err != nil {
+				continue
+			}
+
+			// find connection
+			c, ok := n.Conns[m.ID]
+			if !ok {
+				n.Printf("booster: tracer: found unresolved id: %v", m.ID)
+				n.Untrace(m.ID)
+				continue
+			}
+
+			// reconnect to it
+			from := n.LocalNode.BAddr.String()
+			to := c.RemoteNode.BAddr.String()
+			if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
+				// the node is up but we cannot open a proper Booster connection
+				// to it.
+				n.Print(err)
+				continue
+			}
+
+			// do not trace this node anymore, as we managed to connect to it.
+			n.Untrace(m.ID)
+		}
+
+		errc <- nil
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		n.Tracer.StopNotifying(stream)
+		<-errc
+		return ctx.Err()
 	}
 }
 
@@ -258,6 +326,9 @@ func (c *Conn) Close() error {
 	}
 
 	n.Pub(c.RemoteNode, TopicNodes)
+	if err := n.Trace(c.RemoteNode); err != nil {
+		return err
+	}
 
 	return nil
 }

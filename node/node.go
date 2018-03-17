@@ -12,10 +12,11 @@ import (
 
 // Node represents a remote booster node.
 type Node struct {
-	id      string
-	BAddr   net.Addr
-	PAddr   net.Addr
-	isLocal bool
+	id         string
+	BAddr      net.Addr
+	PAddr      net.Addr
+	isLocal    bool
+	ToBeTraced bool
 
 	sync.Mutex
 	stop    chan struct{}
@@ -42,6 +43,7 @@ func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	n.stop = make(chan struct{})
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
 	n.isLocal = isLocal
+	n.ToBeTraced = true
 
 	return n, nil
 }

@@ -123,7 +123,7 @@ func (b *Booster) Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errc := make(chan error, 3)
+	errc := make(chan error, 4)
 	_, pport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.PAddr.String())
 	_, bport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.BAddr.String())
 	pp, _ := strconv.Atoi(pport)
@@ -145,6 +145,12 @@ func (b *Booster) Run() error {
 	go func() {
 		wg.Add(1)
 		errc <- b.UpdateRoot(ctx)
+		wg.Done()
+	}()
+
+	go func() {
+		wg.Add(1)
+		errc <- Nets.Get(b.ID).TraceNodes(ctx)
 		wg.Done()
 	}()
 
