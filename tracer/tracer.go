@@ -172,7 +172,6 @@ func (t *Tracer) Untrace(id string) {
 }
 
 func (t *Tracer) refresh() {
-	t.Printf("tracer: refreshing. connections monitored: %v", len(t.conns))
 	t.refreshc <- struct{}{}
 }
 
