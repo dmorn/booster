@@ -43,7 +43,7 @@ func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	n.stop = make(chan struct{})
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
 	n.isLocal = isLocal
-	n.ToBeTraced = true
+	n.ToBeTraced = false
 
 	return n, nil
 }

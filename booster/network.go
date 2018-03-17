@@ -326,8 +326,10 @@ func (c *Conn) Close() error {
 	}
 
 	n.Pub(c.RemoteNode, TopicNodes)
-	if err := n.Trace(c.RemoteNode); err != nil {
-		return err
+	if c.RemoteNode.ToBeTraced {
+		if err := n.Trace(c.RemoteNode); err != nil {
+			return err
+		}
 	}
 
 	return nil

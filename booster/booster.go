@@ -70,6 +70,7 @@ type Booster struct {
 	Netconfig    network.Config
 	stop         chan struct{}
 	HeartbeatTTL time.Duration
+	DialTimeout  time.Duration
 }
 
 // New creates a new configured booster node. Creates a network configuration
@@ -111,6 +112,7 @@ func New(pport, bport int) (*Booster, error) {
 	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
 	b.HeartbeatTTL = time.Second * 4
+	b.DialTimeout = time.Second * 4
 
 	return b, nil
 }
@@ -229,6 +231,9 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 }
 
 func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, error) {
+	ctx, cancel := context.WithTimeout(ctx, b.DialTimeout)
+	defer cancel()
+
 	dialer := network.NewDialer(new(net.Dialer), b.Netconfig)
 	conn, err := dialer.DialContext(ctx, netwrk, addr)
 	if err != nil {
@@ -296,6 +301,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// set the connection as active
 	conn.RemoteNode.SetIsActive(true)
+	conn.RemoteNode.ToBeTraced = true
 
 	return conn, nil
 }

@@ -95,7 +95,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 
 	// check that we received the heartbeat message in time
 	if pl.TTL.Before(time.Now()) {
-		fail(fmt.Errorf("heartbeat message TTL expired: %v", pl.TTL))
+		fail(fmt.Errorf("heartbeat message TTL expired: TTL %v, Now %v", pl.TTL, time.Now()))
 		return
 	}
 
