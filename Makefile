@@ -9,7 +9,7 @@ IMPORT_PATH := github.com/danielmorandini/booster
 IGNORED_PACKAGES := /vendor/
 
 .PHONY: all
-all: booster
+all: booster proxy inspect-gateway
 
 .PHONY: booster
 booster: .GOPATH/.ok

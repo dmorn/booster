@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +14,10 @@ var startCmd = &cobra.Command{
 	Long:  `starts a booster proxy and node. Both are tcp servers, their listening port will be logged`,
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+
 		b, err := booster.New(pport, bport)
 		if err != nil {
 			fmt.Println(err)

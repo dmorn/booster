@@ -15,6 +15,10 @@ var inspectCmd = &cobra.Command{
 	Long:  `inspect listents (by default) on the local node for each node activity update, and logs it.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+
 		addr := "localhost:4884"
 		if len(args) == 1 {
 			addr = args[0]

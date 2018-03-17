@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +15,10 @@ var disconnectCmd = &cobra.Command{
 	Long:  `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+
 		addr := "localhost:4884"
 		id := ""
 		if len(args) == 2 {

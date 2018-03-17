@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/danielmorandini/booster/socks5"
+	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +15,10 @@ var startCmd = &cobra.Command{
 	Long:  ``,
 	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+
 		p := socks5.New(new(net.Dialer))
 
 		if err := p.Run(pport); err != nil {

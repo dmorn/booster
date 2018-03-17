@@ -52,6 +52,12 @@ func globals() globalState {
 	return state
 }
 
+func SetLevel(l Level) {
+	mu.RLock()
+	state.currentLevel = l
+	mu.RUnlock()
+}
+
 // Printf writes a formatted message to the log.
 func Printf(format string, v ...interface{}) {
 	Info.Printf(format, v...)
@@ -101,4 +107,21 @@ func (l *logger) Println(v ...interface{}) {
 	if g.defaultLogger != nil {
 		g.defaultLogger.Println(v...)
 	}
+}
+
+// Fatalf writes a formatted message to the log and aborts, regardless of the
+// current log level.
+func (l *logger) Fatalf(format string, v ...interface{}) {
+	g := globals()
+
+	if g.defaultLogger != nil {
+		g.defaultLogger.Fatalf(format, v...)
+	} else {
+		log.Fatalf(format, v...)
+	}
+}
+
+// Fatalf writes a formatted message to the log and aborts.
+func Fatalf(format string, v ...interface{}) {
+	Info.Fatalf(format, v...)
 }
