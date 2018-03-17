@@ -424,7 +424,7 @@ func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	}
 
 	pl.Hops++
-	pl.TTL = time.Now().Add(b.HeartbeatTTL / 2)
+	pl.TTL = time.Now().Add(b.HeartbeatTTL)
 
 	h, err := protocol.HeartbeatHeader()
 	if err != nil {

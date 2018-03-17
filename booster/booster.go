@@ -291,7 +291,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// start the timer that, when done, will close the connection if
 	// no heartbeat message is received in time
-	conn.HeartbeatTimer = time.AfterFunc(b.HeartbeatTTL, func() {
+	conn.HeartbeatTimer = time.AfterFunc(b.HeartbeatTTL*2, func() {
 		b.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)
 		conn.Close()
 	})
