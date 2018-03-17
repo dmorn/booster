@@ -15,6 +15,7 @@ var (
 var (
 	pport int
 	bport int
+	verbose bool
 )
 
 var rootCmd = &cobra.Command{
@@ -30,6 +31,7 @@ func Execute() {
 
 	// add commands
 	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd)
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {

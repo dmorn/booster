@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
@@ -65,7 +66,7 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 	bp := pl.BPort
 	host, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
-	b.Printf("booster: <- hello: %v %v-%v", host, pp, bp)
+	log.Info.Printf("booster: <- hello: %v %v-%v", host, pp, bp)
 
 	// create new node with the information collected
 	node, err := node.New(host, pp, bp, false)

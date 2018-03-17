@@ -1,4 +1,4 @@
-// Package provides the higher interface for dealing with booster instances
+// Package booster provides the higher interface for dealing with booster instances
 // that follow the booster protocol. It wraps togheter node, proxy, network.
 package booster
 
@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/node"
@@ -63,7 +63,6 @@ type SendCloser interface {
 type Booster struct {
 	ID string
 
-	*log.Logger
 	Proxy Proxy
 	PubSub
 
@@ -90,7 +89,6 @@ func New(pport, bport int) (*Booster, error) {
 
 	id := sha1Hash([]byte(strconv.Itoa(pport)), []byte(strconv.Itoa(bport)))
 	n := NewNet(rn, id)
-	log := log.New(os.Stdout, "BOOSTER  ", log.LstdFlags)
 	pubsub := pubsub.New()
 	dialer := node.NewDispatcher(n)
 	proxy := socks5.New(dialer)
@@ -106,7 +104,6 @@ func New(pport, bport int) (*Booster, error) {
 	Nets.Set(id, n)
 
 	b.ID = id
-	b.Logger = log
 	b.Proxy = proxy
 	b.PubSub = pubsub
 	b.Netconfig = netconfig
@@ -162,7 +159,7 @@ func (b *Booster) Run() error {
 		signal.Notify(c, os.Interrupt)
 
 		for sig := range c {
-			b.Printf("booster: signal (%v) received: exiting...", sig)
+			log.Info.Printf("booster: signal (%v) received: exiting...", sig)
 			b.Close()
 			return
 		}
@@ -197,7 +194,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 	defer ln.Close()
 
-	b.Printf("listening on port: %v", p)
+	log.Info.Printf("listening on port: %v", p)
 
 	errc := make(chan error)
 	defer close(errc)
@@ -278,7 +275,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return fail(err)
 	}
 
-	b.Printf("booster: -> wire: %v", target)
+	log.Info.Printf("booster: -> wire: %v", target)
 
 	// inject the heartbeat message in the connection
 	p, err = b.composeHeartbeat(nil)
@@ -292,7 +289,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	// start the timer that, when done, will close the connection if
 	// no heartbeat message is received in time
 	conn.HeartbeatTimer = time.AfterFunc(b.HeartbeatTTL*2, func() {
-		b.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)
+		log.Info.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)
 		conn.Close()
 	})
 
@@ -320,9 +317,10 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 				errc <- fmt.Errorf("unable to recognise workload message: %v", tm)
 				return
 			}
+
 			node := Nets.Get(b.ID).LocalNode
 			if err := b.UpdateNode(node, &tm, true); err != nil {
-				b.Printf("booster: %v", err)
+				log.Error.Printf("booster: %v", err)
 			}
 		}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ var inspectCmd = &cobra.Command{
 		}
 
 		for n := range stream {
-			b.Println(n)
+			log.Println(n)
 		}
 	},
 }

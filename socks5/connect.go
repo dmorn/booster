@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"net"
+
+	"github.com/danielmorandini/booster/log"
 )
 
 // connect dials a new connection with target, which must be a canonical
 // address with host and port.
 func (s *Socks5) Connect(ctx context.Context, conn net.Conn, target string) (net.Conn, error) {
-	s.Printf("connect to %v (%v)", target, sha1Hash([]byte(target)))
+	log.Debug.Printf("connect to %v (%v)", target, sha1Hash([]byte(target)))
 
 	// cap is just an estimation
 	buf := make([]byte, 0, 6+len(target))

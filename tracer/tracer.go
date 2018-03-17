@@ -5,12 +5,11 @@ package tracer
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
-	"os"
 	"sync"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/pubsub"
 )
 
@@ -48,7 +47,6 @@ type PubSub interface {
 // Tracer can monitor remote interfaces until they're up.
 type Tracer struct {
 	PubSub
-	*log.Logger
 
 	refreshc    chan struct{}
 	stopc       chan struct{}
@@ -67,7 +65,6 @@ type Message struct {
 // New returns a new instance of Tracer.
 func New() *Tracer {
 	t := &Tracer{
-		Logger:      log.New(os.Stdout, "TRACER   ", log.LstdFlags),
 		PubSub:      pubsub.New(),
 		conns:       make(map[string]Pinger),
 		refreshc:    make(chan struct{}),
@@ -142,7 +139,7 @@ func (t *Tracer) StopNotifying(c chan interface{}) {
 
 // Trace makes the tracer keep track of the entity at addr.
 func (t *Tracer) Trace(p Pinger) error {
-	t.Printf("tracer: tracing connection @ %v (%v)", p.Addr().String(), p.ID())
+	log.Debug.Printf("tracer: tracing connection @ %v (%v)", p.Addr().String(), p.ID())
 	t.conns[p.ID()] = p
 	t.refresh()
 
@@ -165,19 +162,20 @@ func (t *Tracer) setStatus(status int) {
 // Untrace removes the entity stored with id from the monitored
 // entities.
 func (t *Tracer) Untrace(id string) {
-	t.Printf("tracer: untracing connection %v", id)
+	log.Debug.Printf("tracer: untracing connection %v", id)
 
 	delete(t.conns, id)
 	t.refresh()
 }
 
 func (t *Tracer) refresh() {
+	log.Debug.Printf("tracer: refreshing. connections monitored: %v", len(t.conns))
 	t.refreshc <- struct{}{}
 }
 
 // Close makes the tracer pass from status running to status stopped.
 func (t *Tracer) Close() {
-	t.Printf("tracer: stopping.")
+	log.Debug.Printf("tracer: stopping.")
 	t.setStatus(StatusStopped)
 	t.stopc <- struct{}{}
 }

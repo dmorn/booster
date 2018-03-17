@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/pubsub"
 )
 
@@ -102,7 +101,6 @@ type Dialer interface {
 
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
-	*log.Logger
 	PubSub
 
 	ReadWriteTimeout time.Duration
@@ -118,14 +116,12 @@ type Socks5 struct {
 
 // SOCKS5 returns a new Socks5 instance with default logger and dialer.
 func New(d Dialer) *Socks5 {
-	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
 	ps := pubsub.New()
 
 	s := new(Socks5)
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.ChunkSize = 4 * 1024
 	s.Dialer = d
-	s.Logger = log
 	s.PubSub = ps
 	s.stop = make(chan struct{})
 
@@ -166,7 +162,7 @@ func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
 	}
 	defer ln.Close()
 
-	s.Printf("listening on port: %v", port)
+	log.Info.Printf("listening on port: %v", port)
 
 	errc := make(chan error)
 	defer close(errc)
@@ -495,7 +491,7 @@ func (s *Socks5) pub(event Event, target string) {
 	}
 
 	if err := s.Pub(tm, TopicTunnels); err != nil {
-		s.Printf("socks5: unable to publish message: %v", err)
+		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}
 }
 

@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
 )
 
 // SendHello composes and sends an hello packet trough conn.
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
-	b.Println("booster: -> hello")
+	log.Info.Println("booster: -> hello")
 
 	// create the modules
 	h, err := protocol.HelloHeader()
@@ -46,7 +47,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 //
 // Closes the connection when done.
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
-	b.Printf("booster: -> connect: %v", raddr)
+	log.Info.Println("booster: -> connect: %v", raddr)
 
 	conn, err := b.DialContext(ctx, network, laddr)
 	if err != nil {
@@ -106,7 +107,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 //
 // Closes the connection when done.
 func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
-	b.Printf("booster: -> disconnect: %v", id)
+	log.Info.Println("booster: -> disconnect: %v", id)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
@@ -163,7 +164,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 }
 
 func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *protocol.PayloadNode, error) {
-	b.Printf("booster: -> inspect: %v", addr)
+	log.Info.Println("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
@@ -201,7 +202,7 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 		}()
 
 		fail := func(err error) {
-			b.Printf("booster: inspect error: %v", err)
+			log.Error.Printf("booster: inspect error: %v", err)
 			conn.Close()
 		}
 
@@ -218,7 +219,7 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 			}
 			// take only node packets
 			if h.ID != protocol.MessageNode {
-				b.Printf("booster: inspect: discarding packet: unexpected header: %v", h)
+				log.Info.Printf("booster: inspect: discarding packet: unexpected header: %v", h)
 				continue
 			}
 

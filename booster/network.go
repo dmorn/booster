@@ -3,11 +3,10 @@ package booster
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"sync"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/node"
@@ -51,7 +50,6 @@ func (n Networks) Set(id string, net *Network) {
 // Network describes a booster network: a local node, connected to other booster nodes
 // using network.Conn as connector.
 type Network struct {
-	*log.Logger
 	PubSub
 	*tracer.Tracer
 
@@ -65,7 +63,6 @@ type Network struct {
 
 func NewNet(n *node.Node, boosterID string) *Network {
 	return &Network{
-		Logger:    log.New(os.Stdout, "NETWORK  ", log.LstdFlags),
 		PubSub:    pubsub.New(),
 		Tracer:    tracer.New(),
 		LocalNode: n,
@@ -107,7 +104,7 @@ func (n *Network) TraceNodes(ctx context.Context) error {
 			// find connection
 			c, ok := n.Conns[m.ID]
 			if !ok {
-				n.Printf("booster: tracer: found unresolved id: %v", m.ID)
+				log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
 				n.Untrace(m.ID)
 				continue
 			}
@@ -118,7 +115,7 @@ func (n *Network) TraceNodes(ctx context.Context) error {
 			if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
 				// the node is up but we cannot open a proper Booster connection
 				// to it.
-				n.Print(err)
+				log.Error.Print(err)
 				continue
 			}
 
@@ -210,7 +207,7 @@ func (n *Network) NodeOf(node *node.Node) (*node.Node, error) {
 // Ack finds the node in the network and acknoledges the tunnel labeled
 // with id. Publishes the node in TopicNodes.
 func (n *Network) Ack(node *node.Node, id string) error {
-	n.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
+	log.Debug.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
 
 	node, err := n.NodeOf(node)
 	if err != nil {
@@ -228,7 +225,7 @@ func (n *Network) Ack(node *node.Node, id string) error {
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
 // with id from it. Publishes the node in TopicNodes.
 func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
-	n.Printf("booster: removing (%v) on node (%v)", id, node.ID())
+	log.Debug.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
 	node, err := n.NodeOf(node)
 	if err != nil {
@@ -257,7 +254,7 @@ func (n *Network) AddTunnel(node *node.Node, target string) {
 		n.AddTunnel(n.LocalNode, target)
 	}
 
-	n.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
+	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
 
 	node.AddTunnel(target)
 	n.Pub(node, TopicNodes)
@@ -285,7 +282,6 @@ func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoled
 func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn {
 	return &Conn{
 		Conn:       conn,
-		Logger:     n.Logger,
 		RemoteNode: node,
 		ID:         id,
 		boosterID:  n.boosterID,
@@ -296,7 +292,6 @@ func (n *Network) NewConn(conn *network.Conn, node *node.Node, id string) *Conn 
 // Conn adds an identifier and a convenient RemoteNode field to a bare network.Conn.
 type Conn struct {
 	*network.Conn
-	*log.Logger
 
 	ID             string // ID is usually the remoteNode identifier.
 	boosterID      string
@@ -308,7 +303,7 @@ type Conn struct {
 // Close closes the connection and sets the status of the remote node
 // to inactive and removes the connection from the network.
 func (c *Conn) Close() error {
-	c.Printf("network: closing conn (%v)", c.ID)
+	log.Debug.Printf("network: closing conn (%v)", c.ID)
 
 	if c.Conn == nil {
 		return fmt.Errorf("network: connection is closed")

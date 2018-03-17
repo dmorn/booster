@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
@@ -16,7 +17,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	pkts, err := conn.Consume()
 	if err != nil {
 		conn.Close()
-		b.Printf("booster: unable to consume conn: %v", err)
+		log.Error.Printf("booster: unable to consume conn: %v", err)
 		return
 	}
 
@@ -41,7 +42,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 			if bc, ok := conn.(*Conn); ok {
 				b.HandleTunnel(ctx, bc, p)
 			} else {
-				b.Println("booster: discarding packet: this connection cannot tunnel packets")
+				log.Info.Printf("booster: discarding packet: this connection cannot tunnel packets")
 			}
 		case protocol.MessageNotify:
 			go b.ServeStatus(ctx, conn)
@@ -58,7 +59,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 
 	for p := range pkts {
 		if err := handler(p); err != nil {
-			b.Println(err)
+			log.Error.Println(err)
 			conn.Close()
 			return
 		}
@@ -72,7 +73,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 // Closes the connection in case of any kind of failure.
 func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	fail := func(err error) {
-		b.Printf("booster: heartbeat error: %v", err)
+		log.Error.Printf("booster: heartbeat error: %v", err)
 		conn.Close()
 	}
 
@@ -107,7 +108,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	// wait until ttl finishes & reset the timer
 	<-time.After(pl.TTL.Sub(time.Now()))
 	if c, ok := conn.(*Conn); ok {
-		c.HeartbeatTimer.Reset(b.HeartbeatTTL*2)
+		c.HeartbeatTimer.Reset(b.HeartbeatTTL * 2)
 	}
 
 	// compose a new heartbeat message
@@ -141,7 +142,7 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	}()
 
 	fail := func(err error) {
-		b.Printf("booster: connect error: %v", err)
+		log.Error.Printf("booster: connect error: %v", err)
 	}
 
 	if err := ValidatePacket(p); err != nil {
@@ -168,7 +169,7 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 		return
 	}
 
-	b.Printf("booster: <- connect: %v", pl.Target)
+	log.Info.Printf("booster: <- connect: %v", pl.Target)
 
 	// send back a node packet with the info about the
 	// newly connected node
@@ -196,7 +197,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	}()
 
 	fail := func(err error) {
-		b.Printf("booster: disconnect error: %v", err)
+		log.Error.Printf("booster: disconnect error: %v", err)
 	}
 
 	if err := ValidatePacket(p); err != nil {
@@ -217,7 +218,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 		return
 	}
 
-	b.Printf("booster: <- disconnect: %v", pl.ID)
+	log.Info.Printf("booster: <- disconnect: %v", pl.ID)
 
 	// retrieve the connection we're trying to disconnect from
 	c, ok := Nets.Get(b.ID).Conns[pl.ID]
@@ -253,7 +254,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet) {
 	// TODO: add some more information to the errors printed.
 	fail := func(err error) {
-		b.Printf("booster: tunnel error: %v", err)
+		log.Error.Printf("booster: tunnel error: %v", err)
 	}
 
 	if err := ValidatePacket(p); err != nil {
@@ -274,7 +275,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 		return
 	}
 
-	b.Printf("booster: <- tunnel: %v", pl)
+	log.Info.Printf("booster: <- tunnel: %v", pl)
 
 	tm := &socks5.TunnelMessage{
 		Target: pl.Target,
@@ -289,10 +290,10 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 // ServeStatus listens on the local proxy for tunnel events, sending then them though the
 // connection. In case of error closes the connection.
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
-	b.Println("booster: <- status...")
+	log.Info.Print("booster: <- status...")
 
 	fail := func(err error) {
-		b.Printf("booster: serve status error: %v", err)
+		log.Error.Printf("booster: serve status error: %v", err)
 		conn.Close()
 	}
 
@@ -337,7 +338,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			return
 		}
 
-		b.Printf("booster: -> tunnel update: %v", tm)
+		log.Info.Printf("booster: -> tunnel update: %v", tm)
 
 		if err = conn.Send(p); err != nil {
 			fail(err)
@@ -347,10 +348,10 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 }
 
 func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
-	b.Println("booster: <- serving inspect...")
+	log.Info.Print("booster: <- serving inspect...")
 
 	fail := func(err error) {
-		b.Printf("booster: serve inspect error: %v", err)
+		log.Error.Printf("booster: serve inspect error: %v", err)
 		conn.Close()
 	}
 

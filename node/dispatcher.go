@@ -3,11 +3,10 @@ package node
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
-	"os"
 	"time"
 
+	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/socks5"
 	"golang.org/x/net/proxy"
 )
@@ -30,8 +29,6 @@ type FallbackDialer interface {
 
 // Dispatcher implements the DialContext method.
 type Dispatcher struct {
-	*log.Logger
-
 	Noder
 	Fallback FallbackDialer
 }
@@ -40,7 +37,6 @@ type Dispatcher struct {
 // list of node is required.
 func NewDispatcher(n Noder) *Dispatcher {
 	d := new(Dispatcher)
-	d.Logger = log.New(os.Stdout, "DISPTCR  ", log.LstdFlags)
 	d.Noder = n
 
 	d.Fallback = &net.Dialer{
@@ -57,7 +53,7 @@ func (d *Dispatcher) nodeFinderFunc() func() (*Node, error) {
 
 	return func() (*Node, error) {
 		if len(ids) > 0 {
-			d.Printf("dialer: dialed with nodes: %+v", ids)
+			log.Debug.Printf("dialer: dialed with nodes: %+v", ids)
 		}
 
 		n, err := d.GetNodeBalanced(ids...)
@@ -144,11 +140,11 @@ func isIn(id string, ids ...string) bool {
 
 func (d *Dispatcher) dialerForNode(node *Node) (socks5.Dialer, error) {
 	if node.isLocal {
-		d.Printf("dialer: using local gateway")
+		log.Debug.Printf("dialer: using local gateway")
 		return d.Fallback, nil
 	}
 
-	d.Printf("dialer: using SOCKS5 gateway @ %v", node.PAddr.String())
+	log.Debug.Printf("dialer: using SOCKS5 gateway @ %v", node.PAddr.String())
 	return newSocks5Dialer(d.Fallback, node.PAddr.Network(), node.PAddr.String())
 }
 
@@ -166,7 +162,7 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 	i := 0
 	for {
 		i += 1
-		d.Printf("dialer: iteration (%v): to %v", i, addr)
+		log.Debug.Printf("dialer: iteration (%v): to %v", i, addr)
 
 		// first get a dialer
 		dialer, err := d.dialerForNode(node)
