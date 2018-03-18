@@ -47,7 +47,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 //
 // Closes the connection when done.
 func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (string, error) {
-	log.Info.Println("booster: -> connect: %v", raddr)
+	log.Info.Printf("booster: -> connect: %v", raddr)
 
 	conn, err := b.DialContext(ctx, network, laddr)
 	if err != nil {
@@ -107,7 +107,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 //
 // Closes the connection when done.
 func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) error {
-	log.Info.Println("booster: -> disconnect: %v", id)
+	log.Info.Printf("booster: -> disconnect: %v", id)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {

@@ -42,7 +42,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 			if bc, ok := conn.(*Conn); ok {
 				b.HandleTunnel(ctx, bc, p)
 			} else {
-				log.Info.Printf("booster: discarding packet: this connection cannot tunnel packets")
+				log.Info.Print("booster: discarding packet: this connection cannot tunnel packets")
 			}
 		case protocol.MessageNotify:
 			go b.ServeStatus(ctx, conn)
