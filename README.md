@@ -96,11 +96,11 @@ Available Commands:
   version     prints booster version
 
 Flags:
-  -h, --help   help for booster
+  -h, --help      help for booster
+  -v, --verbose   verbose output
 
 Use "booster [command] --help" for more information about a command.
 ```
----
 ```
 $ booster help version
 
@@ -112,7 +112,6 @@ Usage:
 Flags:
   -h, --help   help for version
 ```
----
 ```
 $ booster help start
 
@@ -126,7 +125,6 @@ Flags:
   -h, --help        help for start
       --pport int   proxy listening port (default 1080)
 ```
----
 ```
 $ booster help connect
 
@@ -135,13 +133,14 @@ an external node to itself. Returns the added node identifier if successfull. Yo
 the 'inspect' command to monitor node activity.
 
 Usage:
-  booster connect [host:port] [flags]
+  booster connect [host:port -- optional] [host:port] [flags]
 
 Flags:
-  -b, --baddr string   booster address (default ":4884")
-  -h, --help           help for connect
+  -h, --help   help for connect
+
+Global Flags:
+  -v, --verbose   verbose output
 ```
----
 ```
 $ booster help disconnect
 
@@ -149,24 +148,27 @@ disconnect aks (by default) the local node to perform the necessary steps requir
 completely a node from itself.
 
 Usage:
-  booster disconnect [id] [flags]
+  booster disconnect [host:port -- optional] [node_id] [flags]
 
 Flags:
-  -b, --baddr string   booster address (default ":4884")
-  -h, --help           help for disconnect
+  -h, --help   help for disconnect
+
+Global Flags:
+  -v, --verbose   verbose output
 ```
----
 ```
 $ booster help inspect
 
 inspect listents (by default) on the local node for each node activity update, and logs it.
 
 Usage:
-  booster inspect [flags]
+  booster inspect [host:port -- optional] [flags]
 
 Flags:
-  -b, --baddr string   booster address (default ":4884")
-  -h, --help           help for inspect
+  -h, --help   help for inspect
+
+Global Flags:
+  -v, --verbose   verbose output
 ```
 
 ## Booster protocol specification (todo)
