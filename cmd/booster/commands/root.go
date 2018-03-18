@@ -13,8 +13,8 @@ var (
 )
 
 var (
-	pport int
-	bport int
+	pport   int
+	bport   int
 	verbose bool
 )
 

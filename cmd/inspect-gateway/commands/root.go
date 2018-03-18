@@ -15,7 +15,7 @@ var (
 var (
 	pport       int
 	bport       int
-	verbose bool
+	verbose     bool
 	apiEndpoint string
 )
 

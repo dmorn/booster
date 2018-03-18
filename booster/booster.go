@@ -194,7 +194,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 	defer ln.Close()
 
-	log.Info.Printf("listening on port: %v", p)
+	log.Info.Printf("booster: listening on port: %v", p)
 
 	errc := make(chan error)
 	defer close(errc)

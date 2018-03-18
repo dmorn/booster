@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/danielmorandini/booster/socks5"
 	"github.com/danielmorandini/booster/log"
+	"github.com/danielmorandini/booster/socks5"
 	"github.com/spf13/cobra"
 )
 

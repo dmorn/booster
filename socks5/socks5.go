@@ -162,7 +162,7 @@ func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
 	}
 	defer ln.Close()
 
-	log.Info.Printf("listening on port: %v", port)
+	log.Info.Printf("socks5: listening on port: %v", port)
 
 	errc := make(chan error)
 	defer close(errc)
