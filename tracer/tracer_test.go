@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/danielmorandini/booster/tracer"
 )
@@ -42,7 +43,11 @@ func (p *pg) Ping(ctx context.Context) error {
 }
 
 func TestRun(t *testing.T) {
-	tr := tracer.NewDefault()
+	tr := tracer.New()
+
+	if err := tr.Run(); err != nil {
+		t.Fatal(err)
+	}
 	if tr.Status() != tracer.StatusRunning {
 		t.Fatalf("unexpected tracer status: found %v, expected %v", tr.Status(), tracer.StatusRunning)
 	}
@@ -58,16 +63,21 @@ func TestRun(t *testing.T) {
 }
 
 func TestTrace(t *testing.T) {
-	tr := tracer.NewDefault()
+	tr := tracer.New()
+	tr.RefreshRate = time.Millisecond
+
+	if err := tr.Run(); err != nil {
+		t.Fatal(err)
+	}
 	p := &pg{shouldFail: false, id: "fake"} // it looks like the host is up
 
 	if err := tr.Trace(p); err != nil {
 		t.Fatal(err)
 	}
 
-	stream, _ := tr.Sub(tracer.TopicConnDiscovered)
+	stream, _ := tr.Notify()
 	defer func() {
-		tr.Unsub(stream, tracer.TopicConnDiscovered)
+		tr.StopNotifying(stream)
 	}()
 
 	i := <-stream
