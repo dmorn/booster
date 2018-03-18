@@ -1,3 +1,5 @@
+// Package packet provides functionalities for building, encoding
+// and decoding data.
 package packet
 
 import (

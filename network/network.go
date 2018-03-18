@@ -1,3 +1,5 @@
+// Package network provides a protable interface for network I/O, constraining
+// its usage allowing only to send & receive data in a packet format.
 package network
 
 import (

@@ -1,3 +1,5 @@
+// Package node provides functionalities for handling remote nodes and dispatching
+// connections through them.
 package node
 
 import (

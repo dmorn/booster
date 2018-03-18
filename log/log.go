@@ -1,3 +1,4 @@
+// Package log implements a simple leveled logging interface.
 package log
 
 import (
