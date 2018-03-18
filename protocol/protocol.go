@@ -1,16 +1,22 @@
+// Package protocol provides functionalities to create payloads and compose packet
+// that conform to the booster protocol.
 package protocol
 
+// Booster protocol version
 const Version = "v0.1.0"
 
+// Possible encodings
 const (
 	EncodingProtobuf uint8 = 1
 )
 
+// Module Identifiers
 const (
 	ModuleHeader  string = "HE"
 	ModulePayload        = "PA"
 )
 
+// Tags used in the encoding and decoding of packets.
 const (
 	PacketOpeningTag  = ">"
 	PacketClosingTag  = "<"
@@ -19,6 +25,7 @@ const (
 	Separator         = ":"
 )
 
+// Booster possible packet messages
 const (
 	MessageHello      int32 = 0
 	MessageConnect          = 1
@@ -30,6 +37,7 @@ const (
 	MessageInspect          = 7
 )
 
+// Tunnel operations
 const (
 	TunnelAck    int32 = 0
 	TunnelRemove       = 1
