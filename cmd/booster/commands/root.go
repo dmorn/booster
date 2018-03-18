@@ -8,32 +8,30 @@ import (
 )
 
 var (
-	Version string
+	Version   string
 	BuildTime string
 )
 
 var (
 	pport int
 	bport int
-	boosterAddr string
+	verbose bool
 )
 
 var rootCmd = &cobra.Command{
-	Use: "booster",
+	Use:   "booster",
 	Short: "booster is a peer-to-peer network interface balancer",
-	Long: `booster creates a network of peer nodes, each of them with an active Internet connection, balancing the network usage between their interfaces`,
+	Long:  `booster creates a network of peer nodes, each of them with an active Internet connection, balancing the network usage between their interfaces`,
 }
 
 func Execute() {
 	// parse flags
 	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
-	connectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
-	disconnectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
-	inspectCmd.Flags().StringVarP(&boosterAddr, "baddr", "b", ":4884", "booster address")
 
 	// add commands
 	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd)
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// execute
 	if err := rootCmd.Execute(); err != nil {

@@ -1,0 +1,18 @@
+syntax = "proto3";
+package internal;
+
+import "google/protobuf/timestamp.proto";
+
+message Header {
+	// id is the header identifier. Example: Hello message (represented as int).
+	int32 id = 1;
+
+	// modules contains the ids of the other modules present in the package.
+	repeated string modules = 2;
+
+	// sentAt tells when the message was send.
+	google.protobuf.Timestamp sentAt = 3;
+
+	// protocolVersion used by the packet.
+	string protocolVersion = 4;
+}

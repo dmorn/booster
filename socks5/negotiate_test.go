@@ -3,7 +3,7 @@ package socks5_test
 import (
 	"testing"
 
-	"github.com/danielmorandini/booster-network/socks5"
+	"github.com/danielmorandini/booster/socks5"
 )
 
 func TestNegotiate(t *testing.T) {

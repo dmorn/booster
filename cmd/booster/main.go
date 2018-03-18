@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/danielmorandini/booster-network/cmd/booster/commands"
+	"github.com/danielmorandini/booster/cmd/booster/commands"
 )
 
 // Version and BuildTime are filled in during build by the Makefile

@@ -1,7 +1,7 @@
 # The import path is where your repository can be found.
 # To import subpackages, always prepend the full import path.
 # If you change this, run `make clean`. Read more: https://git.io/vM7zV
-IMPORT_PATH := github.com/danielmorandini/booster-network
+IMPORT_PATH := github.com/danielmorandini/booster
 
 # V := 1 # When V is set, print commands and build progress.
 
@@ -9,20 +9,19 @@ IMPORT_PATH := github.com/danielmorandini/booster-network
 IGNORED_PACKAGES := /vendor/
 
 .PHONY: all
-all: build
+all: booster proxy inspect-gateway
 
-.PHONY: build
-build: .GOPATH/.ok
+.PHONY: booster
+booster: .GOPATH/.ok
 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/booster
 
-### Code not in the repository root? Another binary? Add to the path like this.
-# .PHONY: otherbin
-# otherbin: .GOPATH/.ok
-# 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/otherbin
+.PHONY: proxy
+proxy: .GOPATH/.ok
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/socks5
 
-##### ^^^^^^ EDIT ABOVE ^^^^^^ #####
-
-##### =====> Utility targets <===== #####
+.PHONY: inspect-gateway
+inspect-gateway: .GOPATH/.ok
+	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/inspect-gateway
 
 .PHONY: clean test list cover format
 
@@ -30,14 +29,14 @@ clean:
 	$Q rm -rf bin .GOPATH
 
 test: .GOPATH/.ok
-	$Q go test $(if $V,-v) -i -race $(allpackages) # install -race libs to speed up next run
+	$Q go test $(if $V,-v) -i $(allpackages) # install -race libs to speed up next run
 ifndef CI
 	$Q go vet $(allpackages)
-	$Q GODEBUG=cgocheck=2 go test -race $(allpackages)
+	$Q GODEBUG=cgocheck=2 go test $(allpackages)
 else
 	$Q ( go vet $(allpackages); echo $$? ) | \
 	    tee .GOPATH/test/vet.txt | sed '$$ d'; exit $$(tail -1 .GOPATH/test/vet.txt)
-	$Q ( GODEBUG=cgocheck=2 go test -v -race $(allpackages); echo $$? ) | \
+	$Q ( GODEBUG=cgocheck=2 go test -v $(allpackages); echo $$? ) | \
 	    tee .GOPATH/test/output.txt | sed '$$ d'; exit $$(tail -1 .GOPATH/test/output.txt)
 endif
 

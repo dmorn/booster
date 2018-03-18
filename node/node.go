@@ -3,63 +3,35 @@ package node
 import (
 	"context"
 	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"strconv"
 	"sync"
 	"time"
-
-	"github.com/danielmorandini/booster-network/socks5"
 )
 
 // Node represents a remote booster node.
 type Node struct {
-	id      string // sha1 string representation
-	BAddr   net.Addr
-	PAddr   net.Addr
-	isLocal bool
+	id         string
+	BAddr      net.Addr
+	PAddr      net.Addr
+	isLocal    bool
+	ToBeTraced bool
 
 	sync.Mutex
-	cancelStatus   context.CancelFunc // added when some goroutine is updating its workload.
-	cancelPing context.CancelFunc
-	IsActive bool               // tells wether the node is updating its status or not
-	workload int
-
-	lastOperation *operation // last operation made on this node
+	stop    chan struct{}
+	active  bool // tells wether the node is updating its status or not
+	tunnels map[string]*Tunnel
 }
 
-type operation struct {
-	id string // sha1 identifier
-	op uint8
-}
-
-func (o *operation) String() string {
-	switch o.op {
-	case BoosterNodeAdded:
-		return "added"
-	case BoosterNodeClosed:
-		return "closed"
-	case BoosterNodeRemoved:
-		return "removed"
-	case BoosterNodeUpdated:
-		return fmt.Sprintf("updated (%v)", o.id)
-	default:
-		return "unknown"
-	}
-}
-
-// NewNode create a new Node instance.
-func NewNode(host, pport, bport string) (*Node, error) {
+// New creates a new node instance.
+func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	n := new(Node)
 	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
 	if err != nil {
 		return nil, errors.New("node: unable to create baddr: " + err.Error())
 	}
 	n.BAddr = baddr
-	n.isLocal = false
 
 	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
 	if err != nil {
@@ -67,175 +39,176 @@ func NewNode(host, pport, bport string) (*Node, error) {
 	}
 	n.PAddr = paddr
 
-	n.workload = 0
-	n.lastOperation = new(operation)
-
-	// id is the sha1 of host + bport + pport
+	n.tunnels = make(map[string]*Tunnel)
+	n.stop = make(chan struct{})
 	n.id = sha1Hash([]byte(host), []byte(bport), []byte(pport))
+	n.isLocal = isLocal
+	n.ToBeTraced = false
 
 	return n, nil
 }
 
-// Desc returns the description of the node in a multiline string.
-func (n *Node) String() string {
+// Workload is the number of tunnels that the node is managing. Contains also unacknoledged ones.
+func (n *Node) Workload() int {
 	n.Lock()
-	wl := n.workload
-	op := n.lastOperation
-	n.Unlock()
+	defer n.Unlock()
 
-	activeStr := "inactive"
-	if n.IsActive {
-		activeStr = "active"
+	wl := 0
+	for _, t := range n.tunnels {
+		wl += t.Copies()
 	}
 
-	host, bport, _ := net.SplitHostPort(n.BAddr.String())
-	_, pport, _ := net.SplitHostPort(n.PAddr.String())
-
-	return fmt.Sprintf("[node (%v), @%v(b%v-p%v), %v]: wl: %v, lastop: %v", n.ID(), host, bport, pport, activeStr, wl, op.String())
+	return wl
 }
 
-// ID returns the id of the node. Required by tracer.Pinger in this case.
+// IsLocal returns true if the node is a local node.
+func (n *Node) IsLocal() bool {
+	return n.isLocal
+}
+
+// SetIsActive sets the state of the node. Safe to be called by
+// multiple goroutines.
+func (n *Node) SetIsActive(active bool) {
+	n.Lock()
+	defer n.Unlock()
+
+	n.active = active
+}
+
+// IsActive returns true if the node is updating it's status.
+func (n *Node) IsActive() bool {
+	n.Lock()
+	defer n.Unlock()
+
+	return n.active
+}
+
+// ID returns the node's sha1 identifier.
 func (n *Node) ID() string {
 	return n.id
 }
 
-// Close calls the cancel function if present, then sets active state to false.
-// Not safe to be accessed by multiple goroutines!
-func (n *Node) Close() error {
-	if n.cancelStatus != nil {
-		n.cancelStatus()
-		n.cancelStatus = nil
+// ProxyAddr returns the proxy address of the node.
+func (n *Node) ProxyAddr() net.Addr {
+	return n.PAddr
+}
+
+// PPort is a convenience method that returns the proxy port as string.
+func (n *Node) PPort() string {
+	_, p, _ := net.SplitHostPort(n.PAddr.String())
+	return p
+}
+
+// BPort is a convenience method that returns the booster port as string.
+func (n *Node) BPort() string {
+	_, p, _ := net.SplitHostPort(n.BAddr.String())
+	return p
+}
+
+// AddTunnel sets the node's state to active and adds a new
+// tunnel to it. If the node as already a tunnel with this
+// target connected to it, it increments the copies of the
+// tunnel.
+func (n *Node) AddTunnel(target string) {
+	n.SetIsActive(true)
+	nt := NewTunnel(target)
+
+	if t, ok := n.tunnels[target]; ok {
+		t.Lock()
+		defer t.Unlock()
+
+		t.copies++
+		return
 	}
 
-	if n.cancelPing != nil {
-		n.cancelPing()
-		n.cancelPing = nil
+	n.Lock()
+	defer n.Unlock()
+	n.tunnels[target] = nt
+}
+
+// Ack acknoledges the target tunnel, impling that the node is actually working on it.
+func (n *Node) Ack(id string) error {
+	n.Lock()
+	t, ok := n.tunnels[id]
+	n.Unlock()
+	if !ok {
+		return fmt.Errorf("node: cannot ack [%v], no such tunnel", id)
 	}
 
-	n.IsActive = false
-	n.lastOperation.op = BoosterNodeClosed
+	t.Lock()
+	defer t.Unlock()
+
+	if t.acks >= t.copies {
+		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", id, t.acks, t.copies)
+	}
+
+	t.acks++
+	return nil
+}
+
+func (n *Node) Tunnels() map[string]*Tunnel {
+	n.Lock()
+	defer n.Unlock()
+
+	// make a copy of the map to avoid concurrent edit
+	tcopy := make(map[string]*Tunnel)
+	for k, v := range n.tunnels {
+		tcopy[k] = v
+	}
+
+	return tcopy
+}
+
+func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
+	n.Lock()
+	defer n.Unlock()
+
+	t, ok := n.tunnels[id]
+	if !ok {
+		return fmt.Errorf("node: cannot delete [%v], no such tunnel", id)
+	}
+
+	t.Lock()
+	defer t.Unlock()
+	if t.copies == 1 {
+		delete(n.tunnels, id)
+		return nil
+	}
+
+	t.copies--
+	if acknoledged {
+		t.acks--
+	}
 
 	return nil
 }
 
-// LastOperation returns the last operation code of the node.
-func (n *Node) LastOperation() uint8 {
-	return n.lastOperation.op
+func (n *Node) Tunnel(id string) (*Tunnel, error) {
+	n.Lock()
+	defer n.Unlock()
+
+	t, ok := n.tunnels[id]
+	if !ok {
+		return nil, fmt.Errorf("node: no such tunnel [%v]", id)
+	}
+
+	return t, nil
 }
 
-// ReadNode reads from reader expecting it to contain a node.
-func ReadNode(r io.Reader) (*Node, error) {
-	buf := make([]byte, 20) // sha1 len
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to read identifier: " + err.Error() + " buffer: " + fmt.Sprintf("%v", buf))
-	}
-
-	id := fmt.Sprintf("%x", buf)
-	host, err := socks5.ReadHost(r)
-	if err != nil {
-		return nil, errors.New("node: unable to decode host: " + err.Error())
-	}
-	pport, err := socks5.ReadPort(r)
-	if err != nil {
-		return nil, errors.New("node: unable to decode p port: " + err.Error())
-	}
-	bport, err := socks5.ReadPort(r)
-	if err != nil {
-		return nil, errors.New("node: unable to decode b port: " + err.Error())
-	}
-
-	buf = buf[:3]
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to decode state: " + err.Error())
-	}
-
-	isActive := buf[0]
-	workload := int(buf[1])
-	lastOp := buf[2]
-
-	buf = buf[:20]
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return nil, errors.New("node: unable to decode last operation id: " + err.Error())
-	}
-	lastOpID := fmt.Sprintf("%x", buf)
-
-	node, err := NewNode(host, pport, bport)
-	if err != nil {
-		return nil, err
-	}
-
-	node.id = id
-	node.IsActive = int(isActive) != 0
-	node.workload = workload
-	node.lastOperation = &operation{
-		id: lastOpID,
-		op: lastOp,
-	}
-
-	return node, nil
-}
-
-// EncodeBinary encodes the node into its binary
-// representation.
-func (n *Node) EncodeBinary() ([]byte, error) {
-	if n == nil {
-		return nil, errors.New("node: trying to encode nil")
-	}
-
-	host, bport, err := net.SplitHostPort(n.BAddr.String())
-	_, pport, err := net.SplitHostPort(n.PAddr.String())
-	if err != nil {
-		return nil, errors.New("node: unable to split address: " + err.Error())
-	}
-
-	idbuf, err := hex.DecodeString(n.ID())
-	hbuf, err := socks5.EncodeHostBinary(host)   // host buffer
-	ppbuf, err := socks5.EncodePortBinary(pport) // proxy port buffer
-	bpbuf, err := socks5.EncodePortBinary(bport) // booster port buffer
-	if err != nil {
-		return nil, errors.New("node: unable to encode: " + err.Error())
-	}
+func (n *Node) Close() error {
+	n.SetIsActive(false)
 
 	n.Lock()
-	load := n.workload
-	lastOp := n.lastOperation.op
-	opidbuf, err := hex.DecodeString(n.lastOperation.id)
+	close(n.stop)
 	n.Unlock()
 
-	if err != nil {
-		opidbuf = make([]byte, 20) // just put a fake hash
-	}
-	// It could happen that we do not have any operation id
-	if len(opidbuf) != 20 {
-		opidbuf = make([]byte, 20) // just put a fake hash
-	}
-
-	if load > 0xff {
-		return nil, errors.New("node: load out of range: " + strconv.Itoa(load))
-	}
-
-	isActive := 0
-	if n.IsActive {
-		isActive = 1
-	}
-
-	buf := make([]byte, 0, len(idbuf)+len(hbuf)+len(ppbuf)+len(bpbuf)+3+len(opidbuf))
-	buf = append(buf, idbuf...)
-	buf = append(buf, hbuf...)
-	buf = append(buf, ppbuf...)
-	buf = append(buf, bpbuf...)
-	buf = append(buf, byte(isActive))
-	buf = append(buf, byte(load))
-	buf = append(buf, byte(lastOp))
-	buf = append(buf, opidbuf...)
-
-	return buf, nil
+	return nil
 }
 
 // Ping dials with the node with little timeout. Returns an error
 // if the endpoint is not reachable, nil otherwise. Required by tracer.Pinger.
 func (n *Node) Ping(ctx context.Context) error {
-	if n.IsActive {
+	if n.IsActive() {
 		return errors.New("connection already enstablished")
 	}
 

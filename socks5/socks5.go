@@ -8,14 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/danielmorandini/booster-network/pubsub"
+	"github.com/danielmorandini/booster/log"
+	"github.com/danielmorandini/booster/pubsub"
 )
 
 const (
@@ -74,16 +73,17 @@ var (
 )
 
 const (
-	// TopicWorkload is the topic where the workload updates are published
-	TopicWorkload = "topic_wl"
+	// TopicTunnels is the topic where the tunnels updates are published
+	TopicTunnels = "topic_tunnels"
 )
 
-// Dialer is the interface that wraps the DialContext function.
-type Dialer interface {
-	// DialContext opens a connection to addr, which should
-	// be a canonical address with host and port.
-	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
-}
+type Event int
+
+// Possible proxy operations.
+const (
+	EventPush = 0
+	EventPop  = 1
+)
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
@@ -92,74 +92,100 @@ type PubSub interface {
 	Pub(message interface{}, topic string) error
 }
 
+// Dialer is the interface that wraps the DialContext function.
+type Dialer interface {
+	// DialContext opens a connection to addr, which should
+	// be a canonical address with host and port.
+	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
+}
+
 // Socks5 represents a SOCKS5 proxy server implementation.
 type Socks5 struct {
-	*log.Logger
 	PubSub
-
-	// Dialer is used when connecting to a remote host. Could
-	// be useful when chaining multiple proxies.
-	Dialer
 
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 
+	stop chan struct{}
+
 	sync.Mutex
+	Dialer
 	port     int
 	workload int
 }
 
-// NewSOCKS5 returns a new Socks5 instance.
-func NewSOCKS5(dialer Dialer, log *log.Logger, pubsub PubSub) *Socks5 {
+// SOCKS5 returns a new Socks5 instance with default logger and dialer.
+func New(d Dialer) *Socks5 {
+	ps := pubsub.New()
+
 	s := new(Socks5)
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.ChunkSize = 4 * 1024
-	s.Dialer = dialer
-	s.Logger = log
-	s.PubSub = pubsub
+	s.Dialer = d
+	s.PubSub = ps
+	s.stop = make(chan struct{})
 
 	return s
 }
 
-// SOCKS5 returns a new Socks5 instance with default logger and dialer.
-func SOCKS5() *Socks5 {
-	d := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}
-	log := log.New(os.Stdout, "SOCKS5   ", log.LstdFlags)
-	ps := pubsub.New()
+func (s *Socks5) Run(port int) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	return NewSOCKS5(d, log, ps)
+	errc := make(chan error)
+	go func() {
+		errc <- s.ListenAndServe(ctx, port)
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-s.stop:
+		cancel()
+		<-errc // wait for ListenAndServe to return
+		return fmt.Errorf("socks5: stopped")
+	}
+}
+
+func (s *Socks5) Close() error {
+	s.stop <- struct{}{}
+	return nil
 }
 
 // ListenAndServe accepts and handles TCP connections
 // using the SOCKS5 protocol.
-func (s *Socks5) ListenAndServe(port int) error {
-	s.Lock()
-	s.port = port
-	s.Unlock()
-
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+func (s *Socks5) ListenAndServe(ctx context.Context, port int) error {
+	p := strconv.Itoa(port)
+	ln, err := net.Listen("tcp", ":"+p)
 	if err != nil {
 		return err
 	}
+	defer ln.Close()
 
-	s.Printf("listening on port: %v", port)
+	log.Info.Printf("listening on port: %v", port)
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			s.Printf("tcp accept error: %v", err)
-			continue
-		}
+	errc := make(chan error)
+	defer close(errc)
 
-		go func() {
-			if err := s.Handle(conn); err != nil {
-				s.Println(err)
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				errc <- fmt.Errorf("socks5: cannot accept conn: %v", err)
+				return
 			}
-		}()
+
+			go s.Handle(ctx, conn)
+		}
+	}()
+
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		ln.Close()
+		<-errc // wait for listener to return
+		return ctx.Err()
 	}
 }
 
@@ -168,8 +194,8 @@ func (s *Socks5) ListenAndServe(port int) error {
 //
 // Should run in its own go routine, closes the connection
 // when returning.
-func (s *Socks5) Handle(conn net.Conn) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer conn.Close()
 
@@ -226,6 +252,14 @@ func (s *Socks5) Handle(conn net.Conn) error {
 	s.popLoad(target)
 
 	return nil
+}
+
+func (s *Socks5) Notify() (chan interface{}, error) {
+	return s.Sub(TopicTunnels)
+}
+
+func (s *Socks5) StopNotifying(c chan interface{}) {
+	s.Unsub(c, TopicTunnels)
 }
 
 // ProxyData copies data from src to dst and the other way around.
@@ -424,41 +458,40 @@ func (s *Socks5) Port() int {
 	return s.port
 }
 
-// WorkloadMessage contains a workload value and an ID, usually the hash of
+// Proto returns the protocol used by the proxy in string format.
+func (s *Socks5) Proto() string {
+	return "socks5"
+}
+
+// TunnelMessage contains a workload value and an ID, usually the hash of
 // a canonical address.
-type WorkloadMessage struct {
-	Load int
-	ID   string
+type TunnelMessage struct {
+	Target string
+	Event  Event
 }
 
-func (s *Socks5) pushLoad(event string) {
+func (s *Socks5) pushLoad(target string) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.workload++
-	s.pub(s.workload, event)
+	s.pub(EventPush, target)
 }
 
-func (s *Socks5) popLoad(event string) {
+func (s *Socks5) popLoad(target string) {
 	s.Lock()
 	defer s.Unlock()
 
-	s.workload--
-	// should never become negative
-	if s.workload < 0 {
-		s.workload = 0
-	}
-	s.pub(s.workload, event)
+	s.pub(EventPop, target)
 }
 
-func (s *Socks5) pub(load int, target string) {
-	wm := WorkloadMessage{
-		Load: load,
-		ID:   sha1Hash([]byte(target)),
+func (s *Socks5) pub(event Event, target string) {
+	tm := TunnelMessage{
+		Target: target,
+		Event:  event,
 	}
 
-	if err := s.Pub(wm, TopicWorkload); err != nil {
-		s.Printf("socks5: unable to publish message: %v", err)
+	if err := s.Pub(tm, TopicTunnels); err != nil {
+		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}
 }
 

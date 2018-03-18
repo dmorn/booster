@@ -1,27 +1,41 @@
 package commands
 
 import (
-	"strings"
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/danielmorandini/booster-network/node"
+	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
 
 var disconnectCmd = &cobra.Command{
-	Use: "disconnect [id]",
+	Use:   "disconnect [host:port -- optional] [node_id]",
 	Short: "disconnect two nodes",
-	Long: `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
-	Args: cobra.MinimumNArgs(1),
+	Long:  `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
+	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
-		id := strings.Join(args, " ")
-		b := node.NewBoosterDefault()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-		defer cancel()
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
 
-		if err := b.Disconnect(ctx, "tcp", boosterAddr, id); err != nil {
+		addr := "localhost:4884"
+		id := ""
+		if len(args) == 2 {
+			addr = args[0]
+			id = args[1]
+		} else {
+			id = args[0]
+		}
+
+		b, err := booster.New(pport, bport)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = b.Disconnect(context.Background(), "tcp", addr, id)
+		if err != nil {
 			fmt.Println(err)
 			return
 		}

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/danielmorandini/booster-network/pubsub"
+	"github.com/danielmorandini/booster/pubsub"
 )
 
 func TestSub(t *testing.T) {
