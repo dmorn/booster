@@ -164,7 +164,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 }
 
 func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *protocol.PayloadNode, error) {
-	log.Info.Println("booster: -> inspect: %v", addr)
+	log.Info.Printf("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
