@@ -124,6 +124,9 @@ Flags:
       --bport int   booster listening port (default 4884)
   -h, --help        help for start
       --pport int   proxy listening port (default 1080)
+
+Global Flags:
+  -v, --verbose   verbose output
 ```
 ```
 $ booster help connect
