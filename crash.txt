@@ -1,0 +1,26 @@
+2018/03/19 11:08:31.547546 booster: -> tunnel update: {web.whatsapp.com:443 1}
+2018/03/19 11:08:31.725529 booster: -> tunnel update: {spclient.wg.spotify.com:443 0}
+2018/03/19 11:09:02.516164 booster: -> tunnel update: {spclient.wg.spotify.com:443 1}
+2018/03/19 11:09:29.509279 booster: -> tunnel update: {de.pons.com:443 0}
+fatal error: concurrent map read and map write
+
+goroutine 12603 [running]:
+runtime.throw(0x123cfe6, 0x21)
+	/usr/local/Cellar/go/1.10/libexec/src/runtime/panic.go:619 +0x81 fp=0xc420cfdb20 sp=0xc420cfdb00 pc=0x102a6a1
+runtime.mapaccess2_faststr(0x11f3340, 0xc42008cc00, 0xc4200b4de0, 0x18, 0xc4200a2140, 0x10)
+	/usr/local/Cellar/go/1.10/libexec/src/runtime/hashmap_fast.go:270 +0x461 fp=0xc420cfdb90 sp=0xc420cfdb20 pc=0x100c0e1
+github.com/danielmorandini/booster/node.(*Node).AddTunnel(0xc4200a4240, 0xc4200b4de0, 0x18)
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/node/node.go:118 +0x88 fp=0xc420cfdbe8 sp=0xc420cfdb90 pc=0x1157c88
+github.com/danielmorandini/booster/booster.(*Network).AddTunnel(0xc4200a22d0, 0xc4200a4240, 0xc4200b4de0, 0x18)
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/booster/network.go:259 +0x16e fp=0xc420cfdc78 sp=0xc420cfdbe8 pc=0x115fbde
+github.com/danielmorandini/booster/node.(*Dispatcher).DialContext(0xc4200a83a0, 0x1260d80, 0xc420b44000, 0x12355d9, 0x3, 0xc4200b4de0, 0x18, 0xc4200886e0, 0xc4207cbe00, 0x2540bd461, ...)
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/node/dispatcher.go:174 +0x204 fp=0xc420cfdd80 sp=0xc420cfdc78 pc=0x1156c24
+github.com/danielmorandini/booster/socks5.(*Socks5).Connect(0xc4200a2320, 0x1260d80, 0xc420b44000, 0x12619e0, 0xc4200a1058, 0xc4200b4de0, 0x18, 0x0, 0x0, 0xc42013c5a0, ...)
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/socks5/connect.go:24 +0x2b8 fp=0xc420cfded0 sp=0xc420cfdd80 pc=0x114faa8
+github.com/danielmorandini/booster/socks5.(*Socks5).Handle(0xc4200a2320, 0x1260d80, 0xc420b44000, 0x12619e0, 0xc4200a1058, 0x0, 0x0)
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/socks5/socks5.go:236 +0x71b fp=0xc420cfdfa8 sp=0xc420cfded0 pc=0x115161b
+runtime.goexit()
+	/usr/local/Cellar/go/1.10/libexec/src/runtime/asm_amd64.s:2361 +0x1 fp=0xc420cfdfb0 sp=0xc420cfdfa8 pc=0x1055971
+created by github.com/danielmorandini/booster/socks5.(*Socks5).ListenAndServe.func1
+	/Users/danielmorandini/Code/go/src/github.com/danielmorandini/booster/.GOPATH/src/github.com/danielmorandini/booster/socks5/socks5.go:178 +0x6c
+

@@ -113,9 +113,11 @@ func (n *Node) BPort() string {
 // tunnel.
 func (n *Node) AddTunnel(target string) {
 	n.SetIsActive(true)
-	nt := NewTunnel(target)
 
-	if t, ok := n.tunnels[target]; ok {
+	n.Lock()
+	t, ok := n.tunnels[target]
+	n.Unlock()
+	if ok {
 		t.Lock()
 		defer t.Unlock()
 
@@ -125,7 +127,7 @@ func (n *Node) AddTunnel(target string) {
 
 	n.Lock()
 	defer n.Unlock()
-	n.tunnels[target] = nt
+	n.tunnels[target] = NewTunnel(target)
 }
 
 // Ack acknoledges the target tunnel, impling that the node is actually working on it.
