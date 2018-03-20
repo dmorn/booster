@@ -1,6 +1,7 @@
 # booster
 [![Build Status](https://travis-ci.org/danielmorandini/booster.svg?branch=master)](https://travis-ci.org/danielmorandini/booster)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster)
+[![Go Report Card](https://goreportcard.com/badge/github.com/danielmorandini/booster)](https://goreportcard.com/report/github.com/danielmorandini/booster)
 
 # Table of Contents
 
