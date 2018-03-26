@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/danielmorandini/booster/log"
+	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/pubsub"
 )
 
@@ -75,6 +76,9 @@ var (
 const (
 	// TopicTunnels is the topic where the tunnels updates are published
 	TopicTunnels = "topic_tunnels"
+
+	// TopicBandwidth is the topic where bandwidth usage updates are published
+	TopicBandwidth = "topic_bw"
 )
 
 type Event int
@@ -105,6 +109,9 @@ type Socks5 struct {
 
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
+	BandwidthCheck   time.Duration
+	DownloadIO       *network.BandwidthIO
+	UploadIO         *network.BandwidthIO
 
 	stop chan struct{}
 
@@ -114,16 +121,45 @@ type Socks5 struct {
 	workload int
 }
 
+type BandwidthMessage struct {
+	Bandwidth float64
+	D         time.Duration
+	Download  bool
+}
+
 // SOCKS5 returns a new Socks5 instance with default logger and dialer.
 func New(d Dialer) *Socks5 {
-	ps := pubsub.New()
-
 	s := new(Socks5)
+	ps := pubsub.New()
+	bc := time.Second * 1
+
+	dIO := new(network.BandwidthIO)
+	uIO := new(network.BandwidthIO)
+	f := func(bIO *network.BandwidthIO, dl bool) func() {
+		return func() {
+			bIO.Lock()
+			b := bIO.Bandwidth
+			bIO.Unlock()
+
+			s.Pub(&BandwidthMessage{
+				Bandwidth: b,
+				D:         bc,
+				Download:  dl,
+			}, TopicBandwidth)
+		}
+	}
+
+	dIO.AfterFunc(bc, f(dIO, true))
+	uIO.AfterFunc(bc, f(uIO, false))
+
 	s.ReadWriteTimeout = 2 * time.Minute
+	s.BandwidthCheck = bc
 	s.ChunkSize = 4 * 1024
 	s.Dialer = d
 	s.PubSub = ps
 	s.stop = make(chan struct{})
+	s.DownloadIO = dIO
+	s.UploadIO = uIO
 
 	return s
 }
@@ -254,12 +290,12 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s *Socks5) Notify() (chan interface{}, error) {
-	return s.Sub(TopicTunnels)
+func (s *Socks5) Notify(topic string) (chan interface{}, error) {
+	return s.Sub(topic)
 }
 
-func (s *Socks5) StopNotifying(c chan interface{}) {
-	s.Unsub(c, TopicTunnels)
+func (s *Socks5) StopNotifying(c chan interface{}, topic string) {
+	s.Unsub(c, topic)
 }
 
 // ProxyData copies data from src to dst and the other way around.
@@ -274,19 +310,21 @@ func (s *Socks5) ProxyData(src net.Conn, dst net.Conn) {
 	c := make(chan error, 2)
 
 	// proxy in both directions
-	go func(c chan error, src net.Conn, dst net.Conn) {
+	go func() {
 		for {
-			_, err := io.CopyN(dst, src, s.ChunkSize)
+			// download
+			_, err := s.DownloadIO.CopyN(src, dst, s.ChunkSize)
 			c <- err
 		}
-	}(c, src, dst)
+	}()
 
-	go func(c chan error, src net.Conn, dst net.Conn) {
+	go func() {
 		for {
-			_, err := io.CopyN(dst, src, s.ChunkSize)
+			// upload
+			_, err := s.UploadIO.CopyN(dst, src, s.ChunkSize)
 			c <- err
 		}
-	}(c, dst, src)
+	}()
 
 	for err := range c {
 		if err != nil {

@@ -5,8 +5,10 @@ package network
 import (
 	"context"
 	"errors"
+	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/danielmorandini/booster/network/packet"
 )
@@ -175,4 +177,58 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 	}
 
 	return Open(conn, d.config), nil
+}
+
+// BandwidthIO implements the io.CopyN method, keeping track of the
+// bandwidth while doing so.
+type BandwidthIO struct {
+	timerFunc *time.Timer
+
+	sync.Mutex
+	N         int64 // N is the number of bytes transmitted
+	Bandwidth float64
+	t         int   // t is the number of times CopyN was called
+	lastN     int64 // LastN is the last number of bytes transmitted
+}
+
+// AfterFunc calls f repeatedly after d.
+// Badwidth is calculated right before calling f.
+func (b *BandwidthIO) AfterFunc(d time.Duration, f func()) {
+	var lastB int64
+
+	b.timerFunc = time.AfterFunc(d, func() {
+		b.Lock()
+		t := b.t
+		N := b.N
+		b.Unlock()
+
+		if t == 0 {
+			// simply return if CopyN was never called yet
+			return
+		}
+
+		// Bandwidth is populated with the number of bytes transmitted
+		// since the last check
+		lastB = N - lastB
+
+		b.Lock()
+		b.Bandwidth = float64(lastB)
+		b.Unlock()
+
+		f()
+	})
+}
+
+// CopyN copies data from src into dst, using a buffer of size n. Keeps track of
+// the number of bytes copied.
+func (b *BandwidthIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error) {
+	n, err := io.CopyN(dst, src, n)
+
+	b.Lock()
+	b.N += n
+	b.lastN = n
+	b.t++
+	b.Unlock()
+
+	return n, err
 }

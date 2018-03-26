@@ -275,7 +275,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 		return
 	}
 
-	log.Info.Printf("booster: <- tunnel: %v", pl)
+	log.Debug.Printf("booster: <- tunnel: %v", pl)
 
 	tm := &socks5.TunnelMessage{
 		Target: pl.Target,
@@ -298,14 +298,14 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	}
 
 	// register for proxy updates
-	c, err := b.Proxy.Notify()
+	c, err := b.Proxy.Notify(socks5.TopicTunnels)
 	if err != nil {
 		fail(err)
 		return
 	}
 
 	defer func() {
-		b.Proxy.StopNotifying(c)
+		b.Proxy.StopNotifying(c, socks5.TopicTunnels)
 	}()
 
 	// Read every tunnel message, compose a packet with them
@@ -338,7 +338,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			return
 		}
 
-		log.Info.Printf("booster: -> tunnel update: %v", tm)
+		log.Debug.Printf("booster: -> tunnel update: %v", tm)
 
 		if err = conn.Send(p); err != nil {
 			fail(err)
