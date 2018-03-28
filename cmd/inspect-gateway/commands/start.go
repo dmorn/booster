@@ -60,8 +60,14 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		for node := range stream {
-			log.Println("[%v] msg received", node.ID)
+		for i := range stream {
+			node, ok := i.(*protocol.PayloadNode)
+			if !ok {
+				log.Error.Printf("unrecognised message: %+v", i)
+				continue
+			}
+
+			log.Printf("[%v] node received", node.ID)
 
 			if err = c.Update(node); err != nil {
 				log.Fatalf("[%v] unable to send msg: %v", node.ID, err)

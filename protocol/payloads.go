@@ -10,6 +10,35 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
+type PayloadBandwidth struct {
+	Tot int
+	Bandwidth int
+	Type string
+}
+
+func DecodePayloadBandwidth(p []byte) (*PayloadBandwidth, error) {
+	payload := new(internal.PayloadBandwidth)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	return &PayloadBandwidth{
+		Tot: int(payload.Tot),
+		Bandwidth: int(payload.Bandwidth),
+		Type: payload.Type,
+	}, nil
+}
+
+func EncodePayloadBandwidth(tot int, bw int, t string) ([]byte, error) {
+	p := &internal.PayloadBandwidth {
+		Tot: int64(tot),
+		Bandwidth: int64(bw),
+		Type: t,
+	}
+
+	return proto.Marshal(p)
+}
+
 type PayloadInspect struct {
 	Features []Message
 }

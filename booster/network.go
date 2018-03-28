@@ -343,10 +343,13 @@ func (c *Conn) Send(p *packet.Packet) error {
 	}
 }
 
+// TODO: what if consume accepted a function to be used for each packet? (see pubsub refactoring of
+// Sub function)
 func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 	if c.Conn == nil {
 		return nil, fmt.Errorf("network: connection is closed")
 	}
+
 	return c.Conn.Consume()
 }
 

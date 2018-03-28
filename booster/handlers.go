@@ -376,6 +376,8 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 		return
 	}
 
+	// TODO(daniel): serve packets depending on features requested
+
 	net := Nets.Get(b.ID)
 	wait := make(chan struct{}, 1)
 	var index int
