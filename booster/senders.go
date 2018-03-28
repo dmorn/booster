@@ -9,6 +9,11 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 )
 
+const (
+	InspectNode = "node"
+	InspectBandwidth = "bandwidth"
+)
+
 // SendHello composes and sends an hello packet trough conn.
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	log.Info.Println("booster: -> hello")
@@ -163,7 +168,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	return nil
 }
 
-func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *protocol.PayloadNode, error) {
+func (b *Booster) Inspect(ctx context.Context, network, addr string, features []string) (<-chan *protocol.PayloadNode, error) {
 	log.Info.Printf("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
@@ -177,8 +182,17 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 		conn.Close()
 		return nil, err
 	}
+	pl, err := protocol.EncodePayloadInspect(features)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	p := packet.New()
-	if _, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf); err != nil {
+	_, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf)
+	_, err = p.AddModule(protocol.ModulePayload, pl, protocol.EncodingProtobuf)
+
+	if err != nil {
 		conn.Close()
 		return nil, err
 	}

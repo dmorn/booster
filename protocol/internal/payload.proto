@@ -3,6 +3,11 @@ package internal;
 
 import "google/protobuf/timestamp.proto";
 
+message PayloadInspect {
+	// features contains the features that should be inspected
+	repeated string features = 1;
+}
+
 message PayloadHello {
 	// bport is the booster listening port.
 	string bport = 1;

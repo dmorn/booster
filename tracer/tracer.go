@@ -39,8 +39,8 @@ type Pinger interface {
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) (chan interface{}, error)
-	Unsub(c chan interface{}, topic string) error
+	Sub(topic string, f func(interface{})) (int, error)
+	Unsub(index int, topic string) error
 	Pub(message interface{}, topic string) error
 }
 
@@ -129,12 +129,12 @@ func (t *Tracer) Run() error {
 	return nil
 }
 
-func (t *Tracer) Notify() (chan interface{}, error) {
-	return t.Sub(TopicConnDiscovered)
+func (t *Tracer) Notify(f func(m interface{})) (int, error) {
+	return t.Sub(TopicConnDiscovered, f)
 }
 
-func (t *Tracer) StopNotifying(c chan interface{}) {
-	t.Unsub(c, TopicConnDiscovered)
+func (t *Tracer) StopNotifying(index int) {
+	t.Unsub(index, TopicConnDiscovered)
 }
 
 // Trace makes the tracer keep track of the entity at addr.

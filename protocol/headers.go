@@ -91,6 +91,5 @@ func TunnelNotifyHeader() ([]byte, error) {
 
 func InspectHeader() ([]byte, error) {
 	h := newHP(MessageInspect)
-	h.Modules = []string{}
 	return proto.Marshal(h)
 }

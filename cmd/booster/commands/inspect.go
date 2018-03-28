@@ -30,7 +30,8 @@ var inspectCmd = &cobra.Command{
 			return
 		}
 
-		stream, err := b.Inspect(context.Background(), "tcp", addr)
+		features := []string{booster.InspectBandwidth}
+		stream, err := b.Inspect(context.Background(), "tcp", addr, features)
 		if err != nil {
 			fmt.Println(err)
 			return

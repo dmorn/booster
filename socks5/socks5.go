@@ -91,8 +91,8 @@ const (
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) (chan interface{}, error)
-	Unsub(c chan interface{}, topic string) error
+	Sub(topic string, f func(interface{})) (int, error)
+	Unsub(index int, topic string) error
 	Pub(message interface{}, topic string) error
 }
 
@@ -131,7 +131,7 @@ type BandwidthMessage struct {
 func New(d Dialer) *Socks5 {
 	s := new(Socks5)
 	ps := pubsub.New()
-	bc := time.Second * 1
+	bc := time.Second
 
 	dIO := new(network.BandwidthIO)
 	uIO := new(network.BandwidthIO)
@@ -149,8 +149,8 @@ func New(d Dialer) *Socks5 {
 		}
 	}
 
-	dIO.AfterFunc(bc, f(dIO, true))
-	uIO.AfterFunc(bc, f(uIO, false))
+	dIO.TickerFunc(bc, f(dIO, true))
+	uIO.TickerFunc(bc, f(uIO, false))
 
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.BandwidthCheck = bc
@@ -178,6 +178,9 @@ func (s *Socks5) Run(port int) error {
 		return err
 	case <-s.stop:
 		cancel()
+		s.DownloadIO.Ticker.Stop()
+		s.UploadIO.Ticker.Stop()
+
 		<-errc // wait for ListenAndServe to return
 		return fmt.Errorf("socks5: stopped")
 	}
@@ -185,6 +188,7 @@ func (s *Socks5) Run(port int) error {
 
 func (s *Socks5) Close() error {
 	s.stop <- struct{}{}
+
 	return nil
 }
 
@@ -290,12 +294,12 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s *Socks5) Notify(topic string) (chan interface{}, error) {
-	return s.Sub(topic)
+func (s *Socks5) Notify(topic string, f func(interface{})) (int, error) {
+	return s.Sub(topic, f)
 }
 
-func (s *Socks5) StopNotifying(c chan interface{}, topic string) {
-	s.Unsub(c, topic)
+func (s *Socks5) StopNotifying(index int, topic string) {
+	s.Unsub(index, topic)
 }
 
 // ProxyData copies data from src to dst and the other way around.

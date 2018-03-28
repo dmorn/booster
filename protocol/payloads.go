@@ -10,6 +10,29 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
+type PayloadInspect struct {
+	Features []string
+}
+
+func DecodePayloadInspect(p []byte) (*PayloadInspect, error) {
+	payload := new(internal.PayloadInspect)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	return &PayloadInspect{
+		Features: payload.Features,
+	}, nil
+}
+
+func EncodePayloadInspect(f []string) ([]byte, error) {
+	p := &internal.PayloadInspect{
+		Features: f,
+	}
+
+	return proto.Marshal(p)
+}
+
 type PayloadHello struct {
 	BPort string
 	PPort string

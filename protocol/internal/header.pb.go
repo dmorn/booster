@@ -10,6 +10,7 @@ It is generated from these files:
 
 It has these top-level messages:
 	Header
+	PayloadInspect
 	PayloadHello
 	PayloadConnect
 	PayloadDisconnect

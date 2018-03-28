@@ -48,7 +48,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 			go b.ServeStatus(ctx, conn)
 
 		case protocol.MessageInspect:
-			go b.ServeInspect(ctx, conn)
+			go b.ServeInspect(ctx, conn, p)
 
 		default:
 			return fmt.Errorf("booster: discarding packet: unexpected message id: %v", h.ID)
@@ -292,21 +292,16 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	log.Info.Print("booster: <- status...")
 
+	wait := make(chan struct{}, 1)
+	var err error
+	var index int
 	fail := func(err error) {
 		log.Error.Printf("booster: serve status error: %v", err)
+
 		conn.Close()
+		b.Proxy.StopNotifying(index, socks5.TopicTunnels)
+		wait <- struct{}{}
 	}
-
-	// register for proxy updates
-	c, err := b.Proxy.Notify(socks5.TopicTunnels)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	defer func() {
-		b.Proxy.StopNotifying(c, socks5.TopicTunnels)
-	}()
 
 	// Read every tunnel message, compose a packet with them
 	// and send them trough the connection
@@ -316,7 +311,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 		return
 	}
 
-	for i := range c {
+	// register for proxy updates
+	if index, err = b.Proxy.Notify(socks5.TopicTunnels, func(i interface{}) {
 		tm, ok := i.(socks5.TunnelMessage)
 		if !ok {
 			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
@@ -344,10 +340,15 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			fail(err)
 			return
 		}
+	}); err != nil {
+		fail(err)
+		return
 	}
+
+	<-wait
 }
 
-func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
+func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	log.Info.Print("booster: <- serving inspect...")
 
 	fail := func(err error) {
@@ -355,36 +356,60 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
 		conn.Close()
 	}
 
-	// register for node updates
-	net := Nets.Get(b.ID)
-	c, err := net.Notify()
+	// extract the features that are to be inspected
+	if err := ValidatePacket(p); err != nil {
+		fail(err)
+		return
+	}
+
+	// extract information
+	praw, err := p.Module(protocol.ModulePayload)
+	if err != nil {
+		fail(err)
+		return
+	}
+	// TODO(daniel): use the payload to extract which features should
+	// be followed
+	_, err = protocol.DecodePayloadInspect(praw.Payload())
 	if err != nil {
 		fail(err)
 		return
 	}
 
-	defer func() {
-		net.StopNotifying(c)
-	}()
+	net := Nets.Get(b.ID)
+	wait := make(chan struct{}, 1)
+	var index int
+	_fail := func(err error) {
+		fail(err)
+		net.StopNotifying(index)
+		wait <- struct{}{}
+	}
 
-	// Read every node udpate message, compose a packet with it
+	// Register for node updates, read every node udpate message, compose a packet with it
 	// and send them trough the connection
-	for i := range c {
+	if index, err = net.Notify(func(i interface{}){
 		n, ok := i.(*node.Node)
 		if !ok {
-			fail(fmt.Errorf("unrecognised node message: %v", i))
+			_fail(fmt.Errorf("unrecognised node message: %v", i))
 			return
 		}
 
 		p, err := composeNode(n)
 		if err != nil {
-			fail(err)
+			_fail(err)
 			return
 		}
 
 		if err = conn.Send(p); err != nil {
-			fail(err)
+			_fail(err)
 			return
 		}
+	}); err != nil {
+		// do not call _fail here, as the subscription was not successfull
+		fail(err)
+		wait <- struct{}{}
+		return
 	}
+
+	<-wait
 }
