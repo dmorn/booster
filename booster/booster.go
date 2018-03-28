@@ -143,9 +143,9 @@ func (b *Booster) Run() error {
 
 	go func() {
 		// TODO(daniel): recover
-//		wg.Add(1)
-//		errc <- b.TraceBandwidth(ctx)
-//		wg.Done()
+		//		wg.Add(1)
+		//		errc <- b.TraceBandwidth(ctx)
+		//		wg.Done()
 	}()
 
 	go func() {

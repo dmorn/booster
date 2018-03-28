@@ -31,7 +31,7 @@ func TestPub(t *testing.T) {
 		}
 
 		go func() {
-			wait<-struct{}{}
+			wait <- struct{}{}
 		}()
 	}); err != nil {
 		t.Fatal(err)

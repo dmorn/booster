@@ -11,9 +11,9 @@ import (
 )
 
 type PayloadBandwidth struct {
-	Tot int
+	Tot       int
 	Bandwidth int
-	Type string
+	Type      string
 }
 
 func DecodePayloadBandwidth(p []byte) (*PayloadBandwidth, error) {
@@ -23,17 +23,17 @@ func DecodePayloadBandwidth(p []byte) (*PayloadBandwidth, error) {
 	}
 
 	return &PayloadBandwidth{
-		Tot: int(payload.Tot),
+		Tot:       int(payload.Tot),
 		Bandwidth: int(payload.Bandwidth),
-		Type: payload.Type,
+		Type:      payload.Type,
 	}, nil
 }
 
 func EncodePayloadBandwidth(tot int, bw int, t string) ([]byte, error) {
-	p := &internal.PayloadBandwidth {
-		Tot: int64(tot),
+	p := &internal.PayloadBandwidth{
+		Tot:       int64(tot),
 		Bandwidth: int64(bw),
-		Type: t,
+		Type:      t,
 	}
 
 	return proto.Marshal(p)

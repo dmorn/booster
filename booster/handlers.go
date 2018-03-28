@@ -377,7 +377,6 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 	}
 
 	// TODO(daniel): serve packets depending on features requested
-
 	net := Nets.Get(b.ID)
 	wait := make(chan struct{}, 1)
 	var index int
@@ -389,7 +388,7 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 
 	// Register for node updates, read every node udpate message, compose a packet with it
 	// and send them trough the connection
-	if index, err = net.Notify(func(i interface{}){
+	if index, err = net.Notify(func(i interface{}) {
 		n, ok := i.(*node.Node)
 		if !ok {
 			_fail(fmt.Errorf("unrecognised node message: %v", i))
