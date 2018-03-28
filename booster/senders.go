@@ -9,11 +9,6 @@ import (
 	"github.com/danielmorandini/booster/protocol"
 )
 
-const (
-	InspectNode = "node"
-	InspectBandwidth = "bandwidth"
-)
-
 // SendHello composes and sends an hello packet trough conn.
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	log.Info.Println("booster: -> hello")
@@ -168,7 +163,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	return nil
 }
 
-func (b *Booster) Inspect(ctx context.Context, network, addr string, features []string) (<-chan *protocol.PayloadNode, error) {
+func (b *Booster) Inspect(ctx context.Context, network, addr string, features []protocol.Message) (<-chan *protocol.PayloadNode, error) {
 	log.Info.Printf("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)

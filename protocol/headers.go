@@ -9,7 +9,7 @@ import (
 )
 
 type Header struct {
-	ID              int32
+	ID              Message
 	ProtocolVersion string
 	SentAt          time.Time
 	Modules         []string
@@ -37,16 +37,16 @@ func DecodeHeader(h []byte) (*Header, error) {
 	}
 
 	return &Header{
-		ID:              header.Id,
+		ID:              Message(header.Id),
 		ProtocolVersion: header.ProtocolVersion,
 		SentAt:          t,
 		Modules:         header.Modules,
 	}, nil
 }
 
-func newHP(id int32) *internal.Header {
+func newHP(id Message) *internal.Header {
 	return &internal.Header{
-		Id:              id,
+		Id:              int32(id),
 		Modules:         []string{ModulePayload},
 		SentAt:          ptypes.TimestampNow(),
 		ProtocolVersion: Version,

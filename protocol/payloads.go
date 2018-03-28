@@ -11,7 +11,7 @@ import (
 )
 
 type PayloadInspect struct {
-	Features []string
+	Features []Message
 }
 
 func DecodePayloadInspect(p []byte) (*PayloadInspect, error) {
@@ -20,14 +20,24 @@ func DecodePayloadInspect(p []byte) (*PayloadInspect, error) {
 		return nil, err
 	}
 
+	features := []Message{}
+	for _, v := range payload.Features {
+		features = append(features, Message(v))
+	}
+
 	return &PayloadInspect{
-		Features: payload.Features,
+		Features: features,
 	}, nil
 }
 
-func EncodePayloadInspect(f []string) ([]byte, error) {
+func EncodePayloadInspect(f []Message) ([]byte, error) {
+	features := []int32{}
+	for _, v := range f {
+		features = append(features, int32(v))
+	}
+
 	p := &internal.PayloadInspect{
-		Features: f,
+		Features: features,
 	}
 
 	return proto.Marshal(p)

@@ -53,7 +53,7 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		features := []string{booster.InspectNode}
+		features := []protocol.Message{protocol.MessageNode}
 		stream, err := b.Inspect(context.Background(), "tcp", addr, features)
 		if err != nil {
 			fmt.Println(err)

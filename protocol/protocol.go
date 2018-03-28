@@ -25,9 +25,11 @@ const (
 	Separator         = ":"
 )
 
+type Message int32
+
 // Booster possible packet messages
 const (
-	MessageHello      int32 = 0
+	MessageHello      Message = 0
 	MessageConnect          = 1
 	MessageDisconnect       = 2
 	MessageNode             = 3
@@ -35,6 +37,7 @@ const (
 	MessageTunnel           = 5
 	MessageNotify           = 6
 	MessageInspect          = 7
+	MessageBandwidth        = 8
 )
 
 // Tunnel operations

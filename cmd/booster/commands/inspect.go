@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/log"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ var inspectCmd = &cobra.Command{
 			return
 		}
 
-		features := []string{booster.InspectBandwidth}
+		features := []protocol.Message{protocol.MessageNode}
 		stream, err := b.Inspect(context.Background(), "tcp", addr, features)
 		if err != nil {
 			fmt.Println(err)

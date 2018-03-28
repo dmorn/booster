@@ -5,7 +5,7 @@ import "google/protobuf/timestamp.proto";
 
 message PayloadInspect {
 	// features contains the features that should be inspected
-	repeated string features = 1;
+	repeated int32 features = 1;
 }
 
 message PayloadHello {
