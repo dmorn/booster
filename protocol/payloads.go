@@ -18,7 +18,7 @@ type PayloadBandwidth struct {
 
 func (n *PayloadBandwidth) String() string {
 	var b strings.Builder
-	b.WriteString("{\n")
+	b.WriteString("net {\n")
 
 	b.WriteString(fmt.Sprintf("\ttype: %s\n", n.Type))
 	b.WriteString(fmt.Sprintf("\tbandwidth: %v, total: %v\n", n.Bandwidth, n.Tot))
@@ -165,7 +165,7 @@ type PayloadNode struct {
 
 func (n *PayloadNode) String() string {
 	var b strings.Builder
-	b.WriteString("{\n")
+	b.WriteString("node {\n")
 
 	id := string([]byte(n.ID)[:10])
 	b.WriteString(fmt.Sprintf("\tid: %v active: %v\n", id, n.Active))
