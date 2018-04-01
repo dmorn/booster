@@ -120,28 +120,30 @@ func TestMultiSub_concurrent(t *testing.T) {
 	var it1, it2 int
 
 	go func() {
-		it1, err1 = ps.Sub("t1", func(d interface{}) {
+		if it1, err1 = ps.Sub("t1", func(d interface{}) {
 			if d != "foo" {
 				t.Fatalf("unexpected data from t1: %v", d)
 			}
 
-			go func() {
-				wait <- struct{}{}
-			}()
-		})
+			wait <- struct{}{}
+		}); err1 != nil {
+			t.Fatal(err1)
+		}
+
 		wait <- struct{}{}
 	}()
 
 	go func() {
-		it2, err2 = ps.Sub("t2", func(d interface{}) {
+		if it2, err2 = ps.Sub("t2", func(d interface{}) {
 			if d != "bar" {
 				t.Fatalf("unexpected data from t2: %v", d)
 			}
 
-			go func() {
-				wait <- struct{}{}
-			}()
-		})
+			wait <- struct{}{}
+		}); err2 != nil {
+			t.Fatal(err2)
+		}
+
 		wait <- struct{}{}
 	}()
 

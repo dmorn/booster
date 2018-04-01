@@ -75,18 +75,26 @@ func TestTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stream, _ := tr.Notify()
+	wait := make(chan struct{}, 1)
+	index, err := tr.Notify(func(i interface{}) {
+		m, ok := i.(tracer.Message)
+		if !ok {
+			t.Fatalf("wrong trace data found: %v", i)
+		}
+
+		if m.ID != "fake" {
+			t.Fatalf("found wrong id: wanted %v, found %v", "fake", m.ID)
+		}
+
+		wait <- struct{}{}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	defer func() {
-		tr.StopNotifying(stream)
+		tr.StopNotifying(index)
 	}()
 
-	i := <-stream
-	m, ok := i.(tracer.Message)
-	if !ok {
-		t.Fatalf("wrong trace data found: %v", i)
-	}
-
-	if m.ID != "fake" {
-		t.Fatalf("found wrong id: wanted %v, found %v", "fake", m.ID)
-	}
+	<-wait
 }
