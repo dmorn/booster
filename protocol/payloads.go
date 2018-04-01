@@ -16,6 +16,17 @@ type PayloadBandwidth struct {
 	Type      string
 }
 
+func (n *PayloadBandwidth) String() string {
+	var b strings.Builder
+	b.WriteString("{\n")
+
+	b.WriteString(fmt.Sprintf("\ttype: %s\n", n.Type))
+	b.WriteString(fmt.Sprintf("\tbandwidth: %v, total: %v\n", n.Bandwidth, n.Tot))
+	b.WriteString("\n}\n")
+
+	return b.String()
+}
+
 func DecodePayloadBandwidth(p []byte) (*PayloadBandwidth, error) {
 	payload := new(internal.PayloadBandwidth)
 	if err := proto.Unmarshal(p, payload); err != nil {

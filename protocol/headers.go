@@ -93,3 +93,8 @@ func InspectHeader() ([]byte, error) {
 	h := newHP(MessageInspect)
 	return proto.Marshal(h)
 }
+
+func BandwidthHeader() ([]byte, error) {
+	h := newHP(MessageBandwidth)
+	return proto.Marshal(h)
+}

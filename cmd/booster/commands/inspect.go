@@ -10,8 +10,52 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	inspectNode      bool
+	inspectBandwidth bool
+)
+
+var stream = func(addr string, features []protocol.Message) {
+	b, err := booster.New(pport, bport)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	stream, err := b.Inspect(context.Background(), "tcp", addr, features)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for n := range stream {
+		log.Println(n)
+	}
+}
+
 var inspectCmd = &cobra.Command{
 	Use:   "inspect [host:port -- optional]",
+	Short: "inspects node and bandwidth activity",
+	Long:  `inspect listents (by default) on the local node for each activity update, and logs it.`,
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+
+		addr := "localhost:4884"
+		if len(args) == 1 {
+			addr = args[0]
+
+		}
+
+		features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
+		stream(addr, features)
+	},
+}
+
+var inspectNodeCmd = &cobra.Command{
+	Use:   "node [host:port -- optional]",
 	Short: "inspects the node's activity",
 	Long:  `inspect listents (by default) on the local node for each node activity update, and logs it.`,
 	Args:  cobra.MaximumNArgs(1),
@@ -25,21 +69,31 @@ var inspectCmd = &cobra.Command{
 			addr = args[0]
 
 		}
-		b, err := booster.New(pport, bport)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
 
 		features := []protocol.Message{protocol.MessageNode}
-		stream, err := b.Inspect(context.Background(), "tcp", addr, features)
-		if err != nil {
-			fmt.Println(err)
-			return
+
+		stream(addr, features)
+	},
+}
+
+var inspectBandwidthCmd = &cobra.Command{
+	Use:   "net [host:port -- optional]",
+	Short: "inspects the network's activity",
+	Long:  `inspect listents (by default) on the local node for each net activity update, and logs it.`,
+	Args:  cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
 		}
 
-		for n := range stream {
-			log.Println(n)
+		addr := "localhost:4884"
+		if len(args) == 1 {
+			addr = args[0]
+
 		}
+
+		features := []protocol.Message{protocol.MessageBandwidth}
+
+		stream(addr, features)
 	},
 }

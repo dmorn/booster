@@ -3,6 +3,7 @@ package booster
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster/log"
@@ -359,55 +360,122 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 		return
 	}
 
-	// extract information
+	// extract features to serve
 	praw, err := p.Module(protocol.ModulePayload)
 	if err != nil {
 		fail(err)
 		return
 	}
-	// TODO(daniel): use the payload to extract which features should
-	// be followed
-	_, err = protocol.DecodePayloadInspect(praw.Payload())
+	pl, err := protocol.DecodePayloadInspect(praw.Payload())
 	if err != nil {
 		fail(err)
 		return
 	}
 
 	// TODO(daniel): serve packets depending on features requested
+	// - create waitGroup using suppFeatures
+	// - start serving for each supported feature, exit only when all
+	// are done
+	// - add func() parameter to fail, which contains the code to unsubscribe from
+	// the notifications
 	net := Nets.Get(b.ID)
-	wait := make(chan struct{}, 1)
-	var index int
-	_fail := func(err error) {
+	var wg sync.WaitGroup
+
+	_fail := func(err error, f func()) {
 		fail(err)
-		net.StopNotifying(index)
-		wait <- struct{}{}
+		f()
+		wg.Done()
 	}
 
-	// Register for node updates, read every node udpate message, compose a packet with it
-	// and send them trough the connection
-	if index, err = net.Notify(func(i interface{}) {
-		n, ok := i.(*node.Node)
-		if !ok {
-			_fail(fmt.Errorf("unrecognised node message: %v", i))
-			return
+	serveNode := func() {
+		var index int
+		f := func() {
+			net.StopNotifying(index)
 		}
 
-		p, err := composeNode(n)
-		if err != nil {
-			_fail(err)
-			return
-		}
+		// Register for node updates, read every node udpate message, compose a packet with it
+		// and send them trough the connection
+		if index, err = net.Notify(func(i interface{}) {
+			n, ok := i.(*node.Node)
+			if !ok {
+				_fail(fmt.Errorf("unrecognised node message: %v", i), f)
+				return
+			}
 
-		if err = conn.Send(p); err != nil {
-			_fail(err)
+			p, err := composeNode(n)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			if err = conn.Send(p); err != nil {
+				_fail(err, f)
+				return
+			}
+		}); err != nil {
+			// do not call _fail here, as the subscription was not successfull
+			fail(err)
+			wg.Done()
 			return
 		}
-	}); err != nil {
-		// do not call _fail here, as the subscription was not successfull
-		fail(err)
-		wait <- struct{}{}
-		return
 	}
 
-	<-wait
+	serveBandwidth := func() {
+		var index int
+		f := func() {
+			b.Proxy.StopNotifying(index, socks5.TopicBandwidth)
+		}
+
+		if index, err = b.Proxy.Notify(socks5.TopicBandwidth, func(i interface{}) {
+			bm, ok := i.(*socks5.BandwidthMessage)
+			if !ok {
+				_fail(fmt.Errorf("unrecognised bandwidth message: %v", i), f)
+				return
+			}
+			t := "download"
+			if !bm.Download {
+				t = "upload"
+			}
+
+			h, err := protocol.BandwidthHeader()
+			pl, err := protocol.EncodePayloadBandwidth(bm.Tot, bm.Bandwidth, t)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			p := packet.New()
+			enc := protocol.EncodingProtobuf
+			_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+			_, err = p.AddModule(protocol.ModulePayload, pl, enc)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			if err = conn.Send(p); err != nil {
+				_fail(err, f)
+				return
+			}
+		}); err != nil {
+			fail(err)
+			wg.Done()
+			return
+		}
+	}
+
+	for _, v := range pl.Features {
+		switch v {
+		case protocol.MessageNode:
+			wg.Add(1)
+			serveNode()
+		case protocol.MessageBandwidth:
+			wg.Add(1)
+			serveBandwidth()
+		default:
+			// do nothing, feature not supported
+		}
+	}
+
+	wg.Wait()
 }

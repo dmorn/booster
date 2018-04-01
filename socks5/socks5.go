@@ -122,7 +122,8 @@ type Socks5 struct {
 }
 
 type BandwidthMessage struct {
-	Bandwidth float64
+	Bandwidth int
+	Tot       int
 	D         time.Duration
 	Download  bool
 }
@@ -139,10 +140,12 @@ func New(d Dialer) *Socks5 {
 		return func() {
 			bIO.Lock()
 			b := bIO.Bandwidth
+			n := bIO.N
 			bIO.Unlock()
 
 			s.Pub(&BandwidthMessage{
-				Bandwidth: b,
+				Bandwidth: int(b),
+				Tot:       int(n),
 				D:         bc,
 				Download:  dl,
 			}, TopicBandwidth)
