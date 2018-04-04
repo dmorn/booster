@@ -110,6 +110,7 @@ type Socks5 struct {
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 	BandwidthCheck   time.Duration
+	NextCopyDelay    time.Duration
 	DownloadIO       *network.BandwidthIO
 	UploadIO         *network.BandwidthIO
 
@@ -133,6 +134,7 @@ func New(d Dialer) *Socks5 {
 	s := new(Socks5)
 	ps := pubsub.New()
 	bc := time.Second
+	ncd := time.Second * 0
 
 	dIO := new(network.BandwidthIO)
 	uIO := new(network.BandwidthIO)
@@ -153,10 +155,13 @@ func New(d Dialer) *Socks5 {
 	}
 
 	dIO.TickerFunc(bc, f(dIO, true))
+	dIO.NextCopyDelay = ncd
 	uIO.TickerFunc(bc, f(uIO, false))
+	uIO.NextCopyDelay = ncd
 
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.BandwidthCheck = bc
+	s.NextCopyDelay = ncd
 	s.ChunkSize = 4 * 1024
 	s.Dialer = d
 	s.PubSub = ps

@@ -183,6 +183,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 // bandwidth while doing so.
 type BandwidthIO struct {
 	Ticker *time.Ticker
+	NextCopyDelay time.Duration
 
 	sync.Mutex
 	N         int64 // N is the number of bytes transmitted
@@ -235,6 +236,8 @@ func (b *BandwidthIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error
 	b.N += n
 	b.t++
 	b.Unlock()
+
+	<-time.After(b.NextCopyDelay)
 
 	return n, err
 }
