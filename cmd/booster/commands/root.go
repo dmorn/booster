@@ -30,7 +30,7 @@ func Execute() {
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
 	// add commands
-	inspectCmd.AddCommand(inspectNodeCmd, inspectBandwidthCmd)
+	inspectCmd.AddCommand(inspectNodeCmd, inspectNetCmd)
 	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
