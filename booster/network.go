@@ -73,65 +73,58 @@ func NewNet(n *node.Node, boosterID string) *Network {
 }
 
 func (n *Network) TraceNodes(ctx context.Context) error {
-	if err := n.Tracer.Run(); err != nil {
-		return fmt.Errorf("booster: trace nodes: %v", err)
-	}
-
-	errc := make(chan error)
-	stream, err := n.Tracer.Notify()
-	if err != nil {
-		return fmt.Errorf("booster: trace nodes: %v", err)
-	}
-
 	b, err := New(1111, 1111)
 	if err != nil {
 		return fmt.Errorf("network: tracer: %v", err)
 	}
 
-	go func() {
-		for i := range stream {
-			m, ok := i.(tracer.Message)
-			if !ok {
-				errc <- fmt.Errorf("booster: unable to recognise tracer message %v", m)
-				return
-			}
+	if err := n.Tracer.Run(); err != nil {
+		return fmt.Errorf("booster: trace nodes: %v", err)
+	}
 
-			// means that the device is still offline.
-			if m.Err != nil {
-				continue
-			}
-
-			// find connection
-			c, ok := n.Conns[m.ID]
-			if !ok {
-				log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
-				n.Untrace(m.ID)
-				continue
-			}
-
-			// reconnect to it
-			from := n.LocalNode.BAddr.String()
-			to := c.RemoteNode.BAddr.String()
-			if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
-				// the node is up but we cannot open a proper Booster connection
-				// to it.
-				log.Error.Print(err)
-				continue
-			}
-
-			// do not trace this node anymore, as we managed to connect to it.
-			n.Untrace(m.ID)
+	errc := make(chan error)
+	index, err := n.Tracer.Notify(func(i interface{}) {
+		m, ok := i.(tracer.Message)
+		if !ok {
+			errc <- fmt.Errorf("booster: unable to recognise tracer message %v", m)
+			return
 		}
 
-		errc <- nil
-	}()
+		// means that the device is still offline.
+		if m.Err != nil {
+			return
+		}
+
+		// find connection
+		c, ok := n.Conns[m.ID]
+		if !ok {
+			log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
+			n.Untrace(m.ID)
+			return
+		}
+
+		// reconnect to it
+		from := n.LocalNode.BAddr.String()
+		to := c.RemoteNode.BAddr.String()
+		if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
+			// the node is up but we cannot open a proper Booster connection
+			// to it.
+			log.Error.Print(err)
+			return
+		}
+
+		// do not trace this node anymore, as we managed to connect to it.
+		n.Untrace(m.ID)
+	})
+	if err != nil {
+		return fmt.Errorf("booster: trace nodes: %v", err)
+	}
 
 	select {
 	case err := <-errc:
 		return err
 	case <-ctx.Done():
-		n.Tracer.StopNotifying(stream)
-		<-errc
+		n.Tracer.StopNotifying(index)
 		return ctx.Err()
 	}
 }
@@ -147,6 +140,13 @@ func (n *Network) AddConn(c *Conn) error {
 		if cc.Conn != nil {
 			return fmt.Errorf("network: conn (%v) already present", c.ID)
 		}
+
+		// Add the old tunnels to the new connection, as the node was not
+		// manually disconnected.
+		// Be aware that this operation could lead to the creation of
+		// "zombie" tunnels, which are tunnels that are neither dead nor
+		// alive.
+		c.RemoteNode.CopyTunnels(cc.RemoteNode)
 	}
 
 	c.boosterID = n.boosterID
@@ -157,14 +157,14 @@ func (n *Network) AddConn(c *Conn) error {
 // Notify subscribes to the underlying pubsub with topic TopicNodes. The channel
 // returned will produce node messages, containing information about the changes
 // and updates performed in the network.
-func (n *Network) Notify() (chan interface{}, error) {
-	return n.Sub(TopicNodes)
+func (n *Network) Notify(f func(interface{})) (int, error) {
+	return n.Sub(TopicNodes, f)
 }
 
 // StopNotifying usubscribes c from receiving notifications on TopicNodes.
 // Closes the channel.
-func (n *Network) StopNotifying(c chan interface{}) {
-	n.Unsub(c, TopicNodes)
+func (n *Network) StopNotifying(index int) {
+	n.Unsub(index, TopicNodes)
 }
 
 // Nodes returns the root node of the network, togheter with all the remote
@@ -350,10 +350,13 @@ func (c *Conn) Send(p *packet.Packet) error {
 	}
 }
 
+// TODO: what if consume accepted a function to be used for each packet? (see pubsub refactoring of
+// Sub function)
 func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 	if c.Conn == nil {
 		return nil, fmt.Errorf("network: connection is closed")
 	}
+
 	return c.Conn.Consume()
 }
 

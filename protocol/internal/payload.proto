@@ -3,6 +3,20 @@ package internal;
 
 import "google/protobuf/timestamp.proto";
 
+message PayloadBandwidth {
+	// tot is the total number of bytes transmitted.
+	int64 tot = 1;
+	// bandwidth is the current bandwidth.
+	int64 bandwidth = 2;
+	// type is the transmission direction, i.e. dowload/upload
+	string type = 3;
+}
+
+message PayloadInspect {
+	// features contains the features that should be inspected.
+	repeated int32 features = 1;
+}
+
 message PayloadHello {
 	// bport is the booster listening port.
 	string bport = 1;

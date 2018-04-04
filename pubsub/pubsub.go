@@ -28,7 +28,7 @@ func New() *PubSub {
 // Sub makes a subscription to topic. Returns the channel where
 // the messages will be sent to, which should not be closed. If doing so,
 // the channel will be removed from the list of subscribed channels.
-func (ps *PubSub) Sub(tname string) (chan interface{}, error) {
+func (ps *PubSub) Sub(tname string, f func(interface{})) (int, error) {
 	hash := hash(tname)
 	t, err := ps.topic(tname)
 	if err != nil {
@@ -45,35 +45,47 @@ func (ps *PubSub) Sub(tname string) (chan interface{}, error) {
 
 	ch := newChannel()
 
-	t.Lock()
-	defer t.Unlock()
-
 	// find free place
+	t.Lock()
 	ok := false
+	index := 0
 	for i, v := range t.chs {
 		if v == nil {
 			ok = true
+			index = i
 			t.chs[i] = ch
 			break
 		}
 	}
+	t.Unlock()
 
 	if !ok {
-		return nil, errors.New("pubsub: too many subscribers")
+		return 0, errors.New("pubsub: too many subscribers")
 	}
 
 	c, err := ch.run()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return c, nil
+	// done if no function was passed
+	if f == nil {
+		return index, nil
+	}
+
+	go func() {
+		for d := range c {
+			f(d)
+		}
+	}()
+
+	return index, nil
 }
 
 // Unsub removes c from the list of subscribed channels of topic.
 // Returns an error if no such topic is present, or if the channel
 // is already no longer in the subscription list.
-func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
+func (ps *PubSub) Unsub(index int, topic string) error {
 	t, err := ps.topic(topic)
 	if err != nil {
 		return err
@@ -81,21 +93,15 @@ func (ps *PubSub) Unsub(c chan interface{}, topic string) error {
 
 	t.Lock()
 	defer t.Unlock()
-	for i, ch := range t.chs {
-		if ch == nil {
-			continue
-		}
-
-		if ch.out() != c {
-			continue
-		}
-
-		ch.stop()
-		t.chs[i] = nil
-		return nil
+	if index < 0 || index > len(t.chs) {
+		return fmt.Errorf("pubsub: index out of range: %v, max: %v, topic: %v", index, len(t.chs), topic)
 	}
 
-	return fmt.Errorf("pubsub: unable to unsub: channel with topic %v not found", topic)
+	ch := t.chs[index]
+	ch.stop()
+	t.chs[index] = nil
+
+	return nil
 }
 
 // Close removes a topic and closes its related channels.

@@ -182,41 +182,49 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 // BandwidthIO implements the io.CopyN method, keeping track of the
 // bandwidth while doing so.
 type BandwidthIO struct {
-	timerFunc *time.Timer
+	Ticker *time.Ticker
+	NextCopyDelay time.Duration
 
 	sync.Mutex
 	N         int64 // N is the number of bytes transmitted
-	Bandwidth float64
-	t         int   // t is the number of times CopyN was called
-	lastN     int64 // LastN is the last number of bytes transmitted
+	Bandwidth int64
+	t         int // t is the number of times CopyN was called
 }
 
-// AfterFunc calls f repeatedly after d.
+// TickerFunc calls f repeatedly after d.
 // Badwidth is calculated right before calling f.
-func (b *BandwidthIO) AfterFunc(d time.Duration, f func()) {
-	var lastB int64
+func (b *BandwidthIO) TickerFunc(d time.Duration, f func()) {
+	b.Lock()
+	prev := b.N // prev is the previous N collected
+	b.Unlock()
 
-	b.timerFunc = time.AfterFunc(d, func() {
-		b.Lock()
-		t := b.t
-		N := b.N
-		b.Unlock()
+	b.Ticker = time.NewTicker(d)
+	go func() {
+		for _ = range b.Ticker.C {
+			b.Lock()
+			t := b.t
+			N := b.N
+			b.Unlock()
 
-		if t == 0 {
-			// simply return if CopyN was never called yet
-			return
+			if t == 0 {
+				// simply return if CopyN was never called yet
+				continue
+			}
+
+			// Bandwidth is populated with the number of bytes transmitted
+			// since the last check
+			bw := N - prev
+
+			// Update prev
+			prev += bw
+
+			b.Lock()
+			b.Bandwidth = int64(bw)
+			b.Unlock()
+
+			f()
 		}
-
-		// Bandwidth is populated with the number of bytes transmitted
-		// since the last check
-		lastB = N - lastB
-
-		b.Lock()
-		b.Bandwidth = float64(lastB)
-		b.Unlock()
-
-		f()
-	})
+	}()
 }
 
 // CopyN copies data from src into dst, using a buffer of size n. Keeps track of
@@ -226,9 +234,10 @@ func (b *BandwidthIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error
 
 	b.Lock()
 	b.N += n
-	b.lastN = n
 	b.t++
 	b.Unlock()
+
+	<-time.After(b.NextCopyDelay)
 
 	return n, err
 }

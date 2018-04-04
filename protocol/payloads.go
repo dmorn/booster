@@ -10,6 +10,79 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
+type PayloadBandwidth struct {
+	Tot       int
+	Bandwidth int
+	Type      string
+}
+
+func (n *PayloadBandwidth) String() string {
+	var b strings.Builder
+	b.WriteString("net {\n")
+
+	b.WriteString(fmt.Sprintf("\ttype: %s\n", n.Type))
+	b.WriteString(fmt.Sprintf("\tbandwidth: %v, total: %v\n", n.Bandwidth, n.Tot))
+	b.WriteString("\n}\n")
+
+	return b.String()
+}
+
+func DecodePayloadBandwidth(p []byte) (*PayloadBandwidth, error) {
+	payload := new(internal.PayloadBandwidth)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	return &PayloadBandwidth{
+		Tot:       int(payload.Tot),
+		Bandwidth: int(payload.Bandwidth),
+		Type:      payload.Type,
+	}, nil
+}
+
+func EncodePayloadBandwidth(tot int, bw int, t string) ([]byte, error) {
+	p := &internal.PayloadBandwidth{
+		Tot:       int64(tot),
+		Bandwidth: int64(bw),
+		Type:      t,
+	}
+
+	return proto.Marshal(p)
+}
+
+type PayloadInspect struct {
+	Features []Message
+}
+
+func DecodePayloadInspect(p []byte) (*PayloadInspect, error) {
+	payload := new(internal.PayloadInspect)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	features := []Message{}
+	for _, v := range payload.Features {
+		features = append(features, Message(v))
+	}
+
+	return &PayloadInspect{
+		Features: features,
+	}, nil
+}
+
+func EncodePayloadInspect(f []Message) ([]byte, error) {
+	features := []int32{}
+	for _, v := range f {
+		features = append(features, int32(v))
+	}
+
+	p := &internal.PayloadInspect{
+		Features: features,
+	}
+
+	return proto.Marshal(p)
+}
+
 type PayloadHello struct {
 	BPort string
 	PPort string
@@ -92,7 +165,7 @@ type PayloadNode struct {
 
 func (n *PayloadNode) String() string {
 	var b strings.Builder
-	b.WriteString("{\n")
+	b.WriteString("node {\n")
 
 	id := string([]byte(n.ID)[:10])
 	b.WriteString(fmt.Sprintf("\tid: %v active: %v\n", id, n.Active))

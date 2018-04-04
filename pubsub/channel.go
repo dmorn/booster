@@ -37,7 +37,7 @@ func (c *channel) run() (chan interface{}, error) {
 
 		select {
 		case c.out() <- m:
-		case <-time.After(time.Second * 2):
+		case <-time.After(time.Second):
 			c.stop()
 		}
 	}

@@ -3,6 +3,7 @@ package booster
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/danielmorandini/booster/log"
@@ -48,7 +49,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 			go b.ServeStatus(ctx, conn)
 
 		case protocol.MessageInspect:
-			go b.ServeInspect(ctx, conn)
+			go b.ServeInspect(ctx, conn, p)
 
 		default:
 			return fmt.Errorf("booster: discarding packet: unexpected message id: %v", h.ID)
@@ -231,10 +232,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	c.RemoteNode.ToBeTraced = false
 
 	// perform the actual disconnection
-	if err = c.Close(); err != nil {
-		fail(err)
-		return
-	}
+	c.Close()
 
 	// TODO(daniel): is this response appropriate?
 	// send back a node packet with the info about the
@@ -292,21 +290,16 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	log.Info.Print("booster: <- status...")
 
+	wait := make(chan struct{}, 1)
+	var err error
+	var index int
 	fail := func(err error) {
 		log.Error.Printf("booster: serve status error: %v", err)
+
 		conn.Close()
+		b.Proxy.StopNotifying(index, socks5.TopicTunnels)
+		wait <- struct{}{}
 	}
-
-	// register for proxy updates
-	c, err := b.Proxy.Notify(socks5.TopicTunnels)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	defer func() {
-		b.Proxy.StopNotifying(c, socks5.TopicTunnels)
-	}()
 
 	// Read every tunnel message, compose a packet with them
 	// and send them trough the connection
@@ -316,7 +309,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 		return
 	}
 
-	for i := range c {
+	// register for proxy updates
+	if index, err = b.Proxy.Notify(socks5.TopicTunnels, func(i interface{}) {
 		tm, ok := i.(socks5.TunnelMessage)
 		if !ok {
 			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
@@ -344,10 +338,15 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			fail(err)
 			return
 		}
+	}); err != nil {
+		fail(err)
+		return
 	}
+
+	<-wait
 }
 
-func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
+func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	log.Info.Print("booster: <- serving inspect...")
 
 	fail := func(err error) {
@@ -355,36 +354,128 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser) {
 		conn.Close()
 	}
 
-	// register for node updates
-	net := Nets.Get(b.ID)
-	c, err := net.Notify()
+	// extract the features that are to be inspected
+	if err := ValidatePacket(p); err != nil {
+		fail(err)
+		return
+	}
+
+	// extract features to serve
+	praw, err := p.Module(protocol.ModulePayload)
+	if err != nil {
+		fail(err)
+		return
+	}
+	pl, err := protocol.DecodePayloadInspect(praw.Payload())
 	if err != nil {
 		fail(err)
 		return
 	}
 
-	defer func() {
-		net.StopNotifying(c)
-	}()
+	// TODO(daniel): serve packets depending on features requested
+	// - create waitGroup using suppFeatures
+	// - start serving for each supported feature, exit only when all
+	// are done
+	// - add func() parameter to fail, which contains the code to unsubscribe from
+	// the notifications
+	net := Nets.Get(b.ID)
+	var wg sync.WaitGroup
 
-	// Read every node udpate message, compose a packet with it
-	// and send them trough the connection
-	for i := range c {
-		n, ok := i.(*node.Node)
-		if !ok {
-			fail(fmt.Errorf("unrecognised node message: %v", i))
-			return
+	_fail := func(err error, f func()) {
+		fail(err)
+		f()
+		wg.Done()
+	}
+
+	serveNode := func() {
+		var index int
+		f := func() {
+			net.StopNotifying(index)
 		}
 
-		p, err := composeNode(n)
-		if err != nil {
-			fail(err)
-			return
-		}
+		// Register for node updates, read every node udpate message, compose a packet with it
+		// and send them trough the connection
+		if index, err = net.Notify(func(i interface{}) {
+			n, ok := i.(*node.Node)
+			if !ok {
+				_fail(fmt.Errorf("unrecognised node message: %v", i), f)
+				return
+			}
 
-		if err = conn.Send(p); err != nil {
+			p, err := composeNode(n)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			if err = conn.Send(p); err != nil {
+				_fail(err, f)
+				return
+			}
+		}); err != nil {
+			// do not call _fail here, as the subscription was not successfull
 			fail(err)
+			wg.Done()
 			return
 		}
 	}
+
+	serveBandwidth := func() {
+		var index int
+		f := func() {
+			b.Proxy.StopNotifying(index, socks5.TopicBandwidth)
+		}
+
+		if index, err = b.Proxy.Notify(socks5.TopicBandwidth, func(i interface{}) {
+			bm, ok := i.(*socks5.BandwidthMessage)
+			if !ok {
+				_fail(fmt.Errorf("unrecognised bandwidth message: %v", i), f)
+				return
+			}
+			t := "download"
+			if !bm.Download {
+				t = "upload"
+			}
+
+			h, err := protocol.BandwidthHeader()
+			pl, err := protocol.EncodePayloadBandwidth(bm.Tot, bm.Bandwidth, t)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			p := packet.New()
+			enc := protocol.EncodingProtobuf
+			_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+			_, err = p.AddModule(protocol.ModulePayload, pl, enc)
+			if err != nil {
+				_fail(err, f)
+				return
+			}
+
+			if err = conn.Send(p); err != nil {
+				_fail(err, f)
+				return
+			}
+		}); err != nil {
+			fail(err)
+			wg.Done()
+			return
+		}
+	}
+
+	for _, v := range pl.Features {
+		switch v {
+		case protocol.MessageNode:
+			wg.Add(1)
+			serveNode()
+		case protocol.MessageBandwidth:
+			wg.Add(1)
+			serveBandwidth()
+		default:
+			// do nothing, feature not supported
+		}
+	}
+
+	wg.Wait()
 }

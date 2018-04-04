@@ -50,6 +50,16 @@ func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	return n, nil
 }
 
+// CopyTunnels takes the tunnels of the receiver and copies them into "into".
+func (n *Node) CopyTunnels(into *Node) {
+	n.Lock()
+	into.Lock()
+
+	for k, v := range n.tunnels {
+		into.tunnels[k] = v
+	}
+}
+
 // Workload is the number of tunnels that the node is managing. Contains also unacknoledged ones.
 func (n *Node) Workload() int {
 	n.Lock()

@@ -91,8 +91,8 @@ const (
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string) (chan interface{}, error)
-	Unsub(c chan interface{}, topic string) error
+	Sub(topic string, f func(interface{})) (int, error)
+	Unsub(index int, topic string) error
 	Pub(message interface{}, topic string) error
 }
 
@@ -110,6 +110,7 @@ type Socks5 struct {
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 	BandwidthCheck   time.Duration
+	NextCopyDelay    time.Duration
 	DownloadIO       *network.BandwidthIO
 	UploadIO         *network.BandwidthIO
 
@@ -122,7 +123,8 @@ type Socks5 struct {
 }
 
 type BandwidthMessage struct {
-	Bandwidth float64
+	Bandwidth int
+	Tot       int
 	D         time.Duration
 	Download  bool
 }
@@ -131,7 +133,8 @@ type BandwidthMessage struct {
 func New(d Dialer) *Socks5 {
 	s := new(Socks5)
 	ps := pubsub.New()
-	bc := time.Second * 1
+	bc := time.Second
+	ncd := time.Second * 0
 
 	dIO := new(network.BandwidthIO)
 	uIO := new(network.BandwidthIO)
@@ -139,21 +142,26 @@ func New(d Dialer) *Socks5 {
 		return func() {
 			bIO.Lock()
 			b := bIO.Bandwidth
+			n := bIO.N
 			bIO.Unlock()
 
 			s.Pub(&BandwidthMessage{
-				Bandwidth: b,
+				Bandwidth: int(b),
+				Tot:       int(n),
 				D:         bc,
 				Download:  dl,
 			}, TopicBandwidth)
 		}
 	}
 
-	dIO.AfterFunc(bc, f(dIO, true))
-	uIO.AfterFunc(bc, f(uIO, false))
+	dIO.TickerFunc(bc, f(dIO, true))
+	dIO.NextCopyDelay = ncd
+	uIO.TickerFunc(bc, f(uIO, false))
+	uIO.NextCopyDelay = ncd
 
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.BandwidthCheck = bc
+	s.NextCopyDelay = ncd
 	s.ChunkSize = 4 * 1024
 	s.Dialer = d
 	s.PubSub = ps
@@ -178,6 +186,9 @@ func (s *Socks5) Run(port int) error {
 		return err
 	case <-s.stop:
 		cancel()
+		s.DownloadIO.Ticker.Stop()
+		s.UploadIO.Ticker.Stop()
+
 		<-errc // wait for ListenAndServe to return
 		return fmt.Errorf("socks5: stopped")
 	}
@@ -185,6 +196,7 @@ func (s *Socks5) Run(port int) error {
 
 func (s *Socks5) Close() error {
 	s.stop <- struct{}{}
+
 	return nil
 }
 
@@ -290,12 +302,12 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	return nil
 }
 
-func (s *Socks5) Notify(topic string) (chan interface{}, error) {
-	return s.Sub(topic)
+func (s *Socks5) Notify(topic string, f func(interface{})) (int, error) {
+	return s.Sub(topic, f)
 }
 
-func (s *Socks5) StopNotifying(c chan interface{}, topic string) {
-	s.Unsub(c, topic)
+func (s *Socks5) StopNotifying(index int, topic string) {
+	s.Unsub(index, topic)
 }
 
 // ProxyData copies data from src to dst and the other way around.

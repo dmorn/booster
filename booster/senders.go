@@ -163,7 +163,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	return nil
 }
 
-func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *protocol.PayloadNode, error) {
+func (b *Booster) Inspect(ctx context.Context, network, addr string, features []protocol.Message) (<-chan interface{}, error) {
 	log.Info.Printf("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
@@ -177,8 +177,17 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 		conn.Close()
 		return nil, err
 	}
+	pl, err := protocol.EncodePayloadInspect(features)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	p := packet.New()
-	if _, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf); err != nil {
+	_, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf)
+	_, err = p.AddModule(protocol.ModulePayload, pl, protocol.EncodingProtobuf)
+
+	if err != nil {
 		conn.Close()
 		return nil, err
 	}
@@ -195,7 +204,7 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 		return nil, err
 	}
 
-	stream := make(chan *protocol.PayloadNode, 1)
+	stream := make(chan interface{}, 1)
 	go func() {
 		defer func() {
 			close(stream)
@@ -217,27 +226,50 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string) (<-chan *pr
 				fail(err)
 				return
 			}
-			// take only node packets
-			if h.ID != protocol.MessageNode {
+
+			// take only packets requested
+			if !isIn(h.ID, features...) {
 				log.Info.Printf("booster: inspect: discarding packet: unexpected header: %v", h)
 				continue
 			}
 
-			// extract node from payload
+			// extract the payload
 			praw, err := p.Module(protocol.ModulePayload)
 			if err != nil {
 				fail(err)
 				return
 			}
-			pl, err := protocol.DecodePayloadNode(praw.Payload())
-			if err != nil {
-				fail(err)
-				return
+
+			switch h.ID {
+			case protocol.MessageNode:
+				pl, err := protocol.DecodePayloadNode(praw.Payload())
+				if err != nil {
+					fail(err)
+					return
+				}
+
+				stream <- pl
+			case protocol.MessageBandwidth:
+				pl, err := protocol.DecodePayloadBandwidth(praw.Payload())
+				if err != nil {
+					fail(err)
+					return
+				}
+
+				stream <- pl
 			}
 
-			stream <- pl
 		}
 	}()
 
 	return stream, nil
+}
+
+func isIn(id protocol.Message, ids ...protocol.Message) bool {
+	for _, v := range ids {
+		if id == v {
+			return true
+		}
+	}
+	return false
 }
