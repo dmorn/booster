@@ -140,6 +140,13 @@ func (n *Network) AddConn(c *Conn) error {
 		if cc.Conn != nil {
 			return fmt.Errorf("network: conn (%v) already present", c.ID)
 		}
+
+		// Add the old tunnels to the new connection, as the node was not
+		// manually disconnected.
+		// Be aware that this operation could lead to the creation of
+		// "zombie" tunnels, which are tunnels that are neither dead nor
+		// alive.
+		c.RemoteNode.CopyTunnels(cc.RemoteNode)
 	}
 
 	c.boosterID = n.boosterID

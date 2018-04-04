@@ -186,15 +186,16 @@ type BandwidthIO struct {
 
 	sync.Mutex
 	N         int64 // N is the number of bytes transmitted
-	Bandwidth float64
-	t         int   // t is the number of times CopyN was called
-	lastN     int64 // LastN is the last number of bytes transmitted
+	Bandwidth int64
+	t         int // t is the number of times CopyN was called
 }
 
 // TickerFunc calls f repeatedly after d.
 // Badwidth is calculated right before calling f.
 func (b *BandwidthIO) TickerFunc(d time.Duration, f func()) {
-	var lastB int64
+	b.Lock()
+	prev := b.N // prev is the previous N collected
+	b.Unlock()
 
 	b.Ticker = time.NewTicker(d)
 	go func() {
@@ -211,10 +212,13 @@ func (b *BandwidthIO) TickerFunc(d time.Duration, f func()) {
 
 			// Bandwidth is populated with the number of bytes transmitted
 			// since the last check
-			lastB = N - lastB
+			bw := N - prev
+
+			// Update prev
+			prev += bw
 
 			b.Lock()
-			b.Bandwidth = float64(lastB)
+			b.Bandwidth = int64(bw)
 			b.Unlock()
 
 			f()
@@ -229,7 +233,6 @@ func (b *BandwidthIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error
 
 	b.Lock()
 	b.N += n
-	b.lastN = n
 	b.t++
 	b.Unlock()
 
