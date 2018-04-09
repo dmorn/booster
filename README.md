@@ -85,8 +85,3 @@ Pick your [release!](https://github.com/danielmorandini/booster/releases)
 Booster comes with a great CLI powered by [cobra](https://github.com/spf13/cobra).
 
 Find more with `bin/booster help`
-
-## Booster protocol specification (todo)
-
-## Connecting through bluetooth (todo)
-[ssh into Android device](https://wiki.termux.com/wiki/SSH)
