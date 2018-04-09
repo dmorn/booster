@@ -146,7 +146,7 @@ func (n *Network) AddConn(c *Conn) error {
 		// Be aware that this operation could lead to the creation of
 		// "zombie" tunnels, which are tunnels that are neither dead nor
 		// alive.
-		c.RemoteNode.CopyTunnels(cc.RemoteNode)
+		cc.RemoteNode.CopyTunnels(c.RemoteNode)
 	}
 
 	c.boosterID = n.boosterID

@@ -142,13 +142,6 @@ func (b *Booster) Run() error {
 	}()
 
 	go func() {
-		// TODO(daniel): recover
-		//		wg.Add(1)
-		//		errc <- b.TraceBandwidth(ctx)
-		//		wg.Done()
-	}()
-
-	go func() {
 		wg.Add(1)
 		errc <- b.UpdateRoot(ctx)
 		wg.Done()
@@ -247,6 +240,8 @@ func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, 
 	return b.RecvHello(ctx, conn)
 }
 
+// Wire connects the target and the local node together, adding the remote booster instance
+// as a new connection of the network.
 func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, error) {
 	// connect to the target node
 	conn, err := b.DialContext(ctx, network, target)

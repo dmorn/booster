@@ -118,7 +118,7 @@ func (c *client) FetchToken() error {
 }
 
 func (c *client) Update(msg *protocol.PayloadNode) error {
-	url := fmt.Sprintf("http://%v:%v/node/%v", c.host, c.port, c.token)
+	url := fmt.Sprintf("http://%v:%v/node?token=%v", c.host, c.port, c.token)
 	b := new(bytes.Buffer)
 	if err := json.NewEncoder(b).Encode(msg); err != nil {
 		return err
