@@ -15,20 +15,4 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-package main
-
-import (
-	"github.com/danielmorandini/booster/cmd/socks5/commands"
-)
-
-// Version and BuildTime are filled in during build by the Makefile
-var (
-	Version   = "N/A"
-	BuildTime = "N/A"
-)
-
-func main() {
-	commands.Version = Version
-	commands.BuildTime = BuildTime
-	commands.Execute()
-}
+ciao
