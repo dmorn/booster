@@ -139,7 +139,7 @@ func (b *Booster) Run() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errc := make(chan error, 5)
+	errc := make(chan error, 4)
 	_, pport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.PAddr.String())
 	_, bport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.BAddr.String())
 	pp, _ := strconv.Atoi(pport)

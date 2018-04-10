@@ -389,12 +389,6 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 		return
 	}
 
-	// TODO(daniel): serve packets depending on features requested
-	// - create waitGroup using suppFeatures
-	// - start serving for each supported feature, exit only when all
-	// are done
-	// - add func() parameter to fail, which contains the code to unsubscribe from
-	// the notifications
 	net := Nets.Get(b.ID)
 	var wg sync.WaitGroup
 
