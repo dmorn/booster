@@ -3,6 +3,12 @@ package internal;
 
 import "google/protobuf/timestamp.proto";
 
+message PayloadCtrl {
+	// operation is the operation that has to be performed.
+	// See Ctrl operations in protocol.go
+	int32 operation = 1;
+}
+
 message PayloadBandwidth {
 	// tot is the total number of bytes transmitted.
 	int64 tot = 1;

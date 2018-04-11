@@ -115,3 +115,8 @@ func BandwidthHeader() ([]byte, error) {
 	h := newHP(MessageBandwidth)
 	return proto.Marshal(h)
 }
+
+func CtrlHeader() ([]byte, error) {
+	h := newHP(MessageCtrl)
+	return proto.Marshal(h)
+}

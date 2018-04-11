@@ -59,6 +59,45 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	return conn.Send(p)
 }
 
+// Ctrl commands addr to perform operation op. 
+func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Operation) error {
+	log.Info.Printf("booster: -> ctrl: %v", addr)
+
+	conn, err := b.DialContext(ctx, network, addr)
+	if err != nil {
+		return fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
+	}
+	defer conn.Close()
+
+	// compose the packet
+	h, err := protocol.CtrlHeader()
+	if err != nil {
+		return err
+	}
+	pl, err := protocol.EncodePayloadCtrl(op)
+	if err != nil {
+		return err
+	}
+
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
+		return err
+	}
+	if _, err := p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
+		return err
+	}
+
+	// send it
+	if err := conn.Send(p); err != nil {
+		return err
+	}
+
+	// TODO(daniel): need a response of some sort
+	return nil
+}
+
+
 // Connect dials with laddr, creates a connect packet using raddr and tells laddr
 // to connect with raddr. Both laddr and raddr are expected to point to a booster node.
 //

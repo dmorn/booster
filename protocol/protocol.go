@@ -19,6 +19,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // that conform to the booster protocol.
 package protocol
 
+import (
+	"fmt"
+)
+
 // Booster protocol version
 const Version = "v0.1.0"
 
@@ -46,22 +50,44 @@ type Message int32
 
 // Booster possible packet messages
 const (
-	MessageHello      Message = 0
-	MessageConnect            = 1
-	MessageDisconnect         = 2
-	MessageNode               = 3
-	MessageHeartbeat          = 4
-	MessageTunnel             = 5
-	MessageNotify             = 6
-	MessageInspect            = 7
-	MessageBandwidth          = 8
+	MessageHello      Message = 1
+	MessageConnect            = 2
+	MessageDisconnect         = 3
+	MessageNode               = 4
+	MessageHeartbeat          = 5
+	MessageTunnel             = 6
+	MessageNotify             = 7
+	MessageInspect            = 8
+	MessageBandwidth          = 9
+	MessageCtrl               = 10
 )
 
 // Tunnel operations
 const (
-	TunnelAck    int32 = 0
-	TunnelRemove       = 1
+	TunnelAck    int32 = 1
+	TunnelRemove       = 2
 )
+
+type Operation int32
+
+// Ctrl operations
+const (
+	CtrlStop     Operation = 1
+	CtrlRestart            = 2
+)
+
+// OperationFromString converts raw, if possible, into a protocol
+// known operation. Returns an error if no match is found.
+func OperationFromString(raw string) (Operation, error) {
+	switch raw {
+	case "stop":
+		return CtrlStop, nil
+	case "restart":
+		return CtrlRestart, nil
+	default:
+		return Operation(-1), fmt.Errorf("protocol: undefiled operation: %v", raw)
+	}
+}
 
 // IsVersionSupported returns true if the current protocol version is compatible
 // with the requested version.

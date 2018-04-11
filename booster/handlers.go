@@ -71,6 +71,9 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 
 		case protocol.MessageInspect:
 			go b.ServeInspect(ctx, conn, p)
+		
+		case protocol.MessageCtrl:
+			b.HandleCtrl(ctx, conn, p)
 
 		default:
 			return fmt.Errorf("booster: discarding packet: unexpected message id: %v", h.ID)
@@ -83,6 +86,39 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		if err := handler(p); err != nil {
 			log.Error.Println(err)
 			conn.Close()
+			return
+		}
+	}
+}
+
+func (b *Booster) HandleCtrl(ctx context.Context, conn SendCloser, p *packet.Packet) {
+	fail := func(err error) {
+		log.Error.Printf("booster: ctrl error: %v", err)
+		conn.Close()
+	}
+
+	// extract information
+	praw, err := p.Module(protocol.ModulePayload)
+	if err != nil {
+		fail(err)
+		return
+	}
+	pl, err := protocol.DecodePayloadCtrl(praw.Payload())
+	if err != nil {
+		fail(err)
+		return
+	}
+
+	// check the control operation that we have to perform
+	switch pl.Operation {
+	case protocol.CtrlStop:
+		if err := b.Close(); err != nil {
+			fail(err)
+			return
+		}
+	case protocol.CtrlRestart:
+		if err := b.Restart(); err != nil {
+			fail(err)
 			return
 		}
 	}

@@ -48,7 +48,7 @@ func Execute() {
 
 	// add commands
 	inspectCmd.AddCommand(inspectNodeCmd, inspectNetCmd)
-	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd)
+	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, inspectCmd, ctrlCmd)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 
 	// execute

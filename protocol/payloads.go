@@ -27,6 +27,29 @@ import (
 	"github.com/golang/protobuf/ptypes"
 )
 
+type PayloadCtrl struct {
+	Operation Operation
+}
+
+func DecodePayloadCtrl(p []byte) (*PayloadCtrl, error) {
+	payload := new(internal.PayloadCtrl)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return nil, err
+	}
+
+	return &PayloadCtrl{
+		Operation: Operation(payload.Operation),
+	}, nil
+}
+
+func EncodePayloadCtrl(op Operation) ([]byte, error) {
+	p := &internal.PayloadCtrl {
+		Operation: int32(op),
+	}
+
+	return proto.Marshal(p)
+}
+
 type PayloadBandwidth struct {
 	Tot       int `json:"tot"`
 	Bandwidth int `json:"bandwidth"`
