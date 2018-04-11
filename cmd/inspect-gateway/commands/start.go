@@ -41,7 +41,7 @@ var startCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
-			log.SetLevel(log.InfoLevel)
+			log.SetLevel(log.DebugLevel)
 		}
 
 		addr := "localhost:4884"
@@ -98,26 +98,6 @@ var startCmd = &cobra.Command{
 	},
 }
 
-func (c *client) handleNode(node *protocol.PayloadNode) error {
-	log.Debug.Printf("[%v] node received", node.ID)
-
-	if err := c.UpdateNode(node); err != nil {
-		return fmt.Errorf("[%v] unable to send msg: %v", node.ID, err)
-	}
-
-	return nil
-}
-
-func (c *client) handleBandwidth(bw *protocol.PayloadBandwidth) error {
-	log.Debug.Printf("[%v] bandwidth message received", bw.Type)
-
-	if err := c.UpdateBandwidth(bw); err != nil {
-		return fmt.Errorf("[%v] unable to send msg: %v", bw.Type, err)
-	}
-
-	return nil
-}
-
 type client struct {
 	*http.Client
 
@@ -134,6 +114,10 @@ func newAPIClient(host, port string) *client {
 			Timeout: time.Second * 5,
 		},
 	}
+}
+
+func (c *client) api() string {
+	return fmt.Sprintf("http://%v:%v/api", c.host, c.port)
 }
 
 func (c *client) FetchToken() error {
@@ -159,8 +143,24 @@ func (c *client) FetchToken() error {
 	return nil
 }
 
-func (c *client) api() string {
-	return fmt.Sprintf("http://%v:%v/api", c.host, c.port)
+func (c *client) handleNode(node *protocol.PayloadNode) error {
+	log.Debug.Printf("[%v] node received", node.ID)
+
+	if err := c.UpdateNode(node); err != nil {
+		return fmt.Errorf("[%v] unable to send msg: %v", node.ID, err)
+	}
+
+	return nil
+}
+
+func (c *client) handleBandwidth(bw *protocol.PayloadBandwidth) error {
+	log.Debug.Printf("[%v] bandwidth message received", bw.Type)
+
+	if err := c.UpdateBandwidth(bw); err != nil {
+		return fmt.Errorf("[%v] unable to send msg: %v", bw.Type, err)
+	}
+
+	return nil
 }
 
 func (c *client) UpdateNode(msg *protocol.PayloadNode) error {
