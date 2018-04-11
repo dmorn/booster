@@ -78,6 +78,12 @@ make
 
 a `bin` folder will be produced inside the repo.
 
+#### Homebrew:
+```
+brew tap danielmorandini/tap (this has only to be done once)
+brew install danielmorandini/tap/booster
+```
+
 #### Binary:
 Pick your [release!](https://github.com/danielmorandini/booster/releases)
 
