@@ -28,9 +28,9 @@ import (
 )
 
 type PayloadBandwidth struct {
-	Tot       int
-	Bandwidth int
-	Type      string
+	Tot       int `json:"tot"`
+	Bandwidth int `json:"bandwidth"`
+	Type      string `json:"type"`
 }
 
 func (n *PayloadBandwidth) String() string {

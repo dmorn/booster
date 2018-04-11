@@ -70,7 +70,7 @@ var startCmd = &cobra.Command{
 			return
 		}
 
-		features := []protocol.Message{protocol.MessageNode}
+		features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
 		stream, err := b.Inspect(context.Background(), "tcp", addr, features)
 		if err != nil {
 			fmt.Println(err)
@@ -78,19 +78,35 @@ var startCmd = &cobra.Command{
 		}
 
 		for i := range stream {
-			node, ok := i.(*protocol.PayloadNode)
-			if !ok {
-				log.Error.Printf("unrecognised message: %+v", i)
+			if node, ok := i.(*protocol.PayloadNode); ok {
+				c.handleNode(node)
 				continue
 			}
 
-			log.Printf("[%v] node received", node.ID)
-
-			if err = c.Update(node); err != nil {
-				log.Fatalf("[%v] unable to send msg: %v", node.ID, err)
+			if bw, ok := i.(*protocol.PayloadBandwidth); ok {
+				c.handleBandwidth(bw)
+				continue
 			}
+
+			log.Error.Printf("unrecognised message: %+v", i)
 		}
 	},
+}
+
+func (c *client) handleNode(node *protocol.PayloadNode) {
+	log.Printf("[%v] node received", node.ID)
+
+	if err := c.UpdateNode(node); err != nil {
+		log.Fatalf("[%v] unable to send msg: %v", node.ID, err)
+	}
+}
+
+func (c *client) handleBandwidth(bw *protocol.PayloadBandwidth) {
+	log.Printf("[%v] bandwidth message received", bw.Type)
+
+	if err := c.UpdateBandwidth(bw); err != nil {
+		log.Fatalf("[%v] unable to send msg: %v", bw.Type, err)
+	}
 }
 
 type client struct {
@@ -134,8 +150,18 @@ func (c *client) FetchToken() error {
 	return nil
 }
 
-func (c *client) Update(msg *protocol.PayloadNode) error {
+func (c *client) UpdateNode(msg *protocol.PayloadNode) error {
 	url := fmt.Sprintf("http://%v:%v/node?token=%v", c.host, c.port, c.token)
+	return c.update(url, msg)
+}
+
+func (c *client) UpdateBandwidth(msg *protocol.PayloadBandwidth) error {
+	url := fmt.Sprintf("http://%v:%v/bandwidth?token=%v", c.host, c.port, c.token)
+
+	return c.update(url, msg)
+}
+
+func (c *client) update(url string, msg interface{}) error {
 	b := new(bytes.Buffer)
 	if err := json.NewEncoder(b).Encode(msg); err != nil {
 		return err
