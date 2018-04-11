@@ -45,6 +45,8 @@ function uploadSnaps {
 }
 
 function release {
+	command -v goreleaser >/dev/null 2>&1 || { echo >&2 "goreleaser not installed. Quitting..."; exit 1; }
+
 	echo "Starting release pipeline..."
 	if [ ! -f $conf ]; then
 		echo file $conf does not exits!
