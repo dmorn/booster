@@ -56,14 +56,14 @@ function release {
 	echo "Please insert git tag to be used for the release: "
 	read version
 
-	echo "Proceding will remove dist/ folder & will add a new release/tag $version. Continue?"
+	echo "Proceding will remove dist/ folder & will add/substitute a new release/tag $version. Continue?"
 	echo "Yes/no"
 
 	read opt
 	if [ "$opt" = "no" ]; then
 		echo "quitting..."
 		return 1
-	elif [ "$opt" != "$Yes" ]; then
+	elif [ "$opt" != "Yes" ]; then
 		echo "no such option: $opt"
 		return -1
 	fi
