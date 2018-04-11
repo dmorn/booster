@@ -79,8 +79,12 @@ make
 a `bin` folder will be produced inside the repo.
 
 #### Homebrew:
+Add tap (has only to be done once):
 ```
-brew tap danielmorandini/tap (this has only to be done once)
+brew tap danielmorandini/tap
+```
+Install booster:
+```
 brew install danielmorandini/tap/booster
 ```
 
