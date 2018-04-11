@@ -64,6 +64,17 @@ func (n Networks) Set(id string, net *Network) {
 	n[id] = net
 }
 
+func (n Networks) Del(id string) {
+	net := n.Get(id)
+
+	net.mux.Lock()
+	defer net.mux.Unlock()
+	for _, c := range net.Conns {
+		c.Close()
+	}
+	net.Conns = make(map[string]*Conn)
+}
+
 // Network describes a booster network: a local node, connected to other booster nodes
 // using network.Conn as connector.
 type Network struct {
@@ -89,15 +100,11 @@ func NewNet(n *node.Node, boosterID string) *Network {
 	}
 }
 
-func (n *Network) TraceNodes(ctx context.Context) error {
-	b, err := New(1111, 1111)
-	if err != nil {
-		return fmt.Errorf("network: tracer: %v", err)
-	}
-
+func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 	if err := n.Tracer.Run(); err != nil {
 		return fmt.Errorf("booster: trace nodes: %v", err)
 	}
+	defer n.Tracer.Close()
 
 	errc := make(chan error)
 	index, err := n.Tracer.Notify(func(i interface{}) {

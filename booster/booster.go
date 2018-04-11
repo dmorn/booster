@@ -85,6 +85,7 @@ type Booster struct {
 
 	Netconfig    network.Config
 	stop         chan struct{}
+	restart      chan struct{}
 	HeartbeatTTL time.Duration
 	DialTimeout  time.Duration
 }
@@ -125,7 +126,8 @@ func New(pport, bport int) (*Booster, error) {
 	b.PubSub = pubsub
 	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
-	b.HeartbeatTTL = time.Second * 6
+	b.restart = make(chan struct{})
+	b.HeartbeatTTL = time.Second * 4
 	b.DialTimeout = time.Second * 4
 
 	return b, nil
@@ -136,14 +138,55 @@ func New(pport, bport int) (*Booster, error) {
 // This is a blocking routine that can be stopped using the Close() method.
 // Traps INTERRUPT signals.
 func (b *Booster) Run() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// trap exit signals
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
 
-	errc := make(chan error, 4)
+		for sig := range c {
+			log.Info.Printf("booster: signal (%v) received: exiting...", sig)
+			b.Close()
+			return
+		}
+	}()
+
+	errc := make(chan error)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	run := func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
+
+		errc <- b.run(ctx)
+	}
+
+	for {
+		go run()
+
+		select {
+		case err := <-errc:
+			cancel()
+			return err
+		case <-b.stop:
+			cancel()
+			<-errc
+			return fmt.Errorf("booster: stopped")
+		case <-b.restart:
+			cancel()
+			<-errc
+		}
+	}
+
+}
+
+func (b *Booster) run(ctx context.Context) error {
 	_, pport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.PAddr.String())
 	_, bport, _ := net.SplitHostPort(Nets.Get(b.ID).LocalNode.BAddr.String())
 	pp, _ := strconv.Atoi(pport)
 	bp, _ := strconv.Atoi(bport)
+
+	errc := make(chan error, 4)
+	defer close(errc)
 	var wg sync.WaitGroup
 
 	go func() {
@@ -166,38 +209,31 @@ func (b *Booster) Run() error {
 
 	go func() {
 		wg.Add(1)
-		errc <- Nets.Get(b.ID).TraceNodes(ctx)
+		errc <- Nets.Get(b.ID).TraceNodes(ctx, b)
 		wg.Done()
 	}()
 
-	// trap exit signals
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
+	err := <-errc // read only the first message that arrives
+	wg.Wait()
 
-		for sig := range c {
-			log.Info.Printf("booster: signal (%v) received: exiting...", sig)
-			b.Close()
-			return
-		}
-	}()
-
-	select {
-	case err := <-errc:
-		cancel()
-		wg.Wait()
-		return err
-	case <-b.stop:
-		cancel()
-		wg.Wait()
-		return fmt.Errorf("booster: stopped")
-	}
+	return err
 }
 
 // Close stops the Run routine. It drops the whole booster network, preparing for the
 // node to reset or stop.
 func (b *Booster) Close() error {
+	log.Info.Println("booster: closing...")
+
 	b.stop <- struct{}{}
+	return nil
+}
+
+// restart restarts the Run routine.
+func (b *Booster) Restart() error {
+	log.Info.Println("booster: restarting...")
+
+	Nets.Del(b.ID)
+	b.restart <- struct{}{}
 	return nil
 }
 
