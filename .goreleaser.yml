@@ -18,6 +18,10 @@ build:
     - 6
     - 7
   ldflags: -s -w -X main.Version={{.Version}} -X main.BuildTime={{.Date}}
+archive:
+  replacements:
+    amd64: 64bit
+    386: 32bit
 brew:
   # Reporitory to push the tap to.
   github:

@@ -8,6 +8,7 @@
 - [Overview](#overview)
 - [Installation](#installation)
   * [From source](#from-source)
+  * [Homebrew](#homebrew)
   * [Binary](#binary)
 - [Usage](#usage)
 
