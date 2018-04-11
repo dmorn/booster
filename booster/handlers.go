@@ -40,6 +40,10 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	}
 
 	handler := func(p *packet.Packet) error {
+		if err := ValidatePacket(p); err != nil {
+			return err
+		}
+
 		h, err := ExtractHeader(p)
 		if err != nil {
 			return err
@@ -93,11 +97,6 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	fail := func(err error) {
 		log.Error.Printf("booster: heartbeat error: %v", err)
 		conn.Close()
-	}
-
-	if err := ValidatePacket(p); err != nil {
-		fail(err)
-		return
 	}
 
 	// extract information
@@ -218,11 +217,6 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 		log.Error.Printf("booster: disconnect error: %v", err)
 	}
 
-	if err := ValidatePacket(p); err != nil {
-		fail(err)
-		return
-	}
-
 	// extract information
 	praw, err := p.Module(protocol.ModulePayload)
 	if err != nil {
@@ -270,11 +264,6 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	// TODO: add some more information to the errors printed.
 	fail := func(err error) {
 		log.Error.Printf("booster: tunnel error: %v", err)
-	}
-
-	if err := ValidatePacket(p); err != nil {
-		fail(err)
-		return
 	}
 
 	// extract information
@@ -369,12 +358,6 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 	fail := func(err error) {
 		log.Error.Printf("booster: serve inspect error: %v", err)
 		conn.Close()
-	}
-
-	// extract the features that are to be inspected
-	if err := ValidatePacket(p); err != nil {
-		fail(err)
-		return
 	}
 
 	// extract features to serve

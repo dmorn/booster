@@ -41,7 +41,7 @@ var startCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
-			log.SetLevel(log.DebugLevel)
+			log.SetLevel(log.InfoLevel)
 		}
 
 		addr := "localhost:4884"
@@ -79,12 +79,17 @@ var startCmd = &cobra.Command{
 
 		for i := range stream {
 			if node, ok := i.(*protocol.PayloadNode); ok {
-				c.handleNode(node)
+				if err = c.handleNode(node); err != nil {
+					log.Info.Println(err.Error())
+				}
+
 				continue
 			}
 
 			if bw, ok := i.(*protocol.PayloadBandwidth); ok {
-				c.handleBandwidth(bw)
+				if err = c.handleBandwidth(bw); err != nil {
+					log.Info.Println(err.Error())
+				}
 				continue
 			}
 
@@ -93,20 +98,24 @@ var startCmd = &cobra.Command{
 	},
 }
 
-func (c *client) handleNode(node *protocol.PayloadNode) {
-	log.Printf("[%v] node received", node.ID)
+func (c *client) handleNode(node *protocol.PayloadNode) error {
+	log.Debug.Printf("[%v] node received", node.ID)
 
 	if err := c.UpdateNode(node); err != nil {
-		log.Fatalf("[%v] unable to send msg: %v", node.ID, err)
+		return fmt.Errorf("[%v] unable to send msg: %v", node.ID, err)
 	}
+
+	return nil
 }
 
-func (c *client) handleBandwidth(bw *protocol.PayloadBandwidth) {
-	log.Printf("[%v] bandwidth message received", bw.Type)
+func (c *client) handleBandwidth(bw *protocol.PayloadBandwidth) error {
+	log.Debug.Printf("[%v] bandwidth message received", bw.Type)
 
 	if err := c.UpdateBandwidth(bw); err != nil {
-		log.Fatalf("[%v] unable to send msg: %v", bw.Type, err)
+		return fmt.Errorf("[%v] unable to send msg: %v", bw.Type, err)
 	}
+
+	return nil
 }
 
 type client struct {
@@ -128,7 +137,7 @@ func newAPIClient(host, port string) *client {
 }
 
 func (c *client) FetchToken() error {
-	url := fmt.Sprintf("http://%v:%v/token", c.host, c.port)
+	url := fmt.Sprintf("%v/token", c.api())
 	resp, err := c.Get(url)
 	if err != nil {
 		return err
@@ -150,13 +159,17 @@ func (c *client) FetchToken() error {
 	return nil
 }
 
+func (c *client) api() string {
+	return fmt.Sprintf("http://%v:%v/api", c.host, c.port)
+}
+
 func (c *client) UpdateNode(msg *protocol.PayloadNode) error {
-	url := fmt.Sprintf("http://%v:%v/node?token=%v", c.host, c.port, c.token)
+	url := fmt.Sprintf("%v/node?token=%v", c.api(), c.token)
 	return c.update(url, msg)
 }
 
 func (c *client) UpdateBandwidth(msg *protocol.PayloadBandwidth) error {
-	url := fmt.Sprintf("http://%v:%v/bandwidth?token=%v", c.host, c.port, c.token)
+	url := fmt.Sprintf("%v/bandwidth?token=%v", c.api(), c.token)
 
 	return c.update(url, msg)
 }
