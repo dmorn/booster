@@ -9,6 +9,7 @@
 - [Installation](#installation)
   * [From source](#from-source)
   * [Homebrew](#homebrew)
+  * [Snap](#snap)
   * [Binary](#binary)
 - [Usage](#usage)
 
@@ -87,6 +88,12 @@ brew tap danielmorandini/tap
 Install booster:
 ```
 brew install danielmorandini/tap/booster
+```
+
+#### Snap:
+For linux based users, [snappy](https://docs.snapcraft.io/core/usage) is provided:
+```
+snap install booster
 ```
 
 #### Binary:
