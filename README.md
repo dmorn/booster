@@ -93,7 +93,7 @@ brew install danielmorandini/tap/booster
 #### Snap:
 For linux based users, [snappy](https://docs.snapcraft.io/core/usage) is provided:
 ```
-snap install booster
+snap install booster --beta
 ```
 
 #### Binary:
