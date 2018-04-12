@@ -44,6 +44,8 @@ function uploadSnaps {
 	set -e
 
 	echo "Remember to execute \`snapcraft release <snap name> revision channel\` for each revision provided!"
+	echo "Revisions:"
+	snapcraft list-revisions booster
 }
 
 function release {
