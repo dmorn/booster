@@ -296,7 +296,9 @@ func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, 
 // Wire connects the target and the local node together, adding the remote booster instance
 // as a new connection of the network.
 func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, error) {
-	// connect to the target node
+	// connect to the target node. The node stored in conn will not
+	// trigger the tracer (i.e. ToBeTraced == false), so it is ok
+	// to just close the connection in case of failure.
 	conn, err := b.DialContext(ctx, network, target)
 	if err != nil {
 		return nil, err
@@ -307,14 +309,11 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 		return nil, err
 	}
 
-	// add the connection to the booster network. In case of an error,
-	// i.e. such connection is already present, just close the underlying
-	// network.Conn and return. Calling conn.Close() will close even the
-	// other connection!
+	// if AddConn returns an error, chances are that the connection is
+	// already present and active.
 	err = Nets.Get(b.ID).AddConn(conn)
 	if err != nil {
-		conn.Conn.Close()
-		return nil, err
+		return fail(err)
 	}
 
 	// compose the notify packet which tells the receiver to start sending
@@ -344,16 +343,19 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	// start the timer that, when done, will close the connection if
 	// no heartbeat message is received in time
 	conn.HeartbeatTimer = time.AfterFunc(b.HeartbeatTTL*2, func() {
-		log.Info.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)
-		conn.Close()
+		// do not close the node multiple times.
+		if conn.Conn != nil {
+			log.Info.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)
+			conn.Close()
+		}
 	})
-
-	// handle the newly added connection in a different goroutine.
-	go b.Handle(ctx, conn)
 
 	// set the connection as active
 	conn.RemoteNode.SetIsActive(true)
 	conn.RemoteNode.ToBeTraced = true
+
+	// handle the newly added connection in a different goroutine.
+	go b.Handle(ctx, conn)
 
 	return conn, nil
 }

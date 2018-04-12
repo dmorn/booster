@@ -209,34 +209,10 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	return root, nodes
 }
 
-// NodeOf returns the pointer of the node inside the network that has the same ID as
-// the requested node.
-func (n *Network) NodeOf(node *node.Node) (*node.Node, error) {
-	if node.IsLocal() {
-		if node.ID() != n.LocalNode.ID() {
-			return nil, fmt.Errorf("network: unexpected node %v, wanted %v", node.ID(), n.LocalNode.ID())
-		}
-
-		return n.LocalNode, nil
-	}
-
-	conn, ok := n.Conns[node.ID()]
-	if !ok {
-		return nil, fmt.Errorf("network: couldn't find node %v", node.ID())
-	}
-
-	return conn.RemoteNode, nil
-}
-
 // Ack finds the node in the network and acknoledges the tunnel labeled
 // with id. Publishes the node in TopicNodes.
 func (n *Network) Ack(node *node.Node, id string) error {
 	log.Debug.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
-
-	node, err := n.NodeOf(node)
-	if err != nil {
-		return err
-	}
 
 	if err := node.Ack(id); err != nil {
 		return err
@@ -251,11 +227,6 @@ func (n *Network) Ack(node *node.Node, id string) error {
 func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
 	log.Debug.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
-	node, err := n.NodeOf(node)
-	if err != nil {
-		return err
-	}
-
 	if err := node.RemoveTunnel(id, acknoledged); err != nil {
 		return err
 	}
@@ -267,11 +238,6 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 // AddTunnel finds the node in the network, creates a new tunnel using target
 // and adds the tunnel to the node. Publishes the node in TopicNodes.
 func (n *Network) AddTunnel(node *node.Node, target string) {
-	node, err := n.NodeOf(node)
-	if err != nil {
-		return
-	}
-
 	if !node.IsLocal() {
 		// add the tunnel also to the local node. Every tunnel passes
 		// also trough it
@@ -287,14 +253,16 @@ func (n *Network) AddTunnel(node *node.Node, target string) {
 // UpdateNode acknoledges or remove a tunnel of node, depending on the tm's
 // content.
 func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoledged bool) error {
+	n := Nets.Get(b.ID)
+
 	if tm.Event == socks5.EventPush {
-		if err := Nets.Get(b.ID).Ack(node, tm.Target); err != nil {
+		if err := n.Ack(node, tm.Target); err != nil {
 			return err
 		}
 	}
 
 	if tm.Event == socks5.EventPop {
-		if err := Nets.Get(b.ID).RemoveTunnel(node, tm.Target, acknoledged); err != nil {
+		if err := n.RemoveTunnel(node, tm.Target, acknoledged); err != nil {
 			return err
 		}
 	}
@@ -324,8 +292,8 @@ type Conn struct {
 	HeartbeatTimer *time.Timer
 }
 
-// Close closes the connection and sets the status of the remote node
-// to inactive and removes the connection from the network.
+// Close takes care of closing the network connection that wires together the
+// root node with its connected remote node.
 func (c *Conn) Close() error {
 	log.Debug.Printf("network: closing conn (%v)", c.ID)
 
@@ -333,17 +301,17 @@ func (c *Conn) Close() error {
 		return fmt.Errorf("network: connection is closed")
 	}
 
+	// Close and remove the connection, so we can also check if c.Conn == nil
 	if err := c.Conn.Close(); err != nil {
 		return err
 	}
+	c.Conn = nil
+	// Set remote node to inactive
 	c.RemoteNode.SetIsActive(false)
 
 	n := Nets.Get(c.boosterID)
-	// Remove the connection only if it is actually part of this network
-	if _, ok := n.Conns[c.ID]; ok {
-		n.Conns[c.ID].Conn = nil
-	}
-
+	// Publish the event and trace the node only if requested. For example, we
+	// do not want to trace a node that was manually disconnected.
 	n.Pub(c.RemoteNode, TopicNodes)
 	if c.RemoteNode.ToBeTraced {
 		if err := n.Trace(c.RemoteNode); err != nil {
@@ -354,6 +322,8 @@ func (c *Conn) Close() error {
 	return nil
 }
 
+// Send tries to send p though the connection. If the operation is not performed
+// bofore IOTimeout, returns an error.
 func (c *Conn) Send(p *packet.Packet) error {
 	if c.Conn == nil {
 		return fmt.Errorf("network: connection is closed")
@@ -368,7 +338,7 @@ func (c *Conn) Send(p *packet.Packet) error {
 	select {
 	case err := <-errc:
 		return err
-	case <-time.After(time.Second * 2):
+	case <-time.After(c.IOTimeout):
 		c.Close()
 		return fmt.Errorf("network: couldn't send after %v", c.IOTimeout)
 	}

@@ -71,6 +71,8 @@ func New(host, pport, bport string, isLocal bool) (*Node, error) {
 func (n *Node) CopyTunnels(into *Node) {
 	n.Lock()
 	into.Lock()
+	defer n.Unlock()
+	defer into.Unlock()
 
 	for k, v := range n.tunnels {
 		into.tunnels[k] = v
