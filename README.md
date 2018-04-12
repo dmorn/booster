@@ -102,4 +102,4 @@ Pick your [release!](https://github.com/danielmorandini/booster/releases)
 ## Usage
 Booster comes with a great CLI powered by [cobra](https://github.com/spf13/cobra).
 
-Find more with `bin/booster help`
+Find more with `booster help`
