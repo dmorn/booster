@@ -232,7 +232,7 @@ func (b *Booster) Close() error {
 func (b *Booster) Restart() error {
 	log.Info.Println("booster: restarting...")
 
-	Nets.Del(b.ID)
+	Nets.Close(b.ID)
 	b.restart <- struct{}{}
 	return nil
 }

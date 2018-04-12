@@ -64,12 +64,13 @@ func (n Networks) Set(id string, net *Network) {
 	n[id] = net
 }
 
-// Del gets the network associated with id, then it closes each connection
-// stored in it.
-func (n Networks) Del(id string) {
+// Close gets the network associated with id, then it closes each connection
+// stored in it. No remote node will be traced.
+func (n Networks) Close(id string) {
 	net := n.Get(id)
 
 	for _, c := range net.Conns {
+		c.RemoteNode.ToBeTraced = false
 		c.Close()
 	}
 }
