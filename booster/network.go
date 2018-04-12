@@ -64,15 +64,14 @@ func (n Networks) Set(id string, net *Network) {
 	n[id] = net
 }
 
+// Del gets the network associated with id, then it closes each connection
+// stored in it.
 func (n Networks) Del(id string) {
 	net := n.Get(id)
 
-	net.mux.Lock()
-	defer net.mux.Unlock()
 	for _, c := range net.Conns {
 		c.Close()
 	}
-	net.Conns = make(map[string]*Conn)
 }
 
 // Network describes a booster network: a local node, connected to other booster nodes
