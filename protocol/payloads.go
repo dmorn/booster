@@ -43,7 +43,7 @@ func DecodePayloadCtrl(p []byte) (*PayloadCtrl, error) {
 }
 
 func EncodePayloadCtrl(op Operation) ([]byte, error) {
-	p := &internal.PayloadCtrl {
+	p := &internal.PayloadCtrl{
 		Operation: int32(op),
 	}
 
@@ -51,8 +51,8 @@ func EncodePayloadCtrl(op Operation) ([]byte, error) {
 }
 
 type PayloadBandwidth struct {
-	Tot       int `json:"tot"`
-	Bandwidth int `json:"bandwidth"`
+	Tot       int    `json:"tot"`
+	Bandwidth int    `json:"bandwidth"`
 	Type      string `json:"type"`
 }
 

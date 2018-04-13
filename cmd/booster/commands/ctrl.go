@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
-	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/log"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/spf13/cobra"
 )
 

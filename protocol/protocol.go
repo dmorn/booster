@@ -72,8 +72,8 @@ type Operation int32
 
 // Ctrl operations
 const (
-	CtrlStop     Operation = 1
-	CtrlRestart            = 2
+	CtrlStop    Operation = 1
+	CtrlRestart           = 2
 )
 
 // OperationFromString converts raw, if possible, into a protocol

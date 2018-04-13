@@ -199,7 +199,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 // BandwidthIO implements the io.CopyN method, keeping track of the
 // bandwidth while doing so.
 type BandwidthIO struct {
-	Ticker *time.Ticker
+	Ticker        *time.Ticker
 	NextCopyDelay time.Duration
 
 	sync.Mutex

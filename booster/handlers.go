@@ -71,7 +71,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 
 		case protocol.MessageInspect:
 			go b.ServeInspect(ctx, conn, p)
-		
+
 		case protocol.MessageCtrl:
 			b.HandleCtrl(ctx, conn, p)
 

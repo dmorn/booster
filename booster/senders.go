@@ -59,7 +59,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	return conn.Send(p)
 }
 
-// Ctrl commands addr to perform operation op. 
+// Ctrl commands addr to perform operation op.
 func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Operation) error {
 	log.Info.Printf("booster: -> ctrl: %v", addr)
 
@@ -96,7 +96,6 @@ func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Op
 	// TODO(daniel): need a response of some sort
 	return nil
 }
-
 
 // Connect dials with laddr, creates a connect packet using raddr and tells laddr
 // to connect with raddr. Both laddr and raddr are expected to point to a booster node.

@@ -31,15 +31,15 @@ var (
 
 var (
 	verbose     bool
-	pport   int
-	bport   int
+	pport       int
+	bport       int
 	apiEndpoint string
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "inspect-gateway",
 	Short: "inspect-gateway is an http client that collects data from a booster node and sends it as json packets to a target API",
-	Long: `inspect-gateway tries to communicate with a booster node, defaulting on a local one, making an inspect request. Collects the data and POSTs it to the target API using JSON encoding`,
+	Long:  `inspect-gateway tries to communicate with a booster node, defaulting on a local one, making an inspect request. Collects the data and POSTs it to the target API using JSON encoding`,
 }
 
 func Execute() {
