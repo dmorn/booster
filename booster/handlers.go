@@ -30,6 +30,8 @@ import (
 	"github.com/danielmorandini/booster/socks5"
 )
 
+// Handle takes care of consuming the connection, handling each incoming packet.
+// Blocks until conn gets closed.
 func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	// consume the connection until pkts is closed
 	pkts, err := conn.Consume()
@@ -91,6 +93,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	}
 }
 
+// HandleCtrl handels control (ctrl) packets.
 func (b *Booster) HandleCtrl(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	fail := func(err error) {
 		log.Error.Printf("booster: ctrl error: %v", err)
