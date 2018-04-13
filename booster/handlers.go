@@ -390,6 +390,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	<-wait
 }
 
+// ServeInspect is a blocking function that serves information responding to an inspect package.
+// The package should contain a list of supported features that should be delivered.
 func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	log.Info.Print("booster: <- serving inspect...")
 
