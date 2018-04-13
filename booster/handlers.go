@@ -332,6 +332,8 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	log.Info.Print("booster: <- status...")
 
+	defer conn.Close()
+
 	wait := make(chan struct{}, 1)
 	var err error
 	var index int
@@ -390,6 +392,8 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	log.Info.Print("booster: <- serving inspect...")
+
+	defer conn.Close()
 
 	fail := func(err error) {
 		log.Error.Printf("booster: serve inspect error: %v", err)
