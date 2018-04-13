@@ -54,7 +54,7 @@ With a [correctly configured](https://golang.org/doc/code.html#GOPATH) Go instal
 
 get the repo with:
 ```
-go get -u github.com/danielmorandini/booster/node
+go get -u github.com/danielmorandini/booster/booster
 ```
 
 build the executable:
