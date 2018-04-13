@@ -196,6 +196,8 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 			return conn, cerr
 		}
 
+		log.Debug.Printf("dialer: dial error: %v", cerr)
+
 		// remove tunnel immediately in case of error
 		_ = d.RemoveTunnel(node, addr, false)
 
