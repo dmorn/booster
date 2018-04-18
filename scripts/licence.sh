@@ -99,7 +99,7 @@ function applyNotice {
 # main
 
 # find all .go files in the proj
-files=( `find . -name "*.$name" -type f -not -path "*vendor*"` )
+files=( `find . -name "*.go" -type f -not -path "*vendor*"` )
 # apply notice to each file
 for f in "${files[@]}"; do
 	applyNotice "$f" "$agpl"
