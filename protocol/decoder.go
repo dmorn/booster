@@ -86,7 +86,7 @@ func (d Decoder) Decode(p []byte, v interface{}, msg Message) error {
 	// Copy contents of the decoded payload into the parameter
 	// check if we're talking about the same thing
 	if ptr.Type() != val.Type() {
-		return fmt.Errorf("protocol: decode error: trying to reflect %v into %v, which is illegal", ptr.Type(), val.Type())
+		return fmt.Errorf("protocol: decode error: trying to reflect %v into %v, which is illegal", val.Type(), ptr.Type())
 	}
 
 	ptr.Set(val)
