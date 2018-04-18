@@ -13,16 +13,16 @@ import (
 type DecoderFunc func([]byte) (interface{}, error)
 
 // Implemented default decoders
-var decoders = map[Message]DecoderFunc {
-	MessageHello: decodeHello,
-	MessageCtrl: decodeCtrl,
-	MessageBandwidth: decodeBandwidth,
-	MessageInspect: decodeInspect,
-	MessageConnect: decodeConnect,
+var decoders = map[Message]DecoderFunc{
+	MessageHello:      decodeHello,
+	MessageCtrl:       decodeCtrl,
+	MessageBandwidth:  decodeBandwidth,
+	MessageInspect:    decodeInspect,
+	MessageConnect:    decodeConnect,
 	MessageDisconnect: decodeDisconnect,
-	MessageNode: decodeNode,
-	MessageHeartbeat: decodeHeartbeat,
-	MessageTunnel: decodeTunnelEvent,
+	MessageNode:       decodeNode,
+	MessageHeartbeat:  decodeHeartbeat,
+	MessageTunnel:     decodeTunnelEvent,
 }
 
 // Decoder wraps a list of implemented decoder functions.
@@ -33,7 +33,7 @@ type Decoder struct {
 // NewDecoder returns new instance of Decoder, filled with a default list
 // of decoder functions ready to be used.
 func NewDecoder() *Decoder {
-	return &Decoder {
+	return &Decoder{
 		Decoders: decoders,
 	}
 }
@@ -209,4 +209,3 @@ func decodeTunnelEvent(p []byte) (interface{}, error) {
 		Event:  int(payload.Event),
 	}, nil
 }
-

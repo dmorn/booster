@@ -13,16 +13,16 @@ import (
 type EncoderFunc func(interface{}) ([]byte, error)
 
 // Implemented default encoders
-var encoders = map[Message]EncoderFunc {
-	MessageHello: encodeHello,
-	MessageCtrl: encodeCtrl,
-	MessageBandwidth: encodeBandwidth,
-	MessageInspect: encodeInspect,
-	MessageConnect: encodeConnect,
+var encoders = map[Message]EncoderFunc{
+	MessageHello:      encodeHello,
+	MessageCtrl:       encodeCtrl,
+	MessageBandwidth:  encodeBandwidth,
+	MessageInspect:    encodeInspect,
+	MessageConnect:    encodeConnect,
 	MessageDisconnect: encodeDisconnect,
-	MessageNode: encodeNode,
-	MessageHeartbeat: encodeHeartbeat,
-	MessageTunnel: encodeTunnelEvent,
+	MessageNode:       encodeNode,
+	MessageHeartbeat:  encodeHeartbeat,
+	MessageTunnel:     encodeTunnelEvent,
 }
 
 // Encoder wraps a list of implemented encoder functions.
@@ -33,14 +33,14 @@ type Encoder struct {
 // NewEncoder retusn a new instance of Encoder, filled with a default list
 // of encoder functions ready to be used.
 func NewEncoder() *Encoder {
-	return &Encoder {
+	return &Encoder{
 		Encoders: encoders,
 	}
 }
 
 // Encode takes msg and tries to retrieve an encoder function for it.
 // It then encodes v using that function.
-// 
+//
 // v has to be a value, not a pointer (in fact we don't want v to be
 // modified by this function in any way)
 func (e *Encoder) Encode(v interface{}, msg Message) ([]byte, error) {
