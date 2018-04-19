@@ -31,15 +31,13 @@ func mockDecodeHello(p []byte) (interface{}, error) {
 }
 
 func TestDecode(t *testing.T) {
-	d := protocol.NewDecoder()
 	p := []byte{}
 	m := protocol.MessageHello
-	// add a fake decoder
-	d.Decoders[m] = mockDecodeHello
+	f := mockDecodeHello
 
 	// decode that shuold pass
 	v := new(protocol.PayloadHello)
-	if err := d.Decode(p, &v, m); err != nil {
+	if err := protocol.Decode(p, &v, f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,12 +47,12 @@ func TestDecode(t *testing.T) {
 
 	// decode that should fail
 	fd := new(protocol.PayloadNode)
-	if err := d.Decode(p, &fd, m); err == nil {
+	if err := protocol.Decode(p, &fd, f); err == nil {
 		t.Fatalf("decode should fail but it did not. Decoding %v with message %v", fd, m)
 	}
 
 	// decode that should fail
-	if err := d.Decode(p, v, m); err == nil {
+	if err := protocol.Decode(p, v, f); err == nil {
 		t.Fatalf("decode shuold fail but it did not. Passed %v as value", v)
 	}
 }

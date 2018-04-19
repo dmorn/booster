@@ -117,6 +117,7 @@ var inspectNetCmd = &cobra.Command{
 			pb, ok := i.(*protocol.PayloadBandwidth)
 			if !ok {
 				log.Error.Printf("booster: inspect net: unrecognised payload: %+v", i)
+				return
 			}
 
 			if pb.Type == target {

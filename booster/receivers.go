@@ -19,7 +19,6 @@ package booster
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/danielmorandini/booster/log"
@@ -45,36 +44,12 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 		return fail(err)
 	}
 
-	// Find header
-	hraw, err := p.Module(protocol.ModuleHeader)
-	if err != nil {
-		return fail(err)
-	}
 
-	h, err := protocol.DecodeHeader(hraw.Payload())
-	if err != nil {
-		return fail(err)
-	}
+	m := protocol.ModulePayload
+	pl := new(protocol.PayloadHello)
+	f := protocol.PayloadDecoders[protocol.MessageHello]
 
-	// check that it is a hello message
-	if h.ID != protocol.MessageHello {
-		return fail(fmt.Errorf("booster: expected HelloMessage (%v), found: %v", protocol.MessageHello, h.ID))
-	}
-
-	// check what the header says about the package before trying to take
-	// the payload
-	if err = ValidatePacket(p); err != nil {
-		return fail(fmt.Errorf("booster: hello: %v", err))
-	}
-
-	// take the payload module
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		return fail(err)
-	}
-
-	pl, err := protocol.DecodePayloadHello(praw.Payload())
-	if err != nil {
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		return fail(err)
 	}
 
@@ -91,5 +66,5 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 		return fail(err)
 	}
 
-	return Nets.Get(b.ID).NewConn(conn, node, node.ID()), nil
+	return b.Net().NewConn(conn, node, node.ID()), nil
 }

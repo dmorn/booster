@@ -42,12 +42,10 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	}
 
 	handler := func(p *packet.Packet) error {
-		if err := ValidatePacket(p); err != nil {
-			return err
-		}
-
-		h, err := ExtractHeader(p)
-		if err != nil {
+		m := protocol.ModuleHeader
+		h := new(protocol.Header)
+		f := protocol.HeaderDecoder
+		if err := b.Net().Decode(p, m, &h, f); err != nil {
 			return err
 		}
 
@@ -101,13 +99,10 @@ func (b *Booster) HandleCtrl(ctx context.Context, conn SendCloser, p *packet.Pac
 	}
 
 	// extract information
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-	pl, err := protocol.DecodePayloadCtrl(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadCtrl)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageCtrl]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
@@ -139,13 +134,10 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	}
 
 	// extract information
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-	pl, err := protocol.DecodePayloadHeartbeat(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadHeartbeat)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageHeartbeat]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
@@ -164,11 +156,11 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	// wait until ttl finishes & reset the timer
 	<-time.After(pl.TTL.Sub(time.Now()))
 	if c, ok := conn.(*Conn); ok {
-		c.HeartbeatTimer.Reset(b.HeartbeatTTL * 2)
+		c.HeartbeatTimer.Reset(b.Net().HeartbeatTTL * 2)
 	}
 
 	// compose a new heartbeat message
-	p, err = b.composeHeartbeat(pl)
+	p, err := b.Net().composeHeartbeat(pl)
 	if err != nil {
 		fail(err)
 		return
@@ -201,20 +193,11 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 		log.Error.Printf("booster: connect error: %v", err)
 	}
 
-	if err := ValidatePacket(p); err != nil {
-		fail(err)
-		return
-	}
-
 	// extract information
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	pl, err := protocol.DecodePayloadConnect(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadConnect)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageConnect]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
@@ -229,7 +212,7 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 
 	// send back a node packet with the info about the
 	// newly connected node
-	p, err = composeNode(tc.RemoteNode)
+	p, err = b.Net().composeNode(tc.RemoteNode)
 	if err != nil {
 		fail(err)
 		return
@@ -257,14 +240,10 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	}
 
 	// extract information
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	pl, err := protocol.DecodePayloadDisconnect(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadDisconnect)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageDisconnect]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
@@ -272,7 +251,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	log.Info.Printf("booster: <- disconnect: %v", pl.ID)
 
 	// retrieve the connection we're trying to disconnect from
-	c, ok := Nets.Get(b.ID).Conns[pl.ID]
+	c, ok := b.Net().Conns[pl.ID]
 	if !ok {
 		fail(fmt.Errorf("unexpected identifier [%v]", pl.ID))
 		return
@@ -287,7 +266,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	// TODO(daniel): is this response appropriate?
 	// send back a node packet with the info about the
 	// disconncted node
-	p, err = composeNode(c.RemoteNode)
+	p, err := b.Net().composeNode(c.RemoteNode)
 	if err != nil {
 		fail(err)
 		return
@@ -306,14 +285,10 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	}
 
 	// extract information
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	pl, err := protocol.DecodePayloadTunnelEvent(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadTunnelEvent)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageTunnel]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
@@ -324,7 +299,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 		Target: pl.Target,
 		Event:  socks5.Event(pl.Event),
 	}
-	if err = b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
+	if err := b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
 		fail(err)
 		return
 	}
@@ -350,13 +325,6 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 	// Read every tunnel message, compose a packet with them
 	// and send them trough the connection
-	h, err := protocol.TunnelEventHeader()
-	if err != nil {
-		fail(err)
-		return
-	}
-
-	// register for proxy updates
 	if index, err = b.Proxy.Notify(socks5.TopicTunnels, func(i interface{}) {
 		tm, ok := i.(socks5.TunnelMessage)
 		if !ok {
@@ -364,21 +332,17 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			return
 		}
 
-		pl, err := protocol.EncodePayloadTunnelEvent(tm.Target, int(tm.Event))
+		pl := protocol.PayloadTunnelEvent{
+			Target: tm.Target,
+			Event: int(tm.Event),
+		}
+		msg := protocol.MessageTunnel
+
+		p, err := b.Net().Encode(pl, msg)
 		if err != nil {
 			fail(err)
 			return
 		}
-
-		p := packet.New()
-		enc := protocol.EncodingProtobuf
-		_, err = p.AddModule(protocol.ModuleHeader, h, enc)
-		_, err = p.AddModule(protocol.ModulePayload, pl, enc)
-		if err != nil {
-			fail(err)
-			return
-		}
-
 		log.Debug.Printf("booster: -> tunnel update: %v", tm)
 
 		if err = conn.Send(p); err != nil {
@@ -406,18 +370,15 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 	}
 
 	// extract features to serve
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		fail(err)
-		return
-	}
-	pl, err := protocol.DecodePayloadInspect(praw.Payload())
-	if err != nil {
+	pl := new(protocol.PayloadInspect)
+	m := protocol.ModulePayload
+	f := protocol.PayloadDecoders[protocol.MessageInspect]
+	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
 	}
 
-	net := Nets.Get(b.ID)
+	net := b.Net()
 	var wg sync.WaitGroup
 
 	_fail := func(err error, f func()) {
@@ -428,6 +389,7 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 
 	serveNode := func() {
 		var index int
+		var err error
 		f := func() {
 			net.StopNotifying(index)
 		}
@@ -441,7 +403,7 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 				return
 			}
 
-			p, err := composeNode(n)
+			p, err := b.Net().composeNode(n)
 			if err != nil {
 				_fail(err, f)
 				return
@@ -461,6 +423,7 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 
 	serveBandwidth := func() {
 		var index int
+		var err error
 		f := func() {
 			b.Proxy.StopNotifying(index, socks5.TopicBandwidth)
 		}
@@ -476,17 +439,14 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 				t = "upload"
 			}
 
-			h, err := protocol.BandwidthHeader()
-			pl, err := protocol.EncodePayloadBandwidth(bm.Tot, bm.Bandwidth, t)
-			if err != nil {
-				_fail(err, f)
-				return
+			pl := protocol.PayloadBandwidth {
+				Tot: bm.Tot,
+				Bandwidth: bm.Bandwidth,
+				Type: t,
 			}
+			msg := protocol.MessageBandwidth
 
-			p := packet.New()
-			enc := protocol.EncodingProtobuf
-			_, err = p.AddModule(protocol.ModuleHeader, h, enc)
-			_, err = p.AddModule(protocol.ModulePayload, pl, enc)
+			p, err := b.Net().Encode(pl, msg)
 			if err != nil {
 				_fail(err, f)
 				return

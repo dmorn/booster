@@ -83,12 +83,15 @@ type Network struct {
 
 	boosterID string
 	IOTimeout time.Duration
+	HeartbeatTTL time.Duration
+	DialTimeout  time.Duration
 
 	mux       sync.Mutex
 	LocalNode *node.Node
 	Conns     map[string]*Conn
 }
 
+// NewNet returns a new network instance, configured with default parameters.
 func NewNet(n *node.Node, boosterID string) *Network {
 	return &Network{
 		PubSub:    pubsub.New(),
@@ -100,6 +103,152 @@ func NewNet(n *node.Node, boosterID string) *Network {
 	}
 }
 
+func (n *Network) Encode(v interface{}, msg protocol.Message) (*packet.Packet, error) {
+	// TODO: this could be the place where we encrypt the payloads
+	p := packet.New()
+	enc := protocol.EncodingProtobuf
+
+	var f protocol.EncoderFunc
+
+	// encode the header...
+	f = protocol.HeaderEncoder
+	hraw, err := protocol.Encode(msg, f)
+	if err != nil {
+		return nil, fmt.Errorf("network: %v", err)
+	}
+	// ... and add it to the packet
+	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw, enc); err != nil {
+		return nil, fmt.Errorf("network: encode failure: %v", err)
+	}
+
+	// encode the payload if present
+	if v != nil {
+		f := protocol.PayloadEncoders[msg]
+		praw, err := protocol.Encode(v, f)
+		if err != nil {
+			return nil, fmt.Errorf("network: %v", err)
+		}
+
+		if _, err = p.AddModule(string(protocol.ModulePayload), praw, enc); err != nil {
+			return nil, fmt.Errorf("network: encode failure: %v", err)
+		}
+	}
+
+	return p, nil
+}
+
+// Decode tries to decode the payload content of the module m contained
+// in p into v, which has to be a pointer to a struct.
+// f is the function that will be used for the decoding. It is important
+// to choose the right combo between f and v, meaning that we cannot
+// decode an "Hello" message using a "Node" decoder.
+//
+// Check package protocol for the decoding functions available.
+func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}, f protocol.DecoderFunc) error {
+	// TODO: this is the place where we can decode a packet that was
+	// encripted. Network should store the cookie (key), use it here
+	// to descrypt the content of the packet and then decode the
+	// payload.
+
+	// validate packet
+	if err := n.ValidatePacket(p); err != nil {
+		return err
+	}
+
+	return n.decode(p, m, v, f)
+}
+
+func (n *Network) decode(p *packet.Packet, m protocol.Module, v interface{}, f protocol.DecoderFunc) error {
+	// extract the module
+	mod, err := p.Module(string(m))
+	if err != nil {
+		return fmt.Errorf("network: decode error: %v", err)
+	}
+	
+	// decode its payload into v
+	err = protocol.Decode(mod.Payload(), v, f)
+	if err != nil {
+		return fmt.Errorf("network: %v", err)
+	}
+
+	return nil
+}
+
+func (n *Network) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packet, error) {
+	var payload protocol.PayloadHeartbeat
+	if pl == nil {
+		payload = protocol.PayloadHeartbeat{
+			Hops: 0,
+			ID:   "heartbeat", // TODO(daniel): unused field
+		}
+	} else {
+		payload = *pl
+	}
+
+	payload.Hops++
+	payload.TTL = time.Now().Add(n.HeartbeatTTL)
+
+	return n.Encode(payload, protocol.MessageHeartbeat)
+}
+
+func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
+	tunnels := []*protocol.Tunnel{}
+	for _, t := range node.Tunnels() {
+		if t == nil {
+			continue
+		}
+
+		tunnel := &protocol.Tunnel{
+			ID:     t.ID(),
+			Target: t.Target,
+			Acks:   t.Acks(),
+			Copies: t.Copies(),
+		}
+
+		tunnels = append(tunnels, tunnel)
+	}
+	param := protocol.PayloadNode{
+		ID:      node.ID(),
+		BAddr:   node.BAddr.String(),
+		PAddr:   node.PAddr.String(),
+		Active:  node.IsActive(),
+		Tunnels: tunnels,
+	}
+
+	return n.Encode(param, protocol.MessageNode)
+}
+
+// ValidatePackets extracts the header from the packet and checks if
+// the validity/reliability of its contents.
+func (n *Network) ValidatePacket(p *packet.Packet) error {
+	// Find header
+	m := protocol.ModuleHeader
+	h := new(protocol.Header)
+	f := protocol.HeaderDecoder
+	if err := n.decode(p, m, &h, f); err != nil {
+		return err
+	}
+
+	// Check packet version
+	if !protocol.IsVersionSupported(h.ProtocolVersion) {
+		return fmt.Errorf("packet validation: version (%v) is not supported", h.ProtocolVersion)
+	}
+
+	// Check that the information contained in the header reflect the
+	// actual content of the packet
+	for _, mid := range h.Modules {
+		if _, err := p.Module(mid); err != nil {
+			return fmt.Errorf("packet validation: %v", err)
+		}
+	}
+
+	return nil
+}
+
+
+// TraceNodes starts a tracer that is able to determine wether a remote
+// interface is up or down in the network. When a node get's traced is
+// added back to the connection as soon as it online again.
 func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 	if err := n.Tracer.Run(); err != nil {
 		return fmt.Errorf("booster: trace nodes: %v", err)
@@ -361,127 +510,3 @@ func (c *Conn) Recv() (*packet.Packet, error) {
 	return c.Conn.Recv()
 }
 
-func ValidatePacket(p *packet.Packet) error {
-	// Find header
-	hraw, err := p.Module(protocol.ModuleHeader)
-	if err != nil {
-		return err
-	}
-
-	h, err := protocol.DecodeHeader(hraw.Payload())
-	if err != nil {
-		return err
-	}
-
-	// Check packet version
-	if !protocol.IsVersionSupported(h.ProtocolVersion) {
-		return fmt.Errorf("packet validation: version (%v) is not supported", h.ProtocolVersion)
-	}
-
-	// Check that the information contained in the header reflect the
-	// actual content of the packet
-	for _, mid := range h.Modules {
-		if _, err := p.Module(mid); err != nil {
-			return fmt.Errorf("packet validation: %v", err)
-		}
-	}
-
-	return nil
-}
-
-func ExtractHeader(p *packet.Packet) (*protocol.Header, error) {
-	if err := ValidatePacket(p); err != nil {
-		return nil, fmt.Errorf("booster: discarding invalid packet: %v", err)
-	}
-
-	// extract header from packet
-	hraw, err := p.Module(protocol.ModuleHeader)
-	if err != nil {
-		return nil, fmt.Errorf("booster: failed reading module header: %v", err)
-	}
-	h, err := protocol.DecodeHeader(hraw.Payload())
-	if err != nil {
-		return nil, fmt.Errorf("booster: failed decoding header: %v", err)
-	}
-
-	return h, nil
-}
-
-func (b *Booster) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packet, error) {
-	if pl == nil {
-		pl = &protocol.PayloadHeartbeat{
-			Hops: 0,
-			ID:   "heartbeat", // TODO(daniel): unused field
-		}
-	}
-
-	pl.Hops++
-	pl.TTL = time.Now().Add(b.HeartbeatTTL)
-
-	h, err := protocol.HeartbeatHeader()
-	if err != nil {
-		return nil, err
-	}
-	hpl, err := protocol.EncodePayloadHeartbeat(pl)
-	if err != nil {
-		return nil, err
-	}
-
-	// compose the packet
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return nil, err
-	}
-	if _, err := p.AddModule(protocol.ModulePayload, hpl, enc); err != nil {
-		return nil, err
-	}
-
-	return p, nil
-}
-
-func composeNode(n *node.Node) (*packet.Packet, error) {
-	h, err := protocol.NodeHeader()
-	if err != nil {
-		return nil, err
-	}
-
-	tunnels := []*protocol.Tunnel{}
-	for _, t := range n.Tunnels() {
-		if t == nil {
-			continue
-		}
-
-		tunnel := &protocol.Tunnel{
-			ID:     t.ID(),
-			Target: t.Target,
-			Acks:   t.Acks(),
-			Copies: t.Copies(),
-		}
-
-		tunnels = append(tunnels, tunnel)
-	}
-	param := &protocol.PayloadNode{
-		ID:      n.ID(),
-		BAddr:   n.BAddr.String(),
-		PAddr:   n.PAddr.String(),
-		Active:  n.IsActive(),
-		Tunnels: tunnels,
-	}
-
-	npl, err := protocol.EncodePayloadNode(param)
-	if err != nil {
-		return nil, err
-	}
-
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err = p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return nil, err
-	}
-	if _, err = p.AddModule(protocol.ModulePayload, npl, enc); err != nil {
-		return nil, err
-	}
-
-	return p, nil
-}

@@ -31,10 +31,12 @@ const (
 	EncodingProtobuf uint8 = 1
 )
 
+type Module string
+
 // Module Identifiers
 const (
-	ModuleHeader  string = "HE"
-	ModulePayload        = "PA"
+	ModuleHeader  Module = "HE"
+	ModulePayload Module = "PA"
 )
 
 // Tags used in the encoding and decoding of packets.
@@ -50,30 +52,30 @@ type Message int32
 
 // Booster possible packet messages
 const (
-	MessageHello      Message = 1
-	MessageConnect            = 2
-	MessageDisconnect         = 3
-	MessageNode               = 4
-	MessageHeartbeat          = 5
-	MessageTunnel             = 6
-	MessageNotify             = 7
-	MessageInspect            = 8
-	MessageBandwidth          = 9
-	MessageCtrl               = 10
+	MessageHello      Message = iota
+	MessageConnect
+	MessageDisconnect
+	MessageNode
+	MessageHeartbeat
+	MessageTunnel
+	MessageNotify
+	MessageInspect
+	MessageBandwidth
+	MessageCtrl
 )
 
 // Tunnel operations
 const (
-	TunnelAck    int32 = 1
-	TunnelRemove       = 2
+	TunnelAck    int32 = iota
+	TunnelRemove
 )
 
 type Operation int32
 
 // Ctrl operations
 const (
-	CtrlStop    Operation = 1
-	CtrlRestart           = 2
+	CtrlStop    Operation = iota
+	CtrlRestart
 )
 
 // OperationFromString converts raw, if possible, into a protocol
