@@ -189,6 +189,21 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 
 		// TODO(daniel): when a proxied dialer is chosen, the tunnel addr should
 		// be the one of the proxy.
+		//
+		// t is the actual target the tunnel will point to: if the dialer
+		// is going to use an intermediate proxy to reach its destination,
+		// it is more accurate to set the tunnel's target to the proxy's
+		// address instead of the final destination.
+		//
+		// var t string 
+		//
+		// at the moment the problem is that the proxy is not aware of this change,
+		// because it does not know nothing about the "forged" dialer, and will
+		// post tunnel updates referring to the final destination instead of
+		// the target that we created.
+		//
+		// Probably it is better to use a different interface for the dialer itself!
+		//
 
 		// add the new tunnel
 		d.AddTunnel(node, addr)
