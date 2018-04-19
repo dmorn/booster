@@ -187,6 +187,9 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 			return nil, errors.New("dialer: " + err.Error())
 		}
 
+		// TODO(daniel): when a proxied dialer is chosen, the tunnel addr should
+		// be the one of the proxy.
+
 		// add the new tunnel
 		d.AddTunnel(node, addr)
 

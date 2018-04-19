@@ -30,7 +30,7 @@ import (
 type EncoderFunc func(interface{}) ([]byte, error)
 
 // Implemented default encoders
-var encoders = map[Message]EncoderFunc{
+var PayloadEncoders = map[Message]EncoderFunc{
 	MessageHello:      encodeHello,
 	MessageCtrl:       encodeCtrl,
 	MessageBandwidth:  encodeBandwidth,
@@ -42,36 +42,49 @@ var encoders = map[Message]EncoderFunc{
 	MessageTunnel:     encodeTunnelEvent,
 }
 
-// Encoder wraps a list of implemented encoder functions.
-type Encoder struct {
-	Encoders map[Message]EncoderFunc
-}
+// HeaderEncoder is the default function used to encode the headers.
+var HeaderEncoder = encodeHeader
 
-// NewEncoder retusn a new instance of Encoder, filled with a default list
-// of encoder functions ready to be used.
-func NewEncoder() *Encoder {
-	return &Encoder{
-		Encoders: encoders,
-	}
-}
-
-// Encode takes msg and tries to retrieve an encoder function for it.
-// It then encodes v using that function.
+// Encoder tries to encode v using f.
 //
 // v has to be a value, not a pointer (in fact we don't want v to be
-// modified by this function in any way)
-func (e *Encoder) Encode(v interface{}, msg Message) ([]byte, error) {
-	// retrieve the right encoder function
-	f, ok := e.Encoders[msg]
-	if !ok {
-		return nil, fmt.Errorf("protocol: encode error: could find any encode function for message (%v)", msg)
-	}
-
+// modified by this function in any way).
+// When encoding an header using the default HeaderEncoders, v has to
+// be a Message, which will be used to choose how to build the header
+// using a default configuration, such as the encoding will be set to
+// protobuf, the modules field will contain the payload module, etc.
+// When encoding custom packets its betters to pass a custom EncoderFunc
+// as parameter.
+func Encode(v interface{}, f EncoderFunc) ([]byte, error) {
 	return f(v)
 }
 
 func conversionFail(v interface{}) error {
 	return fmt.Errorf("protocol: encode error: unable to make type assertion: %v is of unexpected type %v", v, reflect.TypeOf(v))
+}
+
+func newHeader(id Message) *internal.Header {
+	return &internal.Header{
+		Id:              int32(id),
+		Modules:         []string{string(ModulePayload)},
+		SentAt:          ptypes.TimestampNow(),
+		ProtocolVersion: Version,
+	}
+}
+
+func encodeHeader(v interface{}) ([]byte, error) {
+	d, ok := v.(Message)
+	if !ok {
+		return nil, conversionFail(v)
+	}
+
+	h := newHeader(d)
+
+	if d == MessageNotify {
+		h.Modules = []string{}
+	}
+
+	return proto.Marshal(h)
 }
 
 func encodeHello(v interface{}) ([]byte, error) {

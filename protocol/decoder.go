@@ -30,7 +30,7 @@ import (
 type DecoderFunc func([]byte) (interface{}, error)
 
 // Implemented default decoders
-var decoders = map[Message]DecoderFunc{
+var PayloadDecoders = map[Message]DecoderFunc{
 	MessageHello:      decodeHello,
 	MessageCtrl:       decodeCtrl,
 	MessageBandwidth:  decodeBandwidth,
@@ -42,32 +42,14 @@ var decoders = map[Message]DecoderFunc{
 	MessageTunnel:     decodeTunnelEvent,
 }
 
-// Decoder wraps a list of implemented decoder functions.
-type Decoder struct {
-	Decoders map[Message]DecoderFunc
-}
-
-// NewDecoder returns new instance of Decoder, filled with a default list
-// of decoder functions ready to be used.
-func NewDecoder() *Decoder {
-	return &Decoder{
-		Decoders: decoders,
-	}
-}
+var HeaderDecoder = decodeHeader
 
 // Decode takes as input a byte slice and tries to decode it into v.
-// msg is used to determine which decoding function should be used
-// internally.
+// f is used for the internal mapping between public and private
+// structs used for the data transmission.
 //
 // v has to be a pointer to a struct.
-func (d Decoder) Decode(p []byte, v interface{}, msg Message) error {
-	// first find the right decoder function for this message (if any)
-	f, ok := d.Decoders[msg]
-	if !ok {
-		return fmt.Errorf("protocol: decode error: could find any decode function for message (%v)", msg)
-	}
-
-	// perform the decoding
+func Decode(p []byte, v interface{}, f DecoderFunc) error {
 	s, err := f(p)
 	if err != nil {
 		return fmt.Errorf("protocol: decode error: %v", err)
@@ -95,6 +77,25 @@ func (d Decoder) Decode(p []byte, v interface{}, msg Message) error {
 
 // TODO: probably this whole boilerplate code below could be replaced
 // using reflection.
+
+func decodeHeader(p []byte) (interface{}, error) {
+	header := new(internal.Header)
+	if err := proto.Unmarshal(p, header); err != nil {
+		return nil, err
+	}
+
+	t, err := ptypes.Timestamp(header.SentAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Header{
+		ID:              Message(header.Id),
+		ProtocolVersion: header.ProtocolVersion,
+		SentAt:          t,
+		Modules:         header.Modules,
+	}, nil
+}
 
 func decodeHello(p []byte) (interface{}, error) {
 	payload := new(internal.PayloadHello)

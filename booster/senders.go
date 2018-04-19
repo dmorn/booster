@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/log"
-	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
 )
 
@@ -30,28 +29,19 @@ import (
 func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	log.Info.Println("booster: -> hello")
 
-	// create the modules
-	h, err := protocol.HelloHeader()
-	if err != nil {
-		return err
-	}
-
-	n := Nets.Get(b.ID).LocalNode
+	n := b.Net().LocalNode
 	pp := n.PPort()
 	bp := n.BPort()
 
-	pl, err := protocol.EncodePayloadHello(bp, pp)
-	if err != nil {
-		return err
-	}
-
 	// compose the packet
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err = p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return err
+	pl := protocol.PayloadHello {
+		BPort: bp,
+		PPort: pp,
 	}
-	if _, err = p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
+	msg := protocol.MessageHello
+
+	p, err := b.Net().Encode(pl, msg)
+	if err != nil {
 		return err
 	}
 
@@ -70,21 +60,13 @@ func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Op
 	defer conn.Close()
 
 	// compose the packet
-	h, err := protocol.CtrlHeader()
-	if err != nil {
-		return err
+	pl := protocol.PayloadCtrl {
+		Operation: op,
 	}
-	pl, err := protocol.EncodePayloadCtrl(op)
-	if err != nil {
-		return err
-	}
+	msg := protocol.MessageCtrl
 
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return err
-	}
-	if _, err := p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
+	p, err := b.Net().Encode(pl, msg)
+	if err != nil {
 		return err
 	}
 
@@ -111,21 +93,13 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	defer conn.Close()
 
 	// compose the packet
-	h, err := protocol.ConnectHeader()
-	if err != nil {
-		return "", err
+	pl := protocol.PayloadConnect {
+		Target: raddr,
 	}
-	pl, err := protocol.EncodePayloadConnect(raddr)
-	if err != nil {
-		return "", err
-	}
+	msg := protocol.MessageConnect
 
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return "", err
-	}
-	if _, err := p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
+	p, err := b.Net().Encode(pl, msg)
+	if err != nil {
 		return "", err
 	}
 
@@ -140,17 +114,11 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 		return "", err
 	}
 
-	if err = ValidatePacket(p); err != nil {
-		return "", err
-	}
+	m := protocol.ModulePayload
+	node := new(protocol.PayloadNode)
+	f := protocol.PayloadDecoders[protocol.MessageNode]
 
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		return "", err
-	}
-
-	node, err := protocol.DecodePayloadNode(praw.Payload())
-	if err != nil {
+	if err = b.Net().Decode(p, m, &node, f); err != nil {
 		return "", err
 	}
 
@@ -171,22 +139,13 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	defer conn.Close()
 
 	// compose the packet
-	h, err := protocol.DisconnectHeader()
-	if err != nil {
-		return err
+	pl := protocol.PayloadDisconnect {
+		ID: id,
 	}
+	msg := protocol.MessageDisconnect
 
-	pl, err := protocol.EncodePayloadDisconnect(id)
+	p, err := b.Net().Encode(pl, msg)
 	if err != nil {
-		return err
-	}
-
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	if _, err := p.AddModule(protocol.ModuleHeader, h, enc); err != nil {
-		return err
-	}
-	if _, err := p.AddModule(protocol.ModulePayload, pl, enc); err != nil {
 		return err
 	}
 
@@ -202,20 +161,10 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 		return err
 	}
 
-	if err = ValidatePacket(p); err != nil {
-		return err
-	}
-
-	praw, err := p.Module(protocol.ModulePayload)
-	if err != nil {
-		return err
-	}
-	_, err = protocol.DecodePayloadNode(praw.Payload())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	m := protocol.ModulePayload
+	node := new(protocol.PayloadNode)
+	f := protocol.PayloadDecoders[protocol.MessageNode]
+	return b.Net().Decode(p, m, &node, f)
 }
 
 func (b *Booster) Inspect(ctx context.Context, network, addr string, features []protocol.Message) (<-chan interface{}, error) {
@@ -227,26 +176,15 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string, features []
 	}
 
 	// compose & send the inspect packet
-	h, err := protocol.InspectHeader()
+	pl := protocol.PayloadInspect {
+		Features: features,
+	}
+	msg := protocol.MessageInspect
+	p, err := b.Net().Encode(pl, msg)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
-	pl, err := protocol.EncodePayloadInspect(features)
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	p := packet.New()
-	_, err = p.AddModule(protocol.ModuleHeader, h, protocol.EncodingProtobuf)
-	_, err = p.AddModule(protocol.ModulePayload, pl, protocol.EncodingProtobuf)
-
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
 	if err = conn.Send(p); err != nil {
 		conn.Close()
 		return nil, err
@@ -271,13 +209,10 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string, features []
 		}
 
 		for p := range pkts {
-			if err = ValidatePacket(p); err != nil {
-				fail(err)
-				return
-			}
-
-			h, err := ExtractHeader(p)
-			if err != nil {
+			h := new(protocol.Header)
+			m := protocol.ModuleHeader
+			f := protocol.HeaderDecoder
+			if err := b.Net().Decode(p, m, &h, f); err != nil {
 				fail(err)
 				return
 			}
@@ -289,29 +224,26 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string, features []
 			}
 
 			// extract the payload
-			praw, err := p.Module(protocol.ModulePayload)
-			if err != nil {
-				fail(err)
-				return
-			}
+			m = protocol.ModulePayload
+			f = protocol.PayloadDecoders[h.ID]
+			node := new(protocol.PayloadNode)
+			bw := new(protocol.PayloadBandwidth)
 
 			switch h.ID {
 			case protocol.MessageNode:
-				pl, err := protocol.DecodePayloadNode(praw.Payload())
-				if err != nil {
+				if err := b.Net().Decode(p, m, &node, f); err != nil {
 					fail(err)
 					return
 				}
 
-				stream <- pl
+				stream <- node
 			case protocol.MessageBandwidth:
-				pl, err := protocol.DecodePayloadBandwidth(praw.Payload())
-				if err != nil {
+				if err := b.Net().Decode(p, m, &bw, f); err != nil {
 					fail(err)
 					return
 				}
 
-				stream <- pl
+				stream <- bw
 			}
 
 		}

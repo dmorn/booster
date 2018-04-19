@@ -86,8 +86,6 @@ type Booster struct {
 	Netconfig    network.Config
 	stop         chan struct{}
 	restart      chan struct{}
-	HeartbeatTTL time.Duration
-	DialTimeout  time.Duration
 }
 
 // New creates a new configured booster node. Creates a network configuration
@@ -127,10 +125,15 @@ func New(pport, bport int) (*Booster, error) {
 	b.Netconfig = netconfig
 	b.stop = make(chan struct{})
 	b.restart = make(chan struct{})
-	b.HeartbeatTTL = time.Second * 4
-	b.DialTimeout = time.Second * 4
+
+	b.Net().HeartbeatTTL = time.Second * 4
+	b.Net().DialTimeout = time.Second * 4
 
 	return b, nil
+}
+
+func (b *Booster) Net() *Network {
+	return Nets.Get(b.ID)
 }
 
 // Run starts the proxy and booster node.
@@ -281,7 +284,7 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 }
 
 func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, error) {
-	ctx, cancel := context.WithTimeout(ctx, b.DialTimeout)
+	ctx, cancel := context.WithTimeout(ctx, b.Net().DialTimeout)
 	defer cancel()
 
 	dialer := network.NewDialer(new(net.Dialer), b.Netconfig)
@@ -318,13 +321,11 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// compose the notify packet which tells the receiver to start sending
 	// information notifications when its state changes
-	p := packet.New()
-	enc := protocol.EncodingProtobuf
-	h, err := protocol.TunnelNotifyHeader()
-	_, err = p.AddModule(protocol.ModuleHeader, h, enc)
+	p, err := b.Net().Encode(nil, protocol.MessageNotify)
 	if err != nil {
 		return fail(err)
 	}
+
 	if err = conn.Send(p); err != nil {
 		return fail(err)
 	}
@@ -332,7 +333,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	log.Info.Printf("booster: -> wire: %v", target)
 
 	// inject the heartbeat message in the connection
-	p, err = b.composeHeartbeat(nil)
+	p, err = b.Net().composeHeartbeat(nil)
 	if err != nil {
 		return fail(err)
 	}
@@ -342,7 +343,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// start the timer that, when done, will close the connection if
 	// no heartbeat message is received in time
-	conn.HeartbeatTimer = time.AfterFunc(b.HeartbeatTTL*2, func() {
+	conn.HeartbeatTimer = time.AfterFunc(Nets.Get(b.ID).HeartbeatTTL*2, func() {
 		// do not close the node multiple times.
 		if conn.Conn != nil {
 			log.Info.Printf("booster: no heartbeat received from conn %v: timer expired", conn.ID)

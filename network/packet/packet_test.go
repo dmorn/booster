@@ -35,7 +35,7 @@ var tagset packet.TagSet = packet.TagSet{
 func TestAddModule(t *testing.T) {
 	p := packet.New()
 	pl := []byte("booster")
-	id := protocol.ModuleHeader
+	id := string(protocol.ModuleHeader)
 
 	// try to add the header module
 	m, err := p.AddModule(id, pl, 0)
@@ -78,8 +78,8 @@ func TestEncodeDecode(t *testing.T) {
 	p := packet.New()
 	pl := []byte("header")
 	ppl := []byte("payload")
-	hid := protocol.ModuleHeader
-	pid := protocol.ModulePayload
+	hid := string(protocol.ModuleHeader)
+	pid := string(protocol.ModulePayload)
 
 	m, err := p.AddModule(hid, pl, 0)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestEncodeDecode(t *testing.T) {
 	}
 
 	// check that the received packet also has the header module
-	hm, err := pr.Module(protocol.ModuleHeader)
+	hm, err := pr.Module(string(protocol.ModuleHeader))
 	if err != nil {
 		t.Fatal(err)
 	}
