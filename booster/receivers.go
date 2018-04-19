@@ -44,7 +44,6 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 		return fail(err)
 	}
 
-
 	m := protocol.ModulePayload
 	pl := new(protocol.PayloadHello)
 	f := protocol.PayloadDecoders[protocol.MessageHello]

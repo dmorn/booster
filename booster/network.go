@@ -81,8 +81,8 @@ type Network struct {
 	PubSub
 	*tracer.Tracer
 
-	boosterID string
-	IOTimeout time.Duration
+	boosterID    string
+	IOTimeout    time.Duration
 	HeartbeatTTL time.Duration
 	DialTimeout  time.Duration
 
@@ -164,7 +164,7 @@ func (n *Network) decode(p *packet.Packet, m protocol.Module, v interface{}, f p
 	if err != nil {
 		return fmt.Errorf("network: decode error: %v", err)
 	}
-	
+
 	// decode its payload into v
 	err = protocol.Decode(mod.Payload(), v, f)
 	if err != nil {
@@ -244,7 +244,6 @@ func (n *Network) ValidatePacket(p *packet.Packet) error {
 
 	return nil
 }
-
 
 // TraceNodes starts a tracer that is able to determine wether a remote
 // interface is up or down in the network. When a node get's traced is
@@ -509,4 +508,3 @@ func (c *Conn) Recv() (*packet.Packet, error) {
 	}
 	return c.Conn.Recv()
 }
-
