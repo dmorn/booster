@@ -34,7 +34,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	bp := n.BPort()
 
 	// compose the packet
-	pl := protocol.PayloadHello {
+	pl := protocol.PayloadHello{
 		BPort: bp,
 		PPort: pp,
 	}
@@ -60,7 +60,7 @@ func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Op
 	defer conn.Close()
 
 	// compose the packet
-	pl := protocol.PayloadCtrl {
+	pl := protocol.PayloadCtrl{
 		Operation: op,
 	}
 	msg := protocol.MessageCtrl
@@ -93,7 +93,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	defer conn.Close()
 
 	// compose the packet
-	pl := protocol.PayloadConnect {
+	pl := protocol.PayloadConnect{
 		Target: raddr,
 	}
 	msg := protocol.MessageConnect
@@ -139,7 +139,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	defer conn.Close()
 
 	// compose the packet
-	pl := protocol.PayloadDisconnect {
+	pl := protocol.PayloadDisconnect{
 		ID: id,
 	}
 	msg := protocol.MessageDisconnect
@@ -176,7 +176,7 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string, features []
 	}
 
 	// compose & send the inspect packet
-	pl := protocol.PayloadInspect {
+	pl := protocol.PayloadInspect{
 		Features: features,
 	}
 	msg := protocol.MessageInspect

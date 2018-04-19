@@ -83,9 +83,9 @@ type Booster struct {
 	Proxy Proxy
 	PubSub
 
-	Netconfig    network.Config
-	stop         chan struct{}
-	restart      chan struct{}
+	Netconfig network.Config
+	stop      chan struct{}
+	restart   chan struct{}
 }
 
 // New creates a new configured booster node. Creates a network configuration

@@ -1,8 +1,8 @@
 package booster_test
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 
 	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/protocol"

@@ -52,7 +52,7 @@ type Message int32
 
 // Booster possible packet messages
 const (
-	MessageHello      Message = iota
+	MessageHello Message = iota
 	MessageConnect
 	MessageDisconnect
 	MessageNode
@@ -66,7 +66,7 @@ const (
 
 // Tunnel operations
 const (
-	TunnelAck    int32 = iota
+	TunnelAck int32 = iota
 	TunnelRemove
 )
 
@@ -74,7 +74,7 @@ type Operation int32
 
 // Ctrl operations
 const (
-	CtrlStop    Operation = iota
+	CtrlStop Operation = iota
 	CtrlRestart
 )
 

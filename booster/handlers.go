@@ -334,7 +334,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 		pl := protocol.PayloadTunnelEvent{
 			Target: tm.Target,
-			Event: int(tm.Event),
+			Event:  int(tm.Event),
 		}
 		msg := protocol.MessageTunnel
 
@@ -439,10 +439,10 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 				t = "upload"
 			}
 
-			pl := protocol.PayloadBandwidth {
-				Tot: bm.Tot,
+			pl := protocol.PayloadBandwidth{
+				Tot:       bm.Tot,
 				Bandwidth: bm.Bandwidth,
-				Type: t,
+				Type:      t,
 			}
 			msg := protocol.MessageBandwidth
 
