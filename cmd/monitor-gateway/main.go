@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package main
 
 import (
-	"github.com/danielmorandini/booster/cmd/inspect-gateway/commands"
+	"github.com/danielmorandini/booster/cmd/monitor-gateway/commands"
 )
 
 // Version and BuildTime are filled in during build by the Makefile
