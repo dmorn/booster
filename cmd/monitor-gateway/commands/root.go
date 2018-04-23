@@ -30,9 +30,9 @@ var (
 )
 
 var (
-	verbose     bool
-	pport       int
-	bport       int
+	verbose bool
+	pport   int
+	bport   int
 )
 
 var rootCmd = &cobra.Command{

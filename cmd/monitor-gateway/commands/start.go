@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	"golang.org/x/net/websocket"
 
 	"github.com/danielmorandini/booster/booster"
@@ -46,7 +47,7 @@ var startCmd = &cobra.Command{
 		if len(args) == 1 {
 			addr = args[0]
 		}
-		
+
 		// registered handlers
 		monitor := newMonitor(addr, bport, pport)
 		http.Handle("/monitor", websocket.Handler(monitor.handler))
@@ -60,7 +61,7 @@ var startCmd = &cobra.Command{
 }
 
 type monitor struct {
-	target string
+	target  string
 	booster *booster.Booster
 }
 
@@ -71,7 +72,7 @@ func newMonitor(target string, pp, bp int) *monitor {
 	}
 
 	return &monitor{
-		target: target,
+		target:  target,
 		booster: b,
 	}
 }
@@ -116,7 +117,7 @@ func handleNode(conn *websocket.Conn, node *protocol.PayloadNode) error {
 	return nil
 }
 
-func  handleBandwidth(conn *websocket.Conn, bw *protocol.PayloadBandwidth) error {
+func handleBandwidth(conn *websocket.Conn, bw *protocol.PayloadBandwidth) error {
 	log.Debug.Printf("[%v] bandwidth message received", bw.Type)
 
 	if err := SendBandwidth(conn, bw); err != nil {
@@ -127,14 +128,24 @@ func  handleBandwidth(conn *websocket.Conn, bw *protocol.PayloadBandwidth) error
 }
 
 func SendNode(conn *websocket.Conn, msg *protocol.PayloadNode) error {
-	return send(conn, msg)
+	return send(conn, "node", msg)
 }
 
 func SendBandwidth(conn *websocket.Conn, msg *protocol.PayloadBandwidth) error {
-	return send(conn, msg)
+	return send(conn, "net", msg)
 }
 
-func send(conn *websocket.Conn, msg interface{}) error {
+type Message struct {
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
+}
+
+func send(conn *websocket.Conn, t string, v interface{}) error {
+	msg := &Message{
+		Type: t,
+		Data: v,
+	}
+
 	b := new(bytes.Buffer)
 	if err := json.NewEncoder(b).Encode(msg); err != nil {
 		return err

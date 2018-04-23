@@ -195,7 +195,7 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 		// it is more accurate to set the tunnel's target to the proxy's
 		// address instead of the final destination.
 		//
-		// var t string 
+		// var t string
 		//
 		// at the moment the problem is that the proxy is not aware of this change,
 		// because it does not know nothing about the "forged" dialer, and will
