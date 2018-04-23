@@ -80,9 +80,12 @@ func newMonitor(target string, pp, bp int) *monitor {
 func (m *monitor) handler(conn *websocket.Conn) {
 	defer conn.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// monitor all features, can be filtered later
 	features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
-	stream, err := m.booster.Inspect(context.Background(), "tcp", m.target, features)
+	stream, err := m.booster.Inspect(ctx, "tcp", m.target, features)
 	if err != nil {
 		log.Error.Printf("handler: %v", err)
 		return
@@ -92,6 +95,7 @@ func (m *monitor) handler(conn *websocket.Conn) {
 		if node, ok := i.(*protocol.PayloadNode); ok {
 			if err = handleNode(conn, node); err != nil {
 				log.Error.Println(err.Error())
+				return
 			}
 			continue
 		}
@@ -99,6 +103,7 @@ func (m *monitor) handler(conn *websocket.Conn) {
 		if bw, ok := i.(*protocol.PayloadBandwidth); ok {
 			if err = handleBandwidth(conn, bw); err != nil {
 				log.Error.Println(err.Error())
+				return
 			}
 			continue
 		}
