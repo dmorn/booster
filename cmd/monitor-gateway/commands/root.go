@@ -33,7 +33,6 @@ var (
 	verbose     bool
 	pport       int
 	bport       int
-	apiEndpoint string
 )
 
 var rootCmd = &cobra.Command{
@@ -44,7 +43,6 @@ var rootCmd = &cobra.Command{
 
 func Execute() {
 	// parse flags
-	startCmd.Flags().StringVar(&apiEndpoint, "api", ":4000", "API endpoint address")
 	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
