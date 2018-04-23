@@ -18,14 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package commands
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"time"
 
-	"golang.org/x/net/websocket"
+	"github.com/gorilla/websocket"
 
 	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/log"
@@ -50,7 +48,7 @@ var startCmd = &cobra.Command{
 
 		// registered handlers
 		monitor := newMonitor(addr, bport, pport)
-		http.Handle("/monitor", websocket.Handler(monitor.handler))
+		http.HandleFunc("/monitor", monitor.handler)
 
 		port := ":4000"
 		log.Info.Printf("Listening on port: %v", port)
@@ -77,38 +75,98 @@ func newMonitor(target string, pp, bp int) *monitor {
 	}
 }
 
-func (m *monitor) handler(conn *websocket.Conn) {
-	defer conn.Close()
-
+func (m *monitor) handler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Error.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	fail := func() {
+		log.Info.Println("closing handler...")
+		conn.Close()
+		cancel()
+	}
+
+	// keep on reading pong messages
+	go func() {
+		pongWait := time.Second * 20
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		conn.SetPongHandler(func(string) error {
+			conn.SetReadDeadline(time.Now().Add(pongWait))
+			return nil
+		})
+
+		for {
+			if _, _, err := conn.NextReader(); err != nil {
+				fail()
+				break
+			}
+		}
+	}()
 
 	// monitor all features, can be filtered later
 	features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
 	stream, err := m.booster.Inspect(ctx, "tcp", m.target, features)
 	if err != nil {
 		log.Error.Printf("handler: %v", err)
+		fail()
 		return
 	}
 
-	for i := range stream {
-		if node, ok := i.(*protocol.PayloadNode); ok {
-			if err = handleNode(conn, node); err != nil {
-				log.Error.Println(err.Error())
-				return
-			}
-			continue
-		}
+	ticker := time.NewTicker(time.Second * 4)
+	defer ticker.Stop()
 
-		if bw, ok := i.(*protocol.PayloadBandwidth); ok {
-			if err = handleBandwidth(conn, bw); err != nil {
-				log.Error.Println(err.Error())
-				return
-			}
-			continue
-		}
+	send := make(chan interface{}, 1)
+	errc := make(chan error)
 
-		log.Error.Printf("unrecognised message: %+v", i)
+	go func() {
+		for i := range stream {
+			send <- i
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case i := <-send:
+				if node, ok := i.(*protocol.PayloadNode); ok {
+					if err = handleNode(conn, node); err != nil {
+						errc <- err
+						return
+					}
+					continue
+				}
+
+				if bw, ok := i.(*protocol.PayloadBandwidth); ok {
+					if err = handleBandwidth(conn, bw); err != nil {
+						errc <- err
+						return
+					}
+					continue
+				}
+
+				log.Error.Printf("unrecognised message: %+v", i)
+			case <-ticker.C:
+				writeWait := time.Second * 2
+				conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					errc <- err
+					return
+				}
+
+			}
+		}
+	}()
+
+	for err := range errc {
+		log.Error.Println(err)
+		fail()
+		return
 	}
 }
 
@@ -145,18 +203,22 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 func send(conn *websocket.Conn, t string, v interface{}) error {
 	msg := &Message{
 		Type: t,
 		Data: v,
 	}
 
-	b := new(bytes.Buffer)
-	if err := json.NewEncoder(b).Encode(msg); err != nil {
-		return err
-	}
-
-	io.Copy(conn, b)
+	conn.SetWriteDeadline(time.Now().Add(time.Second * 5))
+	websocket.WriteJSON(conn, msg)
 
 	return nil
 }

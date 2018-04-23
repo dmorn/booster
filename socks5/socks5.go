@@ -179,7 +179,7 @@ func New(d Dialer) *Socks5 {
 	s.ReadWriteTimeout = 2 * time.Minute
 	s.BandwidthCheck = bc
 	s.NextCopyDelay = ncd
-	s.ChunkSize = 4 * 1024
+	s.ChunkSize = 1 * 1024
 	s.Dialer = d
 	s.PubSub = ps
 	s.stop = make(chan struct{})
