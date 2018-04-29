@@ -42,10 +42,46 @@ func New() *PubSub {
 	}
 }
 
-// Sub makes a subscription to topic. Returns the channel where
-// the messages will be sent to, which should not be closed. If doing so,
-// the channel will be removed from the list of subscribed channels.
-func (ps *PubSub) Sub(tname string, f func(interface{})) (int, error) {
+type CancelFunc func() error
+
+type Action func(interface{}) error
+
+// Command contains fields used in a subscription pipeline.
+type Command struct {
+	// Topic is the subscription topic.
+	Topic string
+
+	// Run will be called each time that the pubsub receives
+	// new data on Topic.
+	Run Action
+
+	// PostRun is triggered before terminating the subscription
+	// pipeline.
+	PostRun func(error)
+
+	// Ref is filled with the subscription index reference.
+	Ref int
+}
+
+// Sub subscribes cmd to cmd.Topic in the pubsub. If there is no such
+// topic it creates it. Returns a cancel function that can be used to
+// terminate the subscription.
+// cmd.Run gets called for each data coming from the pubsub. PostRun
+// gets as argument the returned value of Run.
+// Returns an error if the command does not contain at least a topic
+// and a Run function.
+func (ps *PubSub) Sub(cmd *Command) (CancelFunc, error) {
+	// first check if the command contains at last a Run function
+	// and a topic, otherwise it does not make any sense to
+	// subscribe it.
+	if cmd.Topic == "" {
+		return nil, fmt.Errorf("pubsub: sub: no Topic provided")
+	}
+	if cmd.Run == nil {
+		return nil, fmt.Errorf("pubsub: sub: no Run function")
+	}
+
+	tname := cmd.Topic
 	hash := hash(tname)
 	t, err := ps.topic(tname)
 	if err != nil {
@@ -77,26 +113,30 @@ func (ps *PubSub) Sub(tname string, f func(interface{})) (int, error) {
 	t.Unlock()
 
 	if !ok {
-		return 0, errors.New("pubsub: too many subscribers")
+		return nil, errors.New("pubsub: too many subscribers")
 	}
 
 	c, err := ch.run()
 	if err != nil {
-		return 0, err
-	}
-
-	// done if no function was passed
-	if f == nil {
-		return index, nil
+		return nil, err
 	}
 
 	go func() {
+		var err error
 		for d := range c {
-			f(d)
+			if err = cmd.Run(d); err != nil {
+				// unsub closes c
+				ps.Unsub(index, tname)
+			}
+		}
+		if cmd.PostRun != nil {
+			cmd.PostRun(err)
 		}
 	}()
 
-	return index, nil
+	return func() error {
+		return ps.Unsub(index, tname)
+	}, nil
 }
 
 // Unsub removes c from the list of subscribed channels of topic.

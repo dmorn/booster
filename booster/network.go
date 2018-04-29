@@ -33,7 +33,7 @@ import (
 	"github.com/danielmorandini/booster/tracer"
 )
 
-const TopicNodes = "topic_nodes"
+const TopicNode = "topic_node"
 
 // Networks is a convenience type that wraps a map of Network instances.
 type Networks map[string]*Network
@@ -255,38 +255,46 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 	defer n.Tracer.Close()
 
 	errc := make(chan error)
-	index, err := n.Tracer.Notify(func(i interface{}) {
-		m, ok := i.(tracer.Message)
-		if !ok {
-			errc <- fmt.Errorf("booster: unable to recognise tracer message %v", m)
-			return
-		}
+	cancel, err := n.Tracer.Sub(&pubsub.Command{
+		Topic: tracer.TopicConn,
+		Run: func(i interface{}) error {
+			m, ok := i.(tracer.Message)
+			if !ok {
+				return fmt.Errorf("booster: unable to recognise tracer message %v", m)
+			}
 
-		// means that the device is still offline.
-		if m.Err != nil {
-			return
-		}
+			// means that the device is still offline.
+			if m.Err != nil {
+				return nil
+			}
 
-		// find connection
-		c, ok := n.Conns[m.ID]
-		if !ok {
-			log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
+			// find connection
+			c, ok := n.Conns[m.ID]
+			if !ok {
+				log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
+				n.Untrace(m.ID)
+				return nil
+			}
+
+			// reconnect to it
+			from := n.LocalNode.BAddr.String()
+			to := c.RemoteNode.BAddr.String()
+			if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
+				// the node is up but we cannot open a proper Booster connection
+				// to it.
+				log.Error.Print(err)
+				return nil
+			}
+
+			// do not trace this node anymore, as we managed to connect to it.
 			n.Untrace(m.ID)
-			return
-		}
-
-		// reconnect to it
-		from := n.LocalNode.BAddr.String()
-		to := c.RemoteNode.BAddr.String()
-		if _, err := b.Connect(ctx, "tcp", from, to); err != nil {
-			// the node is up but we cannot open a proper Booster connection
-			// to it.
-			log.Error.Print(err)
-			return
-		}
-
-		// do not trace this node anymore, as we managed to connect to it.
-		n.Untrace(m.ID)
+			return nil
+		},
+		PostRun: func(err error) {
+			if err != nil {
+				errc <- err
+			}
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("booster: trace nodes: %v", err)
@@ -294,9 +302,10 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 
 	select {
 	case err := <-errc:
+		log.Error.Println(err)
 		return err
 	case <-ctx.Done():
-		n.Tracer.StopNotifying(index)
+		cancel()
 		return ctx.Err()
 	}
 }
@@ -326,19 +335,6 @@ func (n *Network) AddConn(c *Conn) error {
 	return nil
 }
 
-// Notify subscribes to the underlying pubsub with topic TopicNodes. The channel
-// returned will produce node messages, containing information about the changes
-// and updates performed in the network.
-func (n *Network) Notify(f func(interface{})) (int, error) {
-	return n.Sub(TopicNodes, f)
-}
-
-// StopNotifying usubscribes c from receiving notifications on TopicNodes.
-// Closes the channel.
-func (n *Network) StopNotifying(index int) {
-	n.Unsub(index, TopicNodes)
-}
-
 // Nodes returns the root node of the network, togheter with all the remote
 // nodes connected to it.
 func (n *Network) Nodes() (*node.Node, []*node.Node) {
@@ -358,7 +354,7 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 }
 
 // Ack finds the node in the network and acknoledges the tunnel labeled
-// with id. Publishes the node in TopicNodes.
+// with id. Publishes the node in TopicNode.
 func (n *Network) Ack(node *node.Node, id string) error {
 	log.Debug.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
 
@@ -366,12 +362,12 @@ func (n *Network) Ack(node *node.Node, id string) error {
 		return err
 	}
 
-	n.Pub(node, TopicNodes)
+	n.Pub(node, TopicNode)
 	return nil
 }
 
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
-// with id from it. Publishes the node in TopicNodes.
+// with id from it. Publishes the node in TopicNode.
 func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
 	log.Debug.Printf("booster: removing (%v) on node (%v)", id, node.ID())
 
@@ -379,12 +375,12 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 		return err
 	}
 
-	n.Pub(node, TopicNodes)
+	n.Pub(node, TopicNode)
 	return nil
 }
 
 // AddTunnel finds the node in the network, creates a new tunnel using target
-// and adds the tunnel to the node. Publishes the node in TopicNodes.
+// and adds the tunnel to the node. Publishes the node in TopicNode.
 func (n *Network) AddTunnel(node *node.Node, target string) {
 	if !node.IsLocal() {
 		// add the tunnel also to the local node. Every tunnel passes
@@ -395,7 +391,7 @@ func (n *Network) AddTunnel(node *node.Node, target string) {
 	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
 
 	node.AddTunnel(target)
-	n.Pub(node, TopicNodes)
+	n.Pub(node, TopicNode)
 }
 
 // UpdateNode acknoledges or remove a tunnel of node, depending on the tm's
@@ -460,7 +456,7 @@ func (c *Conn) Close() error {
 	n := Nets.Get(c.boosterID)
 	// Publish the event and trace the node only if requested. For example, we
 	// do not want to trace a node that was manually disconnected.
-	n.Pub(c.RemoteNode, TopicNodes)
+	n.Pub(c.RemoteNode, TopicNode)
 	if c.RemoteNode.ToBeTraced {
 		if err := n.Trace(c.RemoteNode); err != nil {
 			return err

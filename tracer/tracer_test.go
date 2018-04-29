@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/danielmorandini/booster/pubsub"
 	"github.com/danielmorandini/booster/tracer"
 )
 
@@ -93,25 +94,27 @@ func TestTrace(t *testing.T) {
 	}
 
 	wait := make(chan struct{}, 1)
-	index, err := tr.Notify(func(i interface{}) {
-		m, ok := i.(tracer.Message)
-		if !ok {
-			t.Fatalf("wrong trace data found: %v", i)
-		}
+	cancel, err := tr.Sub(&pubsub.Command{
+		Topic: tracer.TopicConn,
+		Run: func(i interface{}) error {
+			m, ok := i.(tracer.Message)
+			if !ok {
+				t.Fatalf("wrong trace data found: %v", i)
+			}
 
-		if m.ID != "fake" {
-			t.Fatalf("found wrong id: wanted %v, found %v", "fake", m.ID)
-		}
+			if m.ID != "fake" {
+				t.Fatalf("found wrong id: wanted %v, found %v", "fake", m.ID)
+			}
 
-		wait <- struct{}{}
+			wait <- struct{}{}
+			return nil
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	defer func() {
-		tr.StopNotifying(index)
-	}()
+	defer cancel()
 
 	<-wait
 }

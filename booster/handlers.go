@@ -27,6 +27,7 @@ import (
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/pubsub"
 	"github.com/danielmorandini/booster/socks5"
 )
 
@@ -312,49 +313,56 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 	defer conn.Close()
 
-	wait := make(chan struct{}, 1)
-	var err error
-	var index int
+	errc := make(chan error)
+	cancel, err := b.Proxy.Sub(&pubsub.Command{
+		Topic: socks5.TopicNode,
+		Run: func(i interface{}) error {
+			// Read every tunnel message, compose a packet with them
+			// and send them trough the connection
+			tm, ok := i.(socks5.TunnelMessage)
+			if !ok {
+				return fmt.Errorf("unable to recognise workload message: %v", tm)
+			}
+
+			pl := protocol.PayloadTunnelEvent{
+				Target: tm.Target,
+				Event:  int(tm.Event),
+			}
+			msg := protocol.MessageTunnel
+
+			p, err := b.Net().Encode(pl, msg)
+			if err != nil {
+				return err
+			}
+			log.Debug.Printf("booster: -> tunnel update: %v", tm)
+
+			if err = conn.Send(p); err != nil {
+				return err
+			}
+			return nil
+		},
+		PostRun: func(err error) {
+			if err != nil {
+				errc <- err
+			}
+		},
+	})
+	if err != nil {
+		errc <- err
+	}
+
 	fail := func(err error) {
-		log.Error.Printf("booster: serve status error: %v", err)
-
-		conn.Close()
-		b.Proxy.StopNotifying(index, socks5.TopicTunnels)
-		wait <- struct{}{}
+		log.Error.Printf("booster: serve status error: %v", ctx.Err())
 	}
 
-	// Read every tunnel message, compose a packet with them
-	// and send them trough the connection
-	if index, err = b.Proxy.Notify(socks5.TopicTunnels, func(i interface{}) {
-		tm, ok := i.(socks5.TunnelMessage)
-		if !ok {
-			fail(fmt.Errorf("unable to recognise workload message: %v", tm))
-			return
-		}
-
-		pl := protocol.PayloadTunnelEvent{
-			Target: tm.Target,
-			Event:  int(tm.Event),
-		}
-		msg := protocol.MessageTunnel
-
-		p, err := b.Net().Encode(pl, msg)
-		if err != nil {
-			fail(err)
-			return
-		}
-		log.Debug.Printf("booster: -> tunnel update: %v", tm)
-
-		if err = conn.Send(p); err != nil {
-			fail(err)
-			return
-		}
-	}); err != nil {
+	select {
+	case err := <-errc:
 		fail(err)
-		return
+	case <-ctx.Done():
+		fail(ctx.Err())
+		<-errc
+		cancel()
 	}
-
-	<-wait
 }
 
 // ServeInspect is a blocking function that serves information responding to an inspect package.
@@ -366,7 +374,6 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 
 	fail := func(err error) {
 		log.Error.Printf("booster: serve inspect error: %v", err)
-		conn.Close()
 	}
 
 	// extract features to serve
@@ -378,61 +385,39 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 		return
 	}
 
-	net := b.Net()
 	var wg sync.WaitGroup
-
-	_fail := func(err error, f func()) {
-		fail(err)
-		f()
+	exec := func(f func(ctx context.Context, conn SendCloser) error) {
+		if err := f(ctx, conn); err != nil {
+			log.Error.Printf("booster: serve inspect: %v", err)
+		}
 		wg.Done()
 	}
 
-	serveNode := func() {
-		var index int
-		var err error
-		f := func() {
-			net.StopNotifying(index)
-		}
-
-		// Register for node updates, read every node udpate message, compose a packet with it
-		// and send them trough the connection
-		if index, err = net.Notify(func(i interface{}) {
-			n, ok := i.(*node.Node)
-			if !ok {
-				_fail(fmt.Errorf("unrecognised node message: %v", i), f)
-				return
-			}
-
-			p, err := b.Net().composeNode(n)
-			if err != nil {
-				_fail(err, f)
-				return
-			}
-
-			if err = conn.Send(p); err != nil {
-				_fail(err, f)
-				return
-			}
-		}); err != nil {
-			// do not call _fail here, as the subscription was not successfull
-			fail(err)
-			wg.Done()
-			return
+	for _, v := range pl.Features {
+		switch v {
+		case protocol.MessageNode:
+			wg.Add(1)
+			go exec(b.serveNode)
+		case protocol.MessageBandwidth:
+			wg.Add(1)
+			go exec(b.serveNet)
+		default:
+			// do nothing, feature not supported
+			log.Info.Printf("booster: serve inspect: feature (%v) not supported", v)
 		}
 	}
 
-	serveBandwidth := func() {
-		var index int
-		var err error
-		f := func() {
-			b.Proxy.StopNotifying(index, socks5.TopicBandwidth)
-		}
+	wg.Wait()
+}
 
-		if index, err = b.Proxy.Notify(socks5.TopicBandwidth, func(i interface{}) {
+func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
+	errc := make(chan error)
+	cancel, err := b.Proxy.Sub(&pubsub.Command{
+		Topic: socks5.TopicNet,
+		Run: func(i interface{}) error {
 			bm, ok := i.(*socks5.BandwidthMessage)
 			if !ok {
-				_fail(fmt.Errorf("unrecognised bandwidth message: %v", i), f)
-				return
+				return fmt.Errorf("unrecognised bandwidth message: %v", i)
 			}
 			t := "download"
 			if !bm.Download {
@@ -448,33 +433,68 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 
 			p, err := b.Net().Encode(pl, msg)
 			if err != nil {
-				_fail(err, f)
-				return
+				return err
 			}
 
 			if err = conn.Send(p); err != nil {
-				_fail(err, f)
-				return
+				return err
 			}
-		}); err != nil {
-			fail(err)
-			wg.Done()
-			return
-		}
+			return nil
+		},
+		PostRun: func(err error) {
+			if err != nil {
+				errc <- err
+			}
+		},
+	})
+	if err != nil {
+		return err
 	}
 
-	for _, v := range pl.Features {
-		switch v {
-		case protocol.MessageNode:
-			wg.Add(1)
-			serveNode()
-		case protocol.MessageBandwidth:
-			wg.Add(1)
-			serveBandwidth()
-		default:
-			// do nothing, feature not supported
-		}
+	select {
+	case <-ctx.Done():
+		cancel()
+		return ctx.Err()
+	case err := <-errc:
+		return err
+	}
+}
+
+func (b *Booster) serveNode(ctx context.Context, conn SendCloser) error {
+	errc := make(chan error)
+	cancel, err := b.Net().Sub(&pubsub.Command{
+		Topic: TopicNode,
+		Run: func(i interface{}) error {
+			n, ok := i.(*node.Node)
+			if !ok {
+				return fmt.Errorf("unrecognised node message: %v", i)
+			}
+
+			p, err := b.Net().composeNode(n)
+			if err != nil {
+				return err
+			}
+
+			if err = conn.Send(p); err != nil {
+				return err
+			}
+			return nil
+		},
+		PostRun: func(err error) {
+			if err != nil {
+				errc <- err
+			}
+		},
+	})
+	if err != nil {
+		return err
 	}
 
-	wg.Wait()
+	select {
+	case <-ctx.Done():
+		cancel()
+		return ctx.Err()
+	case err := <-errc:
+		return err
+	}
 }

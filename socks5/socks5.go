@@ -91,11 +91,11 @@ var (
 )
 
 const (
-	// TopicTunnels is the topic where the tunnels updates are published
-	TopicTunnels = "topic_tunnels"
+	// TopicNode is the topic where the tunnels updates are published
+	TopicNode = "topic_node"
 
-	// TopicBandwidth is the topic where bandwidth usage updates are published
-	TopicBandwidth = "topic_bw"
+	// TopicNet is the topic where bandwidth usage updates are published
+	TopicNet = "topic_network"
 )
 
 type Event int
@@ -108,8 +108,7 @@ const (
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string, f func(interface{})) (int, error)
-	Unsub(index int, topic string) error
+	Sub(cmd *pubsub.Command) (pubsub.CancelFunc, error)
 	Pub(message interface{}, topic string) error
 }
 
@@ -167,7 +166,7 @@ func New(d Dialer) *Socks5 {
 				Tot:       int(n),
 				D:         bc,
 				Download:  dl,
-			}, TopicBandwidth)
+			}, TopicNet)
 		}
 	}
 
@@ -317,14 +316,6 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	s.popLoad(target)
 
 	return nil
-}
-
-func (s *Socks5) Notify(topic string, f func(interface{})) (int, error) {
-	return s.Sub(topic, f)
-}
-
-func (s *Socks5) StopNotifying(index int, topic string) {
-	s.Unsub(index, topic)
 }
 
 // ProxyData copies data from src to dst and the other way around.
@@ -557,7 +548,7 @@ func (s *Socks5) pub(event Event, target string) {
 		Event:  event,
 	}
 
-	if err := s.Pub(tm, TopicTunnels); err != nil {
+	if err := s.Pub(tm, TopicNode); err != nil {
 		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}
 }

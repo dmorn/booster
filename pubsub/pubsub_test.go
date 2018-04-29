@@ -18,75 +18,94 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package pubsub_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/danielmorandini/booster/pubsub"
 )
 
+var nop = func(interface{}) error {
+	return nil
+}
+
 func TestSub(t *testing.T) {
 	ps := pubsub.New()
-	if _, err := ps.Sub("t1", nil); err != nil {
+	s := "t1"
+	if _, err := ps.Sub(&pubsub.Command{
+		Topic: s,
+		Run:   nop,
+	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ps.Close("t1"); err != nil {
+	if err := ps.Close(s); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestPub(t *testing.T) {
 	ps := pubsub.New()
-	wait := make(chan struct{})
+	var wg sync.WaitGroup
 	timer := time.AfterFunc(time.Second, func() {
 		t.Fatal("t1 not responding")
 	})
 
-	if _, err := ps.Sub("t1", func(i interface{}) {
-		if i != "fakedata" {
-			t.Fatalf("unexpected data: %v", i)
-		}
+	s := "t1"
+	wg.Add(1)
+	if _, err := ps.Sub(&pubsub.Command{
+		Topic: s,
+		Run: func(i interface{}) error {
+			if i != "fakedata" {
+				t.Fatalf("unexpected data: %v", i)
+			}
 
-		go func() {
-			wait <- struct{}{}
-		}()
+			wg.Done()
+			return nil
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	ps.Pub("fakedata", "t1")
+	ps.Pub("fakedata", s)
 
-	<-wait
+	wg.Wait()
 	timer.Stop()
 }
 
 func TestPub_multiple(t *testing.T) {
 	ps := pubsub.New()
-	wait := make(chan struct{}, 2)
+	var wg sync.WaitGroup
 	timer := time.AfterFunc(time.Second, func() {
 		t.Fatal("t1/t2 not responding")
 	})
 
-	if _, err := ps.Sub("t1", func(d interface{}) {
-		if d != "fakedata" {
-			t.Fatalf("unexpected data: %v", d)
-		}
+	wg.Add(1)
+	if _, err := ps.Sub(&pubsub.Command{
+		Topic: "t1",
+		Run: func(i interface{}) error {
+			if i != "fakedata" {
+				t.Fatalf("unexpected data: %v", i)
+			}
 
-		go func() {
-			wait <- struct{}{}
-		}()
+			wg.Done()
+			return nil
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := ps.Sub("t2", func(d interface{}) {
-		if d != "fakedata" {
-			t.Fatalf("unexpected data: %v", d)
-		}
+	wg.Add(1)
+	if _, err := ps.Sub(&pubsub.Command{
+		Topic: "t2",
+		Run: func(i interface{}) error {
+			if i != "fakedata" {
+				t.Fatalf("unexpected data: %v", i)
+			}
 
-		go func() {
-			wait <- struct{}{}
-		}()
+			wg.Done()
+			return nil
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -94,32 +113,51 @@ func TestPub_multiple(t *testing.T) {
 	ps.Pub("fakedata", "t1")
 	ps.Pub("fakedata", "t2")
 
-	<-wait
-	<-wait
+	wg.Wait()
 	timer.Stop()
 }
 
 func TestUnsub(t *testing.T) {
 	ps := pubsub.New()
-	index, err := ps.Sub("t1", nil)
+	cmd := &pubsub.Command{
+		Topic: "t1",
+		Run:   nop,
+	}
+	_, err := ps.Sub(cmd)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ps.Unsub(index, "t1"); err != nil {
+	if err := ps.Unsub(cmd.Ref, "t1"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestClose(t *testing.T) {
+func TestCancel(t *testing.T) {
+	timer := time.AfterFunc(time.Second, func() {
+		t.Fatal("t1 not closing")
+	})
+
 	ps := pubsub.New()
-	if _, err := ps.Sub("t1", nil); err != nil {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	cancel, err := ps.Sub(&pubsub.Command{
+		Topic: "t1",
+		Run:   nop,
+		PostRun: func(error) {
+			wg.Done()
+		},
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ps.Close("t1"); err != nil {
+	if err := cancel(); err != nil {
 		t.Fatal(err)
 	}
+
+	wg.Wait()
+	timer.Stop()
 }
 
 func TestMultiSub_concurrent(t *testing.T) {
@@ -133,32 +171,40 @@ func TestMultiSub_concurrent(t *testing.T) {
 	ps.Pub("fake_data_t1", "t1")
 	ps.Pub("fake_data_t2", "t2")
 
-	var err1, err2 error
-	var it1, it2 int
-
-	go func() {
-		if it1, err1 = ps.Sub("t1", func(d interface{}) {
+	cmd1 := &pubsub.Command{
+		Topic: "t1",
+		Run: func(d interface{}) error {
 			if d != "foo" {
 				t.Fatalf("unexpected data from t1: %v", d)
 			}
 
 			wait <- struct{}{}
-		}); err1 != nil {
-			t.Fatal(err1)
+			return nil
+		},
+	}
+	cmd2 := &pubsub.Command{
+		Topic: "t2",
+		Run: func(d interface{}) error {
+			if d != "bar" {
+				t.Fatalf("unexpected data from t2: %v", d)
+			}
+
+			wait <- struct{}{}
+			return nil
+		},
+	}
+
+	go func() {
+		if _, err := ps.Sub(cmd1); err != nil {
+			t.Fatal(err)
 		}
 
 		wait <- struct{}{}
 	}()
 
 	go func() {
-		if it2, err2 = ps.Sub("t2", func(d interface{}) {
-			if d != "bar" {
-				t.Fatalf("unexpected data from t2: %v", d)
-			}
-
-			wait <- struct{}{}
-		}); err2 != nil {
-			t.Fatal(err2)
+		if _, err := ps.Sub(cmd2); err != nil {
+			t.Fatal(err)
 		}
 
 		wait <- struct{}{}
@@ -176,10 +222,10 @@ func TestMultiSub_concurrent(t *testing.T) {
 	<-wait
 	timer.Stop()
 
-	if err := ps.Unsub(it1, "t1"); err != nil {
+	if err := ps.Unsub(cmd1.Ref, "t1"); err != nil {
 		t.Fatalf("unable to unsub ch1 from t1: %v", err)
 	}
-	if err := ps.Unsub(it2, "t2"); err != nil {
+	if err := ps.Unsub(cmd2.Ref, "t2"); err != nil {
 		t.Fatalf("unable to unsub ch1 from t2: %v", err)
 	}
 
@@ -191,22 +237,26 @@ func TestMultiSub(t *testing.T) {
 	timer := time.AfterFunc(time.Second, func() {
 		t.Fatal("t1 not responding")
 	})
-	wait := make(chan struct{}, 2)
+	var wg sync.WaitGroup
 
 	f := func() {
-		if _, err := ps.Sub("t1", func(i interface{}) {
-			wait <- struct{}{}
+		if _, err := ps.Sub(&pubsub.Command{
+			Topic: "t1",
+			Run: func(d interface{}) error {
+				wg.Done()
+				return nil
+			},
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
 
+	wg.Add(2)
 	f()
 	f()
 
 	ps.Pub("hi", "t1")
 
-	<-wait
-	<-wait
+	wg.Wait()
 	timer.Stop()
 }
