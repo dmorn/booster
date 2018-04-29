@@ -32,7 +32,7 @@ import (
 
 // Topic used to publish connectin discovery messgages.
 const (
-	TopicConnDiscovered = "topic_conn_disc"
+	TopicConn = "topic_connection"
 )
 
 // Possible Tracer status value.
@@ -56,8 +56,7 @@ type Pinger interface {
 
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
-	Sub(topic string, f func(interface{})) (int, error)
-	Unsub(index int, topic string) error
+	Sub(cmd *pubsub.Command) (pubsub.CancelFunc, error)
 	Pub(message interface{}, topic string) error
 }
 
@@ -111,7 +110,7 @@ func (t *Tracer) Run() error {
 				m := Message{ID: c.ID(), Err: err}
 
 				if t.PubSub != nil {
-					t.Pub(m, TopicConnDiscovered)
+					t.Pub(m, TopicConn)
 				}
 			}(c)
 		}
@@ -144,14 +143,6 @@ func (t *Tracer) Run() error {
 	}()
 
 	return nil
-}
-
-func (t *Tracer) Notify(f func(m interface{})) (int, error) {
-	return t.Sub(TopicConnDiscovered, f)
-}
-
-func (t *Tracer) StopNotifying(index int) {
-	t.Unsub(index, TopicConnDiscovered)
 }
 
 // Trace makes the tracer keep track of the entity at addr.
