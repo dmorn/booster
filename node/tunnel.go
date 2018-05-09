@@ -22,8 +22,9 @@ import (
 )
 
 type Tunnel struct {
-	id     string
-	Target string
+	id        string
+	Target    string
+	ProxiedBy string
 
 	sync.Mutex
 	copies int // number of copies

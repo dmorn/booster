@@ -387,6 +387,8 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 	case err := <-errc:
 		return err
 	case <-ctx.Done():
+		cancel()
+		<-errc
 		return ctx.Err()
 	}
 }
