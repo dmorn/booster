@@ -454,6 +454,7 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 	select {
 	case <-ctx.Done():
 		cancel()
+		<-errc
 		return ctx.Err()
 	case err := <-errc:
 		return err
@@ -493,6 +494,7 @@ func (b *Booster) serveNode(ctx context.Context, conn SendCloser) error {
 	select {
 	case <-ctx.Done():
 		cancel()
+		<-errc
 		return ctx.Err()
 	case err := <-errc:
 		return err

@@ -306,6 +306,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 		return err
 	case <-ctx.Done():
 		cancel()
+		<-errc
 		return ctx.Err()
 	}
 }
