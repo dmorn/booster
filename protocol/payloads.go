@@ -44,7 +44,7 @@ func (n *PayloadBandwidth) String() string {
 	return b.String()
 }
 
-type PayloadInspect struct {
+type PayloadMonitor struct {
 	Features []Message
 }
 

@@ -111,7 +111,7 @@ func (m *monitor) handler(w http.ResponseWriter, r *http.Request) {
 
 	// monitor all features, can be filtered later
 	features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
-	stream, err := m.booster.Inspect(ctx, "tcp", m.target, features)
+	stream, err := m.booster.Monitor(ctx, "tcp", m.target, features)
 	if err != nil {
 		log.Error.Printf("handler: %v", err)
 		fail()

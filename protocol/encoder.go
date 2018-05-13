@@ -34,7 +34,7 @@ var PayloadEncoders = map[Message]EncoderFunc{
 	MessageHello:      encodeHello,
 	MessageCtrl:       encodeCtrl,
 	MessageBandwidth:  encodeBandwidth,
-	MessageInspect:    encodeInspect,
+	MessageMonitor:    encodeMonitor,
 	MessageConnect:    encodeConnect,
 	MessageDisconnect: encodeDisconnect,
 	MessageNode:       encodeNode,
@@ -129,8 +129,8 @@ func encodeBandwidth(v interface{}) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
-func encodeInspect(v interface{}) ([]byte, error) {
-	d, ok := v.(PayloadInspect)
+func encodeMonitor(v interface{}) ([]byte, error) {
+	d, ok := v.(PayloadMonitor)
 	if !ok {
 		return nil, conversionFail(v)
 	}
@@ -140,7 +140,7 @@ func encodeInspect(v interface{}) ([]byte, error) {
 		features = append(features, int32(v))
 	}
 
-	p := &internal.PayloadInspect{
+	p := &internal.PayloadMonitor{
 		Features: features,
 	}
 

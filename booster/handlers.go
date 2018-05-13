@@ -70,8 +70,8 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageNotify:
 			go b.ServeStatus(ctx, conn)
 
-		case protocol.MessageInspect:
-			go b.ServeInspect(ctx, conn, p)
+		case protocol.MessageMonitor:
+			go b.ServeMonitor(ctx, conn, p)
 
 		case protocol.MessageCtrl:
 			b.HandleCtrl(ctx, conn, p)
@@ -365,9 +365,9 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	}
 }
 
-// ServeInspect is a blocking function that serves information responding to an inspect package.
+// ServeMonitor is a blocking function that serves information responding to an inspect package.
 // The package should contain a list of supported features that should be delivered.
-func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.Packet) {
+func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.Packet) {
 	log.Info.Print("booster: <- serving inspect...")
 
 	defer conn.Close()
@@ -377,9 +377,9 @@ func (b *Booster) ServeInspect(ctx context.Context, conn SendCloser, p *packet.P
 	}
 
 	// extract features to serve
-	pl := new(protocol.PayloadInspect)
+	pl := new(protocol.PayloadMonitor)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageInspect]
+	f := protocol.PayloadDecoders[protocol.MessageMonitor]
 	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return

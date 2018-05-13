@@ -18,7 +18,7 @@ message PayloadBandwidth {
 	string type = 3;
 }
 
-message PayloadInspect {
+message PayloadMonitor {
 	// features contains the features that should be inspected.
 	repeated int32 features = 1;
 }
