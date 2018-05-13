@@ -199,11 +199,11 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		}
 
 		tunnel := &protocol.Tunnel{
-			ID:     t.ID(),
-			Target: t.Target,
+			ID:        t.ID(),
+			Target:    t.Target,
 			ProxiedBy: t.ProxiedBy,
-			Acks:   t.Acks(),
-			Copies: t.Copies(),
+			Acks:      t.Acks(),
+			Copies:    t.Copies(),
 		}
 
 		tunnels = append(tunnels, tunnel)
