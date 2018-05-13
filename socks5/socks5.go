@@ -91,8 +91,8 @@ var (
 )
 
 const (
-	// TopicNode is the topic where the tunnels updates are published
-	TopicNode = "topic_node"
+	// TopicTunnelUpdates is the topic where the tunnels updates are published
+	TopicTunnelUpdates = "topic_tunnel_updates"
 
 	// TopicNet is the topic where bandwidth usage updates are published
 	TopicNet = "topic_network"
@@ -102,8 +102,8 @@ type Event int
 
 // Possible proxy operations.
 const (
-	EventPush = 0
-	EventPop  = 1
+	EventPush Event = iota
+	EventPop
 )
 
 // PubSub describes the required functionalities of a publication/subscription object.
@@ -548,7 +548,7 @@ func (s *Socks5) pub(event Event, target string) {
 		Event:  event,
 	}
 
-	if err := s.Pub(tm, TopicNode); err != nil {
+	if err := s.Pub(tm, TopicTunnelUpdates); err != nil {
 		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}
 }

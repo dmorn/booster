@@ -155,6 +155,10 @@ func (ps *PubSub) Unsub(index int, topic string) error {
 	}
 
 	ch := t.chs[index]
+	if ch == nil {
+		return fmt.Errorf("pubsub: found nil channel at index: %v", index)
+	}
+
 	ch.stop()
 	t.chs[index] = nil
 

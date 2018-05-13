@@ -140,11 +140,11 @@ func (n *Node) BPort() string {
 // tunnel to it. If the node as already a tunnel with this
 // target connected to it, it increments the copies of the
 // tunnel.
-func (n *Node) AddTunnel(target string) {
+func (n *Node) AddTunnel(tunnel *Tunnel) {
 	n.SetIsActive(true)
 
 	n.Lock()
-	t, ok := n.tunnels[target]
+	t, ok := n.tunnels[tunnel.Target]
 	n.Unlock()
 	if ok {
 		t.Lock()
@@ -156,23 +156,23 @@ func (n *Node) AddTunnel(target string) {
 
 	n.Lock()
 	defer n.Unlock()
-	n.tunnels[target] = NewTunnel(target)
+	n.tunnels[tunnel.Target] = tunnel
 }
 
 // Ack acknoledges the target tunnel, impling that the node is actually working on it.
-func (n *Node) Ack(id string) error {
+func (n *Node) Ack(target string) error {
 	n.Lock()
-	t, ok := n.tunnels[id]
+	t, ok := n.tunnels[target]
 	n.Unlock()
 	if !ok {
-		return fmt.Errorf("node: cannot ack [%v], no such tunnel", id)
+		return fmt.Errorf("node: cannot ack [%v], no such tunnel", target)
 	}
 
 	t.Lock()
 	defer t.Unlock()
 
 	if t.acks >= t.copies {
-		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", id, t.acks, t.copies)
+		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", target, t.acks, t.copies)
 	}
 
 	t.acks++
@@ -192,19 +192,19 @@ func (n *Node) Tunnels() map[string]*Tunnel {
 	return tcopy
 }
 
-func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
+func (n *Node) RemoveTunnel(target string, acknoledged bool) error {
 	n.Lock()
 	defer n.Unlock()
 
-	t, ok := n.tunnels[id]
+	t, ok := n.tunnels[target]
 	if !ok {
-		return fmt.Errorf("node: cannot delete [%v], no such tunnel", id)
+		return fmt.Errorf("node: cannot delete [%v], no such tunnel", target)
 	}
 
 	t.Lock()
 	defer t.Unlock()
 	if t.copies == 1 {
-		delete(n.tunnels, id)
+		delete(n.tunnels, target)
 		return nil
 	}
 
@@ -216,13 +216,13 @@ func (n *Node) RemoveTunnel(id string, acknoledged bool) error {
 	return nil
 }
 
-func (n *Node) Tunnel(id string) (*Tunnel, error) {
+func (n *Node) Tunnel(target string) (*Tunnel, error) {
 	n.Lock()
 	defer n.Unlock()
 
-	t, ok := n.tunnels[id]
+	t, ok := n.tunnels[target]
 	if !ok {
-		return nil, fmt.Errorf("node: no such tunnel [%v]", id)
+		return nil, fmt.Errorf("node: no such tunnel [%v]", target)
 	}
 
 	return t, nil

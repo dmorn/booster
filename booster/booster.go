@@ -353,10 +353,12 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 	return conn, nil
 }
 
+// UpdateRoot subscribes to the local proxy updating the root node information with the
+// updated data.
 func (b *Booster) UpdateRoot(ctx context.Context) error {
 	errc := make(chan error)
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
-		Topic: socks5.TopicNode,
+		Topic: socks5.TopicTunnelUpdates,
 		Run: func(i interface{}) error {
 			tm, ok := i.(socks5.TunnelMessage)
 			if !ok {
@@ -381,14 +383,12 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 		return err
 	}
 	defer cancel()
-	defer close(errc)
 
 	select {
 	case err := <-errc:
 		return err
 	case <-ctx.Done():
 		cancel()
-		<-errc
 		return ctx.Err()
 	}
 }
