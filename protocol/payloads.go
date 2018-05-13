@@ -95,6 +95,7 @@ func (n *PayloadNode) String() string {
 type Tunnel struct {
 	ID     string `json:"id"`
 	Target string `json:"target"`
+	ProxiedBy string `json:"proxied_by"`
 	Acks   int    `json:"acks"`
 	Copies int    `json:"copies"`
 }
@@ -102,8 +103,8 @@ type Tunnel struct {
 func (t *Tunnel) String() string {
 	id := string([]byte(t.ID)[:10])
 	return fmt.Sprintf(
-		"{id: %v target: %v acks: %v copies %v}",
-		id, t.Target, t.Acks, t.Copies,
+		"{id: %v target: %v proxied_by: %v acks: %v copies %v}",
+		id, t.Target, t.ProxiedBy, t.Acks, t.Copies,
 	)
 }
 

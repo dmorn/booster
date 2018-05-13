@@ -53,14 +53,14 @@ func TestAddTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := "host:8888"
-	n.AddTunnel(addr)
+	tunnel := node.NewTunnel("host:8888")
+	n.AddTunnel(tunnel)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	n.AddTunnel(addr)
+	n.AddTunnel(tunnel)
 
 	if n.Workload() != 2 {
 		t.Fatalf("workload: %v, wanted 2", n.Workload())
@@ -73,20 +73,20 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := "host:8888"
-	n.AddTunnel(addr)
+	tunnel := node.NewTunnel("host:8888")
+	n.AddTunnel(tunnel)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	n.AddTunnel(addr)
+	n.AddTunnel(tunnel)
 
 	if n.Workload() != 2 {
 		t.Fatalf("workload: %v, wanted 2", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr, false); err != nil {
+	if err := n.RemoveTunnel(tunnel.Target, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,7 +94,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr, false); err != nil {
+	if err := n.RemoveTunnel(tunnel.Target, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +102,7 @@ func TestRemoveTunnel(t *testing.T) {
 		t.Fatalf("workload: %v, wanted 0", n.Workload())
 	}
 
-	if err := n.RemoveTunnel(addr, false); err == nil {
+	if err := n.RemoveTunnel(tunnel.Target, false); err == nil {
 		t.Fatal("err should not be nil")
 	}
 }
@@ -113,14 +113,14 @@ func TestAck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	addr := "host:8888"
-	n.AddTunnel(addr)
+	tunnel := node.NewTunnel("host:8888")
+	n.AddTunnel(tunnel)
 
 	if n.Workload() != 1 {
 		t.Fatalf("workload: %v, wanted 1", n.Workload())
 	}
 
-	tn, err := n.Tunnel(addr)
+	tn, err := n.Tunnel(tunnel.Target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestAck(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.Acks(), 0)
 	}
 
-	if err = n.Ack(addr); err != nil {
+	if err = n.Ack(tunnel.Target); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,7 +137,7 @@ func TestAck(t *testing.T) {
 		t.Fatalf("%v, wanted %v", tn.Acks(), 1)
 	}
 
-	if err := n.RemoveTunnel(addr, true); err != nil {
+	if err := n.RemoveTunnel(tunnel.Target, true); err != nil {
 		t.Fatal(err)
 	}
 

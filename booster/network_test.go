@@ -30,7 +30,6 @@ func TestEncode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// TODO(daniel): to reflect check if DeepEqual
 	if !reflect.DeepEqual(*rpl, pl) {
 		t.Fatalf("%v != %v, and they should be equal", rpl, pl)
 	}

@@ -315,7 +315,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 	errc := make(chan error)
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
-		Topic: socks5.TopicNode,
+		Topic: socks5.TopicTunnelUpdates,
 		Run: func(i interface{}) error {
 			// Read every tunnel message, compose a packet with them
 			// and send them trough the connection

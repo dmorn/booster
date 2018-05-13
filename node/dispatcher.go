@@ -34,8 +34,8 @@ type GetNodesFunc func() (*Node, []*Node)
 
 type Noder interface {
 	Nodes() (*Node, []*Node)
-	AddTunnel(node *Node, target string)
-	RemoveTunnel(node *Node, target string, acknoledged bool) error
+	AddTunnel(node *Node, tunnel *Tunnel)
+	RemoveTunnel(node *Node, id string, acknoledged bool) error
 }
 
 // FallbackDialer combines DialContext and Dial methods.
@@ -187,27 +187,9 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 			return nil, errors.New("dialer: " + err.Error())
 		}
 
-		// TODO(daniel): when a proxied dialer is chosen, the tunnel addr should
-		// be the one of the proxy.
-		//
-		// t is the actual target the tunnel will point to: if the dialer
-		// is going to use an intermediate proxy to reach its destination,
-		// it is more accurate to set the tunnel's target to the proxy's
-		// address instead of the final destination.
-		//
-		// var t string
-		//
-		// at the moment the problem is that the proxy is not aware of this change,
-		// because it does not know nothing about the "forged" dialer, and will
-		// post tunnel updates referring to the final destination instead of
-		// the target that we created.
-		//
-		// Probably it is better to use a different interface for the dialer itself!
-		//
-
 		// add the new tunnel
-		d.AddTunnel(node, addr)
-
+		t := NewTunnel(addr)
+		d.AddTunnel(node, t)
 		// try to get a connection
 		conn, cerr := dialer.DialContext(ctx, network, addr)
 		if cerr == nil {
@@ -217,7 +199,7 @@ func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net
 		log.Error.Printf("dialer: dial error: %v", cerr)
 
 		// remove tunnel immediately in case of error
-		_ = d.RemoveTunnel(node, addr, false)
+		_ = d.RemoveTunnel(node, t.Target, false)
 
 		// simply return if it was a context error
 		if cerr == ctx.Err() {

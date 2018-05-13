@@ -37,6 +37,7 @@ type Module string
 const (
 	ModuleHeader  Module = "HE"
 	ModulePayload Module = "PA"
+	ModuleMeta    Module = "ME"
 )
 
 // Tags used in the encoding and decoding of packets.

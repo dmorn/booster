@@ -201,6 +201,7 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		tunnel := &protocol.Tunnel{
 			ID:     t.ID(),
 			Target: t.Target,
+			ProxiedBy: t.ProxiedBy,
 			Acks:   t.Acks(),
 			Copies: t.Copies(),
 		}
@@ -306,7 +307,6 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 		return err
 	case <-ctx.Done():
 		cancel()
-		<-errc
 		return ctx.Err()
 	}
 }
@@ -355,11 +355,15 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 }
 
 // Ack finds the node in the network and acknoledges the tunnel labeled
-// with id. Publishes the node in TopicNode.
-func (n *Network) Ack(node *node.Node, id string) error {
-	log.Debug.Printf("network: acknoledging (%v) on node (%v)", id, node.ID())
+// with target. Publishes the node in TopicNode.
+func (n *Network) Ack(node *node.Node, target string) error {
+	if !node.IsLocal() {
+		n.Ack(n.LocalNode, target)
+	}
 
-	if err := node.Ack(id); err != nil {
+	log.Debug.Printf("network: acknoledging (%v) on node (%v)", target, node.ID())
+
+	if err := node.Ack(target); err != nil {
 		return err
 	}
 
@@ -368,11 +372,15 @@ func (n *Network) Ack(node *node.Node, id string) error {
 }
 
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
-// with id from it. Publishes the node in TopicNode.
-func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) error {
-	log.Debug.Printf("booster: removing (%v) on node (%v)", id, node.ID())
+// with target from it. Publishes the node in TopicNode.
+func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool) error {
+	if !node.IsLocal() {
+		n.RemoveTunnel(n.LocalNode, target, acknoledged)
+	}
 
-	if err := node.RemoveTunnel(id, acknoledged); err != nil {
+	log.Debug.Printf("booster: removing (%v) on node (%v)", target, node.ID())
+
+	if err := node.RemoveTunnel(target, acknoledged); err != nil {
 		return err
 	}
 
@@ -381,17 +389,18 @@ func (n *Network) RemoveTunnel(node *node.Node, id string, acknoledged bool) err
 }
 
 // AddTunnel finds the node in the network, creates a new tunnel using target
-// and adds the tunnel to the node. Publishes the node in TopicNode.
-func (n *Network) AddTunnel(node *node.Node, target string) {
+// and adds the tunnel to the node. If node is not a local node, it also
+// adds the tunnel to the local node, but settings its ProxiedBy value to the
+// remote node's proxy address. Publishes the update in TopicNode.
+func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 	if !node.IsLocal() {
-		// add the tunnel also to the local node. Every tunnel passes
-		// also trough it
-		n.AddTunnel(n.LocalNode, target)
+		t.ProxiedBy = node.ProxyAddr().String()
+		n.AddTunnel(n.LocalNode, t)
 	}
 
-	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", target, node.ID())
+	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", t.Target, node.ID())
 
-	node.AddTunnel(target)
+	node.AddTunnel(t)
 	n.Pub(node, TopicNode)
 }
 
