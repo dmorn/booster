@@ -19,6 +19,7 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/danielmorandini/booster/booster"
@@ -68,7 +69,11 @@ var monitorCmd = &cobra.Command{
 
 		features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
 		stream(addr, features, func(i interface{}) {
-			log.Println(i)
+			p, err := json.Marshal(i)
+			if err != nil {
+				log.Error.Printf("booster: monitor: %v", err)
+			}
+			log.Println(string(p))
 		})
 	},
 }
@@ -91,7 +96,11 @@ var monitorNodeCmd = &cobra.Command{
 
 		features := []protocol.Message{protocol.MessageNode}
 		stream(addr, features, func(i interface{}) {
-			log.Println(i)
+			p, err := json.Marshal(i)
+			if err != nil {
+				log.Error.Printf("booster: monitor: %v", err)
+			}
+			log.Println(string(p))
 		})
 	},
 }
@@ -121,7 +130,11 @@ var monitorNetCmd = &cobra.Command{
 			}
 
 			if pb.Type == target {
-				log.Println(pb)
+				p, err := json.Marshal(i)
+				if err != nil {
+					log.Error.Printf("booster: monitor: %v", err)
+				}
+				log.Println(string(p))
 			}
 		})
 	},
