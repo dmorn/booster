@@ -275,6 +275,8 @@ func (b *Booster) ListenAndServe(ctx context.Context, port int) error {
 	}
 }
 
+// DialContext dials a new connection to addr and wraps the connection around
+// a booster connection. Consumes the first hello message received.
 func (b *Booster) DialContext(ctx context.Context, netwrk, addr string) (*Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, b.Net().DialTimeout)
 	defer cancel()
