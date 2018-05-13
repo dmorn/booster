@@ -93,11 +93,11 @@ func (n *PayloadNode) String() string {
 }
 
 type Tunnel struct {
-	ID     string `json:"id"`
-	Target string `json:"target"`
+	ID        string `json:"id"`
+	Target    string `json:"target"`
 	ProxiedBy string `json:"proxied_by"`
-	Acks   int    `json:"acks"`
-	Copies int    `json:"copies"`
+	Acks      int    `json:"acks"`
+	Copies    int    `json:"copies"`
 }
 
 func (t *Tunnel) String() string {
