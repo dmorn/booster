@@ -167,7 +167,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	return b.Net().Decode(p, m, &node, f)
 }
 
-func (b *Booster) Inspect(ctx context.Context, network, addr string, features []protocol.Message) (<-chan interface{}, error) {
+func (b *Booster) Monitor(ctx context.Context, network, addr string, features []protocol.Message) (<-chan interface{}, error) {
 	log.Info.Printf("booster: -> inspect: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
@@ -176,10 +176,10 @@ func (b *Booster) Inspect(ctx context.Context, network, addr string, features []
 	}
 
 	// compose & send the inspect packet
-	pl := protocol.PayloadInspect{
+	pl := protocol.PayloadMonitor{
 		Features: features,
 	}
-	msg := protocol.MessageInspect
+	msg := protocol.MessageMonitor
 	p, err := b.Net().Encode(pl, msg)
 	if err != nil {
 		conn.Close()

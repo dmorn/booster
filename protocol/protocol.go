@@ -60,7 +60,7 @@ const (
 	MessageHeartbeat
 	MessageTunnel
 	MessageNotify
-	MessageInspect
+	MessageMonitor
 	MessageBandwidth
 	MessageCtrl
 )

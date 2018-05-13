@@ -34,7 +34,7 @@ var PayloadDecoders = map[Message]DecoderFunc{
 	MessageHello:      decodeHello,
 	MessageCtrl:       decodeCtrl,
 	MessageBandwidth:  decodeBandwidth,
-	MessageInspect:    decodeInspect,
+	MessageMonitor:    decodeMonitor,
 	MessageConnect:    decodeConnect,
 	MessageDisconnect: decodeDisconnect,
 	MessageNode:       decodeNode,
@@ -133,8 +133,8 @@ func decodeBandwidth(p []byte) (interface{}, error) {
 	}, nil
 }
 
-func decodeInspect(p []byte) (interface{}, error) {
-	payload := new(internal.PayloadInspect)
+func decodeMonitor(p []byte) (interface{}, error) {
+	payload := new(internal.PayloadMonitor)
 	if err := proto.Unmarshal(p, payload); err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func decodeInspect(p []byte) (interface{}, error) {
 		features = append(features, Message(v))
 	}
 
-	return &PayloadInspect{
+	return &PayloadMonitor{
 		Features: features,
 	}, nil
 }

@@ -28,8 +28,8 @@ import (
 )
 
 var (
-	inspectNode      bool
-	inspectBandwidth bool
+	monitorNode      bool
+	monitorBandwidth bool
 )
 
 var stream = func(addr string, features []protocol.Message, f func(i interface{})) {
@@ -39,7 +39,7 @@ var stream = func(addr string, features []protocol.Message, f func(i interface{}
 		return
 	}
 
-	stream, err := b.Inspect(context.Background(), "tcp", addr, features)
+	stream, err := b.Monitor(context.Background(), "tcp", addr, features)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -50,10 +50,10 @@ var stream = func(addr string, features []protocol.Message, f func(i interface{}
 	}
 }
 
-var inspectCmd = &cobra.Command{
-	Use:   "inspect [host:port -- optional]",
-	Short: "inspects node and bandwidth activity",
-	Long:  `inspect listents (by default) on the local node for each activity update, and logs it.`,
+var monitorCmd = &cobra.Command{
+	Use:   "monitor [host:port -- optional]",
+	Short: "monitors node and bandwidth activity",
+	Long:  `monitor listents (by default) on the local node for each activity update, and logs it.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
@@ -73,10 +73,10 @@ var inspectCmd = &cobra.Command{
 	},
 }
 
-var inspectNodeCmd = &cobra.Command{
+var monitorNodeCmd = &cobra.Command{
 	Use:   "node [host:port -- optional]",
-	Short: "inspects the node's activity",
-	Long:  `inspect listents (by default) on the local node for each node activity update, and logs it.`,
+	Short: "monitors the node's activity",
+	Long:  `monitor listents (by default) on the local node for each node activity update, and logs it.`,
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
@@ -96,10 +96,10 @@ var inspectNodeCmd = &cobra.Command{
 	},
 }
 
-var inspectNetCmd = &cobra.Command{
+var monitorNetCmd = &cobra.Command{
 	Use:   "net [download|upload] [host:port -- optional]",
-	Short: "inspects the network's activity",
-	Long:  `inspect listents (by default) on the local node for each net activity update, and logs it.`,
+	Short: "monitors the network's activity",
+	Long:  `monitor listents (by default) on the local node for each net activity update, and logs it.`,
 	Args:  cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
@@ -116,7 +116,7 @@ var inspectNetCmd = &cobra.Command{
 		stream(addr, features, func(i interface{}) {
 			pb, ok := i.(*protocol.PayloadBandwidth)
 			if !ok {
-				log.Error.Printf("booster: inspect net: unrecognised payload: %+v", i)
+				log.Error.Printf("booster: monitor net: unrecognised payload: %+v", i)
 				return
 			}
 
