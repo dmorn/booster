@@ -61,7 +61,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageHeartbeat:
 			b.HandleHeartbeat(ctx, conn, p)
 
-		case protocol.MessageTunnel:
+		case protocol.MessageProxyUpdate:
 			if bc, ok := conn.(*Conn); ok {
 				b.HandleTunnel(ctx, bc, p)
 			} else {
@@ -286,9 +286,9 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	}
 
 	// extract information
-	pl := new(protocol.PayloadTunnelEvent)
+	pl := new(protocol.PayloadProxyUpdate)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageTunnel]
+	f := protocol.PayloadDecoders[protocol.MessageProxyUpdate]
 	if err := b.Net().Decode(p, m, &pl, f); err != nil {
 		fail(err)
 		return
@@ -296,11 +296,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 
 	log.Debug.Printf("booster: <- tunnel: %v", pl)
 
-	tm := &socks5.TunnelMessage{
-		Target: pl.Target,
-		Event:  socks5.Event(pl.Event),
-	}
-	if err := b.UpdateNode(conn.RemoteNode, tm, true); err != nil {
+	if err := b.UpdateNode(conn.RemoteNode, *pl, true); err != nil {
 		fail(err)
 		return
 	}
@@ -319,22 +315,18 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 		Run: func(i interface{}) error {
 			// Read every tunnel message, compose a packet with them
 			// and send them trough the connection
-			tm, ok := i.(socks5.TunnelMessage)
+			pl, ok := i.(protocol.PayloadProxyUpdate)
 			if !ok {
-				return fmt.Errorf("unable to recognise workload message: %v", tm)
+				return fmt.Errorf("unable to recognise workload message: %v", pl)
 			}
 
-			pl := protocol.PayloadTunnelEvent{
-				Target: tm.Target,
-				Event:  int(tm.Event),
-			}
-			msg := protocol.MessageTunnel
-
+			msg := protocol.MessageProxyUpdate
 			p, err := b.Net().Encode(pl, msg)
 			if err != nil {
 				return err
 			}
-			log.Debug.Printf("booster: -> tunnel update: %v", tm)
+
+			log.Debug.Printf("booster: -> tunnel update: %v", p)
 
 			if err = conn.Send(p); err != nil {
 				return err

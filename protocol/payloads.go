@@ -21,6 +21,11 @@ import (
 	"time"
 )
 
+type PayloadProxyUpdate struct {
+	Target    string
+	Operation Operation
+}
+
 type PayloadCtrl struct {
 	Operation Operation
 }
@@ -68,9 +73,4 @@ type PayloadHeartbeat struct {
 	ID   string
 	Hops int
 	TTL  time.Time
-}
-
-type PayloadTunnelEvent struct {
-	Target string
-	Event  int
 }
