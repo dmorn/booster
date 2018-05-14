@@ -73,9 +73,9 @@ message PayloadHeartbeat {
 	google.protobuf.Timestamp ttl = 3;
 }
 
-message PayloadTunnelEvent {
+message PayloadProxyUpdate {
 	// target is the remote endpoint address of the tunnel.
 	string target = 1;
-	// event is the operation performed on the tunnel.
-	int32 event = 2;
+	// operation is the action performed on the tunnel.
+	int32 operation = 2;
 }

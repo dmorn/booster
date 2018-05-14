@@ -29,7 +29,6 @@ import (
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/pubsub"
-	"github.com/danielmorandini/booster/socks5"
 	"github.com/danielmorandini/booster/tracer"
 )
 
@@ -404,21 +403,21 @@ func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 	n.Pub(node, TopicNode)
 }
 
-// UpdateNode acknoledges or remove a tunnel of node, depending on the tm's
-// content.
-func (b *Booster) UpdateNode(node *node.Node, tm *socks5.TunnelMessage, acknoledged bool) error {
+// UpdateNode acknoledges or remove a tunnel of node, depending on p's content.
+func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
 	n := Nets.Get(b.ID)
 
-	if tm.Event == socks5.EventPush {
-		if err := n.Ack(node, tm.Target); err != nil {
+	switch p.Operation {
+	case protocol.TunnelAck:
+		if err := n.Ack(node, p.Target); err != nil {
 			return err
 		}
-	}
-
-	if tm.Event == socks5.EventPop {
-		if err := n.RemoveTunnel(node, tm.Target, acknoledged); err != nil {
+	case protocol.TunnelRemove:
+		if err := n.RemoveTunnel(node, p.Target, acknoledged); err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("update node: unrecognised operation: %+v", p)
 	}
 
 	return nil

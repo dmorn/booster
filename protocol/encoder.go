@@ -31,15 +31,15 @@ type EncoderFunc func(interface{}) ([]byte, error)
 
 // Implemented default encoders
 var PayloadEncoders = map[Message]EncoderFunc{
-	MessageHello:      encodeHello,
-	MessageCtrl:       encodeCtrl,
-	MessageBandwidth:  encodeBandwidth,
-	MessageMonitor:    encodeMonitor,
-	MessageConnect:    encodeConnect,
-	MessageDisconnect: encodeDisconnect,
-	MessageNode:       encodeNode,
-	MessageHeartbeat:  encodeHeartbeat,
-	MessageTunnel:     encodeTunnelEvent,
+	MessageHello:       encodeHello,
+	MessageCtrl:        encodeCtrl,
+	MessageBandwidth:   encodeBandwidth,
+	MessageMonitor:     encodeMonitor,
+	MessageConnect:     encodeConnect,
+	MessageDisconnect:  encodeDisconnect,
+	MessageNode:        encodeNode,
+	MessageHeartbeat:   encodeHeartbeat,
+	MessageProxyUpdate: encodeProxyUpdate,
 }
 
 // HeaderEncoder is the default function used to encode the headers.
@@ -222,15 +222,15 @@ func encodeHeartbeat(v interface{}) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
-func encodeTunnelEvent(v interface{}) ([]byte, error) {
-	d, ok := v.(PayloadTunnelEvent)
+func encodeProxyUpdate(v interface{}) ([]byte, error) {
+	d, ok := v.(PayloadProxyUpdate)
 	if !ok {
 		return nil, conversionFail(v)
 	}
 
-	p := &internal.PayloadTunnelEvent{
-		Target: d.Target,
-		Event:  int32(d.Event),
+	p := &internal.PayloadProxyUpdate{
+		Target:    d.Target,
+		Operation: int32(d.Operation),
 	}
 
 	return proto.Marshal(p)

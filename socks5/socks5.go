@@ -32,6 +32,7 @@ import (
 
 	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/network"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/pubsub"
 )
 
@@ -123,6 +124,8 @@ type Dialer interface {
 type Socks5 struct {
 	PubSub
 
+	port int
+
 	ReadWriteTimeout time.Duration
 	ChunkSize        int64
 	BandwidthCheck   time.Duration
@@ -134,8 +137,6 @@ type Socks5 struct {
 
 	sync.Mutex
 	Dialer
-	port     int
-	workload int
 }
 
 type BandwidthMessage struct {
@@ -311,9 +312,9 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	defer tconn.Close()
 
 	// start proxying
-	s.pushLoad(target)
+	s.pubUpdate(target, protocol.TunnelAck)
 	s.ProxyData(conn, tconn)
-	s.popLoad(target)
+	s.pubUpdate(target, protocol.TunnelRemove)
 
 	return nil
 }
@@ -521,36 +522,17 @@ func (s *Socks5) Proto() string {
 	return "socks5"
 }
 
-// TunnelMessage contains a workload value and an ID, usually the hash of
-// a canonical address.
-type TunnelMessage struct {
-	Target string
-	Event  Event
-}
-
-func (s *Socks5) pushLoad(target string) {
-	s.Lock()
-	defer s.Unlock()
-
-	s.pub(EventPush, target)
-}
-
-func (s *Socks5) popLoad(target string) {
-	s.Lock()
-	defer s.Unlock()
-
-	s.pub(EventPop, target)
-}
-
-func (s *Socks5) pub(event Event, target string) {
-	tm := TunnelMessage{
-		Target: target,
-		Event:  event,
+func (s *Socks5) pubUpdate(target string, op protocol.Operation) error {
+	p := protocol.PayloadProxyUpdate{
+		Target:    target,
+		Operation: op,
 	}
-
-	if err := s.Pub(tm, TopicTunnelUpdates); err != nil {
+	err := s.Pub(p, TopicTunnelUpdates)
+	if err != nil {
 		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}
+
+	return err
 }
 
 func sha1Hash(images ...[]byte) string {

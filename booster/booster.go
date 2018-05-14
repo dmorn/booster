@@ -362,13 +362,13 @@ func (b *Booster) UpdateRoot(ctx context.Context) error {
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
 		Topic: socks5.TopicTunnelUpdates,
 		Run: func(i interface{}) error {
-			tm, ok := i.(socks5.TunnelMessage)
+			p, ok := i.(protocol.PayloadProxyUpdate)
 			if !ok {
-				return fmt.Errorf("unable to recognise workload message: %v", tm)
+				return fmt.Errorf("update root: unable to recognise payload: %v", p)
 			}
 
 			node := Nets.Get(b.ID).LocalNode
-			if err := b.UpdateNode(node, &tm, true); err != nil {
+			if err := b.UpdateNode(node, p, true); err != nil {
 				log.Error.Printf("booster: %v", err)
 			}
 			return nil

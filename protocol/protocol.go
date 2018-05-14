@@ -58,20 +58,21 @@ const (
 	MessageDisconnect
 	MessageNode
 	MessageHeartbeat
-	MessageTunnel
+	MessageProxyUpdate
 	MessageNotify
 	MessageMonitor
 	MessageBandwidth
 	MessageCtrl
 )
 
+type Operation int32
+
 // Tunnel operations
 const (
-	TunnelAck int32 = iota
+	TunnelAdd Operation = iota
+	TunnelAck
 	TunnelRemove
 )
-
-type Operation int32
 
 // Ctrl operations
 const (

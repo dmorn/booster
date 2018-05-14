@@ -31,15 +31,15 @@ type DecoderFunc func([]byte) (interface{}, error)
 
 // Implemented default decoders
 var PayloadDecoders = map[Message]DecoderFunc{
-	MessageHello:      decodeHello,
-	MessageCtrl:       decodeCtrl,
-	MessageBandwidth:  decodeBandwidth,
-	MessageMonitor:    decodeMonitor,
-	MessageConnect:    decodeConnect,
-	MessageDisconnect: decodeDisconnect,
-	MessageNode:       decodeNode,
-	MessageHeartbeat:  decodeHeartbeat,
-	MessageTunnel:     decodeTunnelEvent,
+	MessageHello:       decodeHello,
+	MessageCtrl:        decodeCtrl,
+	MessageBandwidth:   decodeBandwidth,
+	MessageMonitor:     decodeMonitor,
+	MessageConnect:     decodeConnect,
+	MessageDisconnect:  decodeDisconnect,
+	MessageNode:        decodeNode,
+	MessageHeartbeat:   decodeHeartbeat,
+	MessageProxyUpdate: decodeProxyUpdate,
 }
 
 var HeaderDecoder = decodeHeader
@@ -216,14 +216,14 @@ func decodeHeartbeat(p []byte) (interface{}, error) {
 	}, nil
 }
 
-func decodeTunnelEvent(p []byte) (interface{}, error) {
-	payload := new(internal.PayloadTunnelEvent)
+func decodeProxyUpdate(p []byte) (interface{}, error) {
+	payload := new(internal.PayloadProxyUpdate)
 	if err := proto.Unmarshal(p, payload); err != nil {
 		return nil, err
 	}
 
-	return &PayloadTunnelEvent{
-		Target: payload.Target,
-		Event:  int(payload.Event),
+	return &PayloadProxyUpdate{
+		Target:    payload.Target,
+		Operation: Operation(payload.Operation),
 	}, nil
 }
