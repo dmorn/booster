@@ -196,9 +196,9 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, 
 	return Open(conn, d.config), nil
 }
 
-// BandwidthIO implements the io.CopyN method, keeping track of the
+// NetworkIO implements the io.CopyN method, keeping track of the
 // bandwidth while doing so.
-type BandwidthIO struct {
+type NetworkIO struct {
 	Ticker        *time.Ticker
 	NextCopyDelay time.Duration
 
@@ -210,7 +210,7 @@ type BandwidthIO struct {
 
 // TickerFunc calls f repeatedly after d.
 // Badwidth is calculated right before calling f.
-func (b *BandwidthIO) TickerFunc(d time.Duration, f func()) {
+func (b *NetworkIO) TickerFunc(d time.Duration, f func()) {
 	b.Lock()
 	prev := b.N // prev is the previous N collected
 	b.Unlock()
@@ -246,7 +246,7 @@ func (b *BandwidthIO) TickerFunc(d time.Duration, f func()) {
 
 // CopyN copies data from src into dst, using a buffer of size n. Keeps track of
 // the number of bytes copied.
-func (b *BandwidthIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error) {
+func (b *NetworkIO) CopyN(dst io.Writer, src io.Reader, n int64) (int64, error) {
 	n, err := io.CopyN(dst, src, n)
 
 	b.Lock()
