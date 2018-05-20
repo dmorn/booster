@@ -130,8 +130,8 @@ type Socks5 struct {
 	ChunkSize        int64
 	BandwidthCheck   time.Duration
 	NextCopyDelay    time.Duration
-	DownloadIO       *network.BandwidthIO
-	UploadIO         *network.BandwidthIO
+	DownloadIO       *network.NetworkIO
+	UploadIO         *network.NetworkIO
 
 	stop chan struct{}
 
@@ -153,9 +153,9 @@ func New(d Dialer) *Socks5 {
 	bc := time.Second
 	ncd := time.Second * 0
 
-	dIO := new(network.BandwidthIO)
-	uIO := new(network.BandwidthIO)
-	f := func(bIO *network.BandwidthIO, dl bool) func() {
+	dIO := new(network.NetworkIO)
+	uIO := new(network.NetworkIO)
+	f := func(bIO *network.NetworkIO, dl bool) func() {
 		return func() {
 			bIO.Lock()
 			b := bIO.Bandwidth
