@@ -9,7 +9,7 @@ IMPORT_PATH := github.com/danielmorandini/booster
 IGNORED_PACKAGES := /vendor/
 
 .PHONY: all
-all: booster proxy monitor-gateway
+all: booster proxy
 
 .PHONY: booster
 booster: .GOPATH/.ok
@@ -18,10 +18,6 @@ booster: .GOPATH/.ok
 .PHONY: proxy
 proxy: .GOPATH/.ok
 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/socks5
-
-.PHONY: monitor-gateway
-monitor-gateway: .GOPATH/.ok
-	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)/cmd/monitor-gateway
 
 .PHONY: clean test list cover format
 
