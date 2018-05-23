@@ -29,6 +29,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var monitorCmd = &cobra.Command{
+	Use:   "monitor",
+	Short: "monitor monitors the activity of a booster node.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+	},
+}
+
+var monitorProxyCmd = &cobra.Command{
+	Use:   "proxy",
+	Short: "proxy will monitor proxy updates.",
+	Long: `proxy will monitor proxy updates. Logs a stream of json encoded data.
+
+	Example:
+	bin/booster monitor proxy
+	`,
+	Args: cobra.MaximumNArgs(0),
+	Run: func(cmd *cobra.Command, args []string) {
+		stream(target, protocol.MessageProxyUpdate)
+	},
+}
+
+var monitorNetCmd = &cobra.Command{
+	Use:   "net [download|upload]",
+	Short: "net will monitor network stats.",
+	Long: `net will monitor network stats. Logs a stream of json encoded data.
+	
+	Example:
+	bin/booster monitor net download
+	`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		stream(target, protocol.MessageNetworkStatus)
+	},
+}
+
 var stream = func(addr string, feature protocol.Message) {
 	b, err := booster.New(pport, bport)
 	if err != nil {
@@ -61,55 +99,3 @@ var stream = func(addr string, feature protocol.Message) {
 	wg.Wait()
 }
 
-var addr string
-
-var monitorCmd = &cobra.Command{
-	Use:   "monitor [x]",
-	Short: "monitor monitors activity of x.",
-	Long: `monitor monitors activity of x.
-	
-x: node address (format host:port) that will be contacted (optional, default localhost:4884)
-	`,
-	Args: cobra.MaximumNArgs(1),
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if verbose {
-			log.SetLevel(log.DebugLevel)
-		}
-
-		addr = "localhost:4884"
-		if len(args) == 1 {
-			addr = args[0]
-
-		}
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-	},
-}
-
-var monitorProxyCmd = &cobra.Command{
-	Use:   "proxy",
-	Short: "proxy will monitor proxy updates.",
-	Long: `proxy will monitor proxy updates. Logs a stream of json encoded data.
-
-	Example:
-	bin/booster monitor proxy
-	`,
-	Args: cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
-		stream(addr, protocol.MessageProxyUpdate)
-	},
-}
-
-var monitorNetCmd = &cobra.Command{
-	Use:   "net [download|upload]",
-	Short: "net will monitor network stats.",
-	Long: `net will monitor network stats. Logs a stream of json encoded data.
-	
-	Example:
-	bin/booster monitor net download
-	`,
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		stream(addr, protocol.MessageNetworkStatus)
-	},
-}
