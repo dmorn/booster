@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"encoding/json"
 	"time"
 
 	"github.com/danielmorandini/booster/log"
@@ -102,33 +103,41 @@ func NewNet(n *node.Node, boosterID string) *Network {
 	}
 }
 
-func (n *Network) Encode(v interface{}, msg protocol.Message) (*packet.Packet, error) {
+func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encoding) (*packet.Packet, error) {
 	// TODO: this could be the place where we encrypt the payloads
 	p := packet.New()
-	enc := protocol.EncodingProtobuf
 
 	var f protocol.EncoderFunc
+	if enc == protocol.EncodingJson {
+		f = json.Marshal
+	} else {
+		f = protocol.HeaderEncoder
+	}
 
 	// encode the header...
-	f = protocol.HeaderEncoder
 	hraw, err := protocol.Encode(msg, f)
 	if err != nil {
 		return nil, fmt.Errorf("network: %v", err)
 	}
 	// ... and add it to the packet
-	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw, enc); err != nil {
+	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw, uint8(enc)); err != nil {
 		return nil, fmt.Errorf("network: encode failure: %v", err)
 	}
 
 	// encode the payload if present
 	if v != nil {
-		f := protocol.PayloadEncoders[msg]
+		if enc == protocol.EncodingJson {
+			f = json.Marshal
+		} else {
+			f = protocol.PayloadEncoders[msg]
+		}
+
 		praw, err := protocol.Encode(v, f)
 		if err != nil {
 			return nil, fmt.Errorf("network: %v", err)
 		}
 
-		if _, err = p.AddModule(string(protocol.ModulePayload), praw, enc); err != nil {
+		if _, err = p.AddModule(string(protocol.ModulePayload), praw, uint8(enc)); err != nil {
 			return nil, fmt.Errorf("network: encode failure: %v", err)
 		}
 	}
@@ -187,7 +196,7 @@ func (n *Network) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	payload.Hops++
 	payload.TTL = time.Now().Add(n.HeartbeatTTL)
 
-	return n.Encode(payload, protocol.MessageHeartbeat)
+	return n.Encode(payload, protocol.MessageHeartbeat, protocol.EncodingProtobuf)
 }
 
 func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
@@ -215,7 +224,7 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		Tunnels: tunnels,
 	}
 
-	return n.Encode(param, protocol.MessageNodeStatus)
+	return n.Encode(param, protocol.MessageNodeStatus, protocol.EncodingProtobuf)
 }
 
 // ValidatePackets extracts the header from the packet and checks if

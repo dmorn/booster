@@ -321,7 +321,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			}
 
 			msg := protocol.MessageProxyUpdate
-			p, err := b.Net().Encode(pl, msg)
+			p, err := b.Net().Encode(pl, msg, protocol.EncodingJson)
 			if err != nil {
 				return err
 			}
@@ -423,7 +423,7 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 			}
 			msg := protocol.MessageNetworkStatus
 
-			p, err := b.Net().Encode(pl, msg)
+			p, err := b.Net().Encode(pl, msg, protocol.EncodingJson)
 			if err != nil {
 				return err
 			}
