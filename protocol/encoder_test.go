@@ -38,10 +38,10 @@ func TestEncode(t *testing.T) {
 	}
 
 	// encode that should fail
-	f = protocol.PayloadEncoders[protocol.MessageNode]
+	f = protocol.PayloadEncoders[protocol.MessageNodeStatus]
 	_, err = protocol.Encode(v, f)
 	if err == nil {
-		t.Fatalf("encode shuold fail but it did not. Passing %v with message %v - they do not match", v, protocol.MessageNode)
+		t.Fatalf("encode shuold fail but it did not. Passing %v with message %v - they do not match", v, protocol.MessageNodeStatus)
 	}
 
 	// encode that should fail
