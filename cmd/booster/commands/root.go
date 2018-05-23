@@ -32,6 +32,7 @@ var (
 var (
 	pport   int
 	bport   int
+	target string
 	verbose bool
 )
 
@@ -55,6 +56,7 @@ func Execute() {
 	// parse flags
 	startCmd.Flags().IntVar(&pport, "pport", 1080, "proxy listening port")
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
+	monitorCmd.Flags().StringVarP(&target, "target", "t", "localhost:4884", "address to monitor")
 
 	// add commands
 	monitorCmd.AddCommand(monitorProxyCmd, monitorNetCmd)
