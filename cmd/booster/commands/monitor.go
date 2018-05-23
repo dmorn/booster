@@ -40,7 +40,7 @@ var stream = func(addr string, feature protocol.Message) {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	if err := b.Monitor(ctx, addr, "tcp", booster.Inspection{
+	if err := b.Monitor(ctx, "tcp", "localhost:4884", booster.Inspection{
 		Feature: feature,
 		Run: func(m packet.Module) error {
 			log.Info.Printf("%s", m.Payload())
@@ -91,8 +91,8 @@ var monitorProxyCmd = &cobra.Command{
 	Short: "proxy will monitor proxy updates.",
 	Long: `proxy will monitor proxy updates. Logs a stream of json encoded data.
 
-		Example:
-		bin/booster monitor proxy
+	Example:
+	bin/booster monitor proxy
 	`,
 	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -105,8 +105,8 @@ var monitorNetCmd = &cobra.Command{
 	Short: "net will monitor network stats.",
 	Long: `net will monitor network stats. Logs a stream of json encoded data.
 	
-		Example:
-		bin/booster monitor net download
+	Example:
+	bin/booster monitor net download
 	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

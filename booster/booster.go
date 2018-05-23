@@ -315,7 +315,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// compose the notify packet which tells the receiver to start sending
 	// information notifications when its state changes
-	p, err := b.Net().Encode(nil, protocol.MessageNotify)
+	p, err := b.Net().Encode(nil, protocol.MessageNotify, protocol.EncodingProtobuf)
 	if err != nil {
 		return fail(err)
 	}

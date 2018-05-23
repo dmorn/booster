@@ -26,9 +26,12 @@ import (
 // Booster protocol version
 const Version = "v0.1.0"
 
+type Encoding uint8
+
 // Possible encodings
 const (
-	EncodingProtobuf uint8 = 1
+	EncodingProtobuf Encoding = iota
+	EncodingJson
 )
 
 type Module string
@@ -47,8 +50,6 @@ const (
 	PayloadClosingTag = "]"
 	Separator         = ":"
 )
-
-type DecoderType int32
 
 type Message int32
 

@@ -21,8 +21,6 @@ package packet
 
 import (
 	"fmt"
-
-	"github.com/danielmorandini/booster/protocol"
 )
 
 type TagSet struct {
@@ -103,13 +101,4 @@ func (m *Module) ID() string {
 
 func (m *Module) Payload() []byte {
 	return m.payload
-}
-
-func (m *Module) Encoding() string {
-	switch m.encoding {
-	case protocol.EncodingProtobuf:
-		return "protobuf"
-	default:
-		return "undefined"
-	}
 }
