@@ -27,9 +27,15 @@ import (
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "starts a booster node",
-	Long:  `starts a booster proxy and node. Both are tcp servers, their listening port will be logged`,
-	Args:  cobra.MaximumNArgs(0),
+	Short: "start creates and starts a new booster node.",
+	Long: `start creates and starts a new booster node.
+	
+	Example:
+	bin/booster start
+	2018/05/21 15:59:00.862049 booster: listening on port: 4884
+	2018/05/21 15:59:00.862050 socks5: listening on port: 1080
+	`,
+	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)

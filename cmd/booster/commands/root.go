@@ -36,9 +36,19 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "booster",
-	Short: "booster is a peer-to-peer network interface balancer",
-	Long:  `booster creates a network of peer nodes, each of them with an active Internet connection, balancing the network usage between their interfaces`,
+	Use:   os.Args[0],
+	Short: os.Args[0] + " is a peer-to-peer network interface balancer",
+	Long: os.Args[0] + ` is a peer-to-peer network interface balancer.
+	
+Every running instance is composed by two parts, a booster node and a proxy. The former is responsible for managing the bahaviour of the node inside the booster network, while the latter is only a forwarding proxy.
+
+	Usage example:
+	Step 1: bin/booster start <- start a node
+	Step 2: make your system use the local proxy spawned by booster
+	Step 3: bin/booster connect another_node_host:port <- make another_node boost this node
+	
+	You're all set!	
+	`,
 }
 
 func Execute() {
@@ -47,7 +57,7 @@ func Execute() {
 	startCmd.Flags().IntVar(&bport, "bport", 4884, "booster listening port")
 
 	// add commands
-	monitorCmd.AddCommand(monitorNodeCmd, monitorNetCmd)
+	monitorCmd.AddCommand(monitorProxyCmd, monitorNetCmd)
 	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, monitorCmd, ctrlCmd)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 

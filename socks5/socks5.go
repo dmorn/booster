@@ -92,8 +92,8 @@ var (
 )
 
 const (
-	// TopicTunnelUpdates is the topic where the tunnels updates are published
-	TopicTunnelUpdates = "topic_tunnel_updates"
+	// TopicTunnelEvents is the topic where the tunnels updates are published
+	TopicTunnelEvents = "topic_tunnel_events"
 
 	// TopicNet is the topic where bandwidth usage updates are published
 	TopicNet = "topic_network"
@@ -527,7 +527,7 @@ func (s *Socks5) pubUpdate(target string, op protocol.Operation) error {
 		Target:    target,
 		Operation: op,
 	}
-	err := s.Pub(p, TopicTunnelUpdates)
+	err := s.Pub(p, TopicTunnelEvents)
 	if err != nil {
 		log.Error.Printf("socks5: unable to publish message: %v", err)
 	}

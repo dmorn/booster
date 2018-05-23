@@ -23,6 +23,7 @@ import (
 
 	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/network/packet"
 )
 
 // SendHello composes and sends an hello packet trough conn.
@@ -116,7 +117,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNode]
+	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
 
 	if err = b.Net().Decode(p, m, &node, f); err != nil {
 		return "", err
@@ -163,100 +164,89 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNode]
+	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
 	return b.Net().Decode(p, m, &node, f)
 }
 
-func (b *Booster) Monitor(ctx context.Context, network, addr string, features []protocol.Message) (<-chan interface{}, error) {
-	log.Info.Printf("booster: -> inspect: %v", addr)
+type Inspection struct {
+	Feature protocol.Message
+	Run     func(m packet.Module) error
+	PostRun func(err error)
+}
+
+func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspection) error {
+	log.Info.Printf("booster: -> monitor: %v", addr)
 
 	conn, err := b.DialContext(ctx, network, addr)
 	if err != nil {
-		return nil, fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
+		return fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
 	}
 
 	// compose & send the inspect packet
 	pl := protocol.PayloadMonitor{
-		Features: features,
+		Features: []protocol.Message{cmd.Feature},
 	}
 	msg := protocol.MessageMonitor
 	p, err := b.Net().Encode(pl, msg)
 	if err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 	if err = conn.Send(p); err != nil {
 		conn.Close()
-		return nil, err
+		return err
 	}
 
-	// consume every message from the connection in a different goroutine.
-	pkts, err := conn.Consume()
-	if err != nil {
-		conn.Close()
-		return nil, err
-	}
-
-	stream := make(chan interface{}, 1)
 	go func() {
-		defer func() {
-			close(stream)
-		}()
-
 		fail := func(err error) {
-			log.Error.Printf("booster: inspect error: %v", err)
 			conn.Close()
+
+			if f := cmd.PostRun; f != nil {
+				f(err)
+			}
 		}
 
-		for p := range pkts {
-			h := new(protocol.Header)
-			m := protocol.ModuleHeader
-			f := protocol.HeaderDecoder
-			if err := b.Net().Decode(p, m, &h, f); err != nil {
+		pkts, err := conn.Consume()
+		if err != nil {
+			fail(err)
+			return
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				err := ctx.Err()
 				fail(err)
 				return
-			}
-
-			// take only packets requested
-			if !isIn(h.ID, features...) {
-				log.Info.Printf("booster: inspect: discarding packet: unexpected header: %v", h)
-				continue
-			}
-
-			// extract the payload
-			m = protocol.ModulePayload
-			f = protocol.PayloadDecoders[h.ID]
-			node := new(protocol.PayloadNode)
-			bw := new(protocol.PayloadBandwidth)
-
-			switch h.ID {
-			case protocol.MessageNode:
-				if err := b.Net().Decode(p, m, &node, f); err != nil {
+			case p = <-pkts:
+				if err != nil {
 					fail(err)
 					return
 				}
 
-				stream <- node
-			case protocol.MessageBandwidth:
-				if err := b.Net().Decode(p, m, &bw, f); err != nil {
+				// extract header
+				h := new(protocol.Header)
+				m := protocol.ModuleHeader
+				f := protocol.HeaderDecoder
+				if err := b.Net().Decode(p, m, &h, f); err != nil {
 					fail(err)
 					return
 				}
 
-				stream <- bw
-			}
+				// return payload
+				module, err := p.Module(string(protocol.ModulePayload))
+				if err != nil {
+					fail(err)
+					return
+				}
 
+				if err = cmd.Run(*module); err != nil {
+					fail(err)
+					return
+				}
+			}
 		}
 	}()
 
-	return stream, nil
-}
-
-func isIn(id protocol.Message, ids ...protocol.Message) bool {
-	for _, v := range ids {
-		if id == v {
-			return true
-		}
-	}
-	return false
+	return nil
 }

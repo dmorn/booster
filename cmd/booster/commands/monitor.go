@@ -19,123 +19,97 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/log"
 	"github.com/danielmorandini/booster/protocol"
+	"github.com/danielmorandini/booster/network/packet"
 	"github.com/spf13/cobra"
 )
 
-var (
-	monitorNode      bool
-	monitorBandwidth bool
-)
-
-var stream = func(addr string, features []protocol.Message, f func(i interface{})) {
+var stream = func(addr string, feature protocol.Message) {
 	b, err := booster.New(pport, bport)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	stream, err := b.Monitor(context.Background(), "tcp", addr, features)
-	if err != nil {
+	ctx := context.Background()
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	if err := b.Monitor(ctx, addr, "tcp", booster.Inspection{
+		Feature: feature,
+		Run: func(m packet.Module) error {
+			log.Info.Printf("%s", m.Payload())
+			return nil
+		},
+		PostRun: func(err error) {
+			log.Info.Println("monitor stopping..")
+			if err != nil {
+				log.Error.Println(err)
+			}
+
+			wg.Done()
+		},
+	}); err != nil {
 		fmt.Println(err)
-		return
 	}
 
-	for n := range stream {
-		f(n)
-	}
+	wg.Wait()
 }
 
+var addr string
+
 var monitorCmd = &cobra.Command{
-	Use:   "monitor [host:port -- optional]",
-	Short: "monitors node and bandwidth activity",
-	Long:  `monitor listents (by default) on the local node for each activity update, and logs it.`,
+	Use:   "monitor [x]",
+	Short: "monitor monitors activity of x.",
+	Long:  `monitor monitors activity of x.
+	
+x: node address (format host:port) that will be contacted (optional, default localhost:4884)
+	`,
 	Args:  cobra.MaximumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)
 		}
 
-		addr := "localhost:4884"
+		addr = "localhost:4884"
 		if len(args) == 1 {
 			addr = args[0]
 
 		}
-
-		features := []protocol.Message{protocol.MessageNode, protocol.MessageBandwidth}
-		stream(addr, features, func(i interface{}) {
-			p, err := json.Marshal(i)
-			if err != nil {
-				log.Error.Printf("booster: monitor: %v", err)
-			}
-			log.Println(string(p))
-		})
+	},
+	Run: func(cmd *cobra.Command, args []string) {
 	},
 }
 
-var monitorNodeCmd = &cobra.Command{
-	Use:   "node [host:port -- optional]",
-	Short: "monitors the node's activity",
-	Long:  `monitor listents (by default) on the local node for each node activity update, and logs it.`,
-	Args:  cobra.MaximumNArgs(1),
+var monitorProxyCmd = &cobra.Command{
+	Use:   "proxy",
+	Short: "proxy will monitor proxy updates.",
+	Long:  `proxy will monitor proxy updates. Logs a stream of json encoded data.
+
+		Example:
+		bin/booster monitor proxy
+	`,
+	Args:  cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		if verbose {
-			log.SetLevel(log.DebugLevel)
-		}
-
-		addr := "localhost:4884"
-		if len(args) == 1 {
-			addr = args[0]
-
-		}
-
-		features := []protocol.Message{protocol.MessageNode}
-		stream(addr, features, func(i interface{}) {
-			p, err := json.Marshal(i)
-			if err != nil {
-				log.Error.Printf("booster: monitor: %v", err)
-			}
-			log.Println(string(p))
-		})
+		stream(addr, protocol.MessageProxyUpdate)
 	},
 }
 
 var monitorNetCmd = &cobra.Command{
-	Use:   "net [download|upload] [host:port -- optional]",
-	Short: "monitors the network's activity",
-	Long:  `monitor listents (by default) on the local node for each net activity update, and logs it.`,
-	Args:  cobra.RangeArgs(1, 2),
+	Use:   "net [download|upload]",
+	Short: "net will monitor network stats.",
+	Long:  `net will monitor network stats. Logs a stream of json encoded data.
+	
+		Example:
+		bin/booster monitor net download
+	`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if verbose {
-			log.SetLevel(log.DebugLevel)
-		}
-
-		addr := "localhost:4884"
-		target := args[0]
-		if len(args) == 2 {
-			addr = args[1]
-		}
-
-		features := []protocol.Message{protocol.MessageBandwidth}
-		stream(addr, features, func(i interface{}) {
-			pb, ok := i.(*protocol.PayloadBandwidth)
-			if !ok {
-				log.Error.Printf("booster: monitor net: unrecognised payload: %+v", i)
-				return
-			}
-
-			if pb.Type == target {
-				p, err := json.Marshal(i)
-				if err != nil {
-					log.Error.Printf("booster: monitor: %v", err)
-				}
-				log.Println(string(p))
-			}
-		})
+		stream(addr, protocol.MessageNetworkStatus)
 	},
 }

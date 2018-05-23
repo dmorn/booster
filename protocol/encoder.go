@@ -32,13 +32,14 @@ type EncoderFunc func(interface{}) ([]byte, error)
 // Implemented default encoders
 var PayloadEncoders = map[Message]EncoderFunc{
 	MessageHello:       encodeHello,
-	MessageCtrl:        encodeCtrl,
-	MessageBandwidth:   encodeBandwidth,
-	MessageMonitor:     encodeMonitor,
 	MessageConnect:     encodeConnect,
 	MessageDisconnect:  encodeDisconnect,
-	MessageNode:        encodeNode,
 	MessageHeartbeat:   encodeHeartbeat,
+	MessageMonitor:     encodeMonitor,
+	MessageCtrl:        encodeCtrl,
+
+	MessageNetworkStatus:   encodeBandwidth,
+	MessageNodeStatus:        encodeNode,
 	MessageProxyUpdate: encodeProxyUpdate,
 }
 

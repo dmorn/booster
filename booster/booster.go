@@ -360,7 +360,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 func (b *Booster) UpdateRoot(ctx context.Context) error {
 	errc := make(chan error)
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
-		Topic: socks5.TopicTunnelUpdates,
+		Topic: socks5.TopicTunnelEvents,
 		Run: func(i interface{}) error {
 			p, ok := i.(protocol.PayloadProxyUpdate)
 			if !ok {

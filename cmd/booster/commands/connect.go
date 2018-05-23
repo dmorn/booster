@@ -27,10 +27,22 @@ import (
 )
 
 var connectCmd = &cobra.Command{
-	Use:   "connect [host:port -- optional] [host:port]",
-	Short: "connect two nodes together",
-	Long:  `connect asks (by default) the local node to perform the necessary steps required to connect an external node to itself. Returns the added node identifier if successfull. You can use the 'inspect' command to monitor node activity.`,
-	Args:  cobra.RangeArgs(1, 2),
+	Use:   "connect [x] [y]",
+	Short: "connect makes y boost x",
+	Long: `connect makes y boost x.
+
+x: node address (format host:port) that will be boosted (optional, default localhost:4884)
+y: node address (format host:port) that will boost
+
+	Example:
+	bin/booster connect localhost:4885
+	2018/05/21 15:35:35.078475 booster: -> connect: localhost:4885
+	2018/05/21 15:35:35.090891 booster: <- hello: ::1 1080-4884
+	connected to (localhost:4885): 4d8ef492e992c2394bb0a80611bc04f72cb2d417
+
+The sha1 hash returned is the identifier of the newly connected node in the network.
+	`,
+	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)
