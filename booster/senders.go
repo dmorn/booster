@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"github.com/danielmorandini/booster/log"
-	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/protocol"
 )
 
 // SendHello composes and sends an hello packet trough conn.
