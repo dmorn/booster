@@ -24,8 +24,8 @@ import (
 
 	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/log"
-	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/spf13/cobra"
 )
 
@@ -66,11 +66,11 @@ var addr string
 var monitorCmd = &cobra.Command{
 	Use:   "monitor [x]",
 	Short: "monitor monitors activity of x.",
-	Long:  `monitor monitors activity of x.
+	Long: `monitor monitors activity of x.
 	
 x: node address (format host:port) that will be contacted (optional, default localhost:4884)
 	`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)
@@ -89,12 +89,12 @@ x: node address (format host:port) that will be contacted (optional, default loc
 var monitorProxyCmd = &cobra.Command{
 	Use:   "proxy",
 	Short: "proxy will monitor proxy updates.",
-	Long:  `proxy will monitor proxy updates. Logs a stream of json encoded data.
+	Long: `proxy will monitor proxy updates. Logs a stream of json encoded data.
 
 		Example:
 		bin/booster monitor proxy
 	`,
-	Args:  cobra.MaximumNArgs(0),
+	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		stream(addr, protocol.MessageProxyUpdate)
 	},
@@ -103,12 +103,12 @@ var monitorProxyCmd = &cobra.Command{
 var monitorNetCmd = &cobra.Command{
 	Use:   "net [download|upload]",
 	Short: "net will monitor network stats.",
-	Long:  `net will monitor network stats. Logs a stream of json encoded data.
+	Long: `net will monitor network stats. Logs a stream of json encoded data.
 	
 		Example:
 		bin/booster monitor net download
 	`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		stream(addr, protocol.MessageNetworkStatus)
 	},

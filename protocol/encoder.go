@@ -31,16 +31,16 @@ type EncoderFunc func(interface{}) ([]byte, error)
 
 // Implemented default encoders
 var PayloadEncoders = map[Message]EncoderFunc{
-	MessageHello:       encodeHello,
-	MessageConnect:     encodeConnect,
-	MessageDisconnect:  encodeDisconnect,
-	MessageHeartbeat:   encodeHeartbeat,
-	MessageMonitor:     encodeMonitor,
-	MessageCtrl:        encodeCtrl,
+	MessageHello:      encodeHello,
+	MessageConnect:    encodeConnect,
+	MessageDisconnect: encodeDisconnect,
+	MessageHeartbeat:  encodeHeartbeat,
+	MessageMonitor:    encodeMonitor,
+	MessageCtrl:       encodeCtrl,
 
-	MessageNetworkStatus:   encodeBandwidth,
-	MessageNodeStatus:        encodeNode,
-	MessageProxyUpdate: encodeProxyUpdate,
+	MessageNetworkStatus: encodeBandwidth,
+	MessageNodeStatus:    encodeNode,
+	MessageProxyUpdate:   encodeProxyUpdate,
 }
 
 // HeaderEncoder is the default function used to encode the headers.
