@@ -37,7 +37,6 @@ type Module string
 const (
 	ModuleHeader  Module = "HE"
 	ModulePayload Module = "PA"
-	ModuleMeta    Module = "ME"
 )
 
 // Tags used in the encoding and decoding of packets.
@@ -49,20 +48,31 @@ const (
 	Separator         = ":"
 )
 
+type DecoderType int32
+
 type Message int32
 
 // Booster possible packet messages
 const (
+	// Commands
 	MessageHello Message = iota
 	MessageConnect
 	MessageDisconnect
-	MessageNode
 	MessageHeartbeat
-	MessageProxyUpdate
 	MessageNotify
 	MessageMonitor
-	MessageBandwidth
 	MessageCtrl
+
+	// Monitor related
+	MessageNetworkStatus
+	MessageNodeStatus
+	MessageProxyUpdate
+)
+
+// Booster possible monitor features
+const (
+	MonitorProxy Message = iota
+	MonitorNet
 )
 
 type Operation int32

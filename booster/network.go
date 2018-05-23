@@ -215,7 +215,7 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		Tunnels: tunnels,
 	}
 
-	return n.Encode(param, protocol.MessageNode)
+	return n.Encode(param, protocol.MessageNodeStatus)
 }
 
 // ValidatePackets extracts the header from the packet and checks if

@@ -311,7 +311,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 
 	errc := make(chan error)
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
-		Topic: socks5.TopicTunnelUpdates,
+		Topic: socks5.TopicTunnelEvents,
 		Run: func(i interface{}) error {
 			// Read every tunnel message, compose a packet with them
 			// and send them trough the connection
@@ -357,15 +357,15 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 	}
 }
 
-// ServeMonitor is a blocking function that serves information responding to an inspect package.
+// ServeMonitor is a blocking function that serves information responding to an monitor package.
 // The package should contain a list of supported features that should be delivered.
 func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.Packet) {
-	log.Info.Print("booster: <- serving inspect...")
+	log.Info.Print("booster: <- serving monitor...")
 
 	defer conn.Close()
 
 	fail := func(err error) {
-		log.Error.Printf("booster: serve inspect error: %v", err)
+		log.Error.Printf("booster: serve monitor error: %v", err)
 	}
 
 	// extract features to serve
@@ -380,22 +380,22 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 	var wg sync.WaitGroup
 	exec := func(f func(ctx context.Context, conn SendCloser) error) {
 		if err := f(ctx, conn); err != nil {
-			log.Error.Printf("booster: serve inspect: %v", err)
+			log.Error.Printf("booster: serve monitor: %v", err)
 		}
 		wg.Done()
 	}
 
 	for _, v := range pl.Features {
 		switch v {
-		case protocol.MessageNode:
+		case protocol.MessageProxyUpdate:
 			wg.Add(1)
 			go exec(b.serveNode)
-		case protocol.MessageBandwidth:
+		case protocol.MessageNetworkStatus:
 			wg.Add(1)
 			go exec(b.serveNet)
 		default:
 			// do nothing, feature not supported
-			log.Info.Printf("booster: serve inspect: feature (%v) not supported", v)
+			log.Info.Printf("booster: serve monitor: feature (%v) not supported", v)
 		}
 	}
 
@@ -421,7 +421,7 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 				Bandwidth: bm.Bandwidth,
 				Type:      t,
 			}
-			msg := protocol.MessageBandwidth
+			msg := protocol.MessageNetworkStatus
 
 			p, err := b.Net().Encode(pl, msg)
 			if err != nil {

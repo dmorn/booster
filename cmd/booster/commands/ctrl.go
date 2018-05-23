@@ -28,10 +28,22 @@ import (
 )
 
 var ctrlCmd = &cobra.Command{
-	Use:   "ctrl [host:port -- optional] [stop|restart]",
-	Short: "perform control operation on node",
-	Long:  `ctrl tells the local node (by default) to perform an operation.`,
-	Args:  cobra.RangeArgs(1, 2),
+	Use:   "ctrl [x] [o]",
+	Short: "ctrl performs operation o on node x.",
+	Long: `ctrl performs operation o on node x.
+
+x: node address (format host:port) that will be contacted (optional, default localhost:4884)
+o: operation to be performed. Available options:
+	- stop
+	- restart
+
+	Example:
+	bin/booster ctrl restart
+	2018/05/21 15:51:04.017960 booster: -> ctrl: localhost:4884
+	2018/05/21 15:51:04.019280 booster: <- hello: ::1 1080-4884
+	ctrl operation performed (localhost:4884)
+	`,
+	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)

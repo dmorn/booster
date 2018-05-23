@@ -27,10 +27,20 @@ import (
 )
 
 var disconnectCmd = &cobra.Command{
-	Use:   "disconnect [host:port -- optional] [node_id]",
-	Short: "disconnect two nodes",
-	Long:  `disconnect aks (by default) the local node to perform the necessary steps required to disconnect completely a node from itself.`,
-	Args:  cobra.RangeArgs(1, 2),
+	Use:   "disconnect [x] [y]",
+	Short: "disconnect removes y from the network of x",
+	Long: `disconnect removes y from the network of x.
+
+x: node address (format host:port) that was boosted by y (optional, default localhost:4884)
+y: node identifier of the node that will be disconnected
+
+	Example:
+	bin/booster disconnect 4d8ef492e992c2394bb0a80611bc04f72cb2d417
+	2018/05/21 15:35:48.455137 booster: -> disconnect: 4d8ef492e992c2394bb0a80611bc04f72cb2d417
+	2018/05/21 15:35:48.456494 booster: <- hello: ::1 1080-4884
+	disconnected from: localhost:4884
+	`,
+	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)
@@ -57,6 +67,6 @@ var disconnectCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("disconnected from: %v\n", id)
+		fmt.Printf("disconnected from: %v\n", addr)
 	},
 }

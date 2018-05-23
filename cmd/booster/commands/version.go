@@ -19,13 +19,14 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "prints booster version",
+	Short: "version prints " + os.Args[0] + "'s version and build time",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("Version: %s, BuildTime: %s\n\n", Version, BuildTime)
 	},

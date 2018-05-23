@@ -22,8 +22,8 @@ import (
 )
 
 type PayloadProxyUpdate struct {
-	Target    string
-	Operation Operation
+	Target    string    `json:"target"`
+	Operation Operation `json:"operation"`
 }
 
 type PayloadCtrl struct {

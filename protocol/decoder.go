@@ -31,15 +31,16 @@ type DecoderFunc func([]byte) (interface{}, error)
 
 // Implemented default decoders
 var PayloadDecoders = map[Message]DecoderFunc{
-	MessageHello:       decodeHello,
-	MessageCtrl:        decodeCtrl,
-	MessageBandwidth:   decodeBandwidth,
-	MessageMonitor:     decodeMonitor,
-	MessageConnect:     decodeConnect,
-	MessageDisconnect:  decodeDisconnect,
-	MessageNode:        decodeNode,
-	MessageHeartbeat:   decodeHeartbeat,
-	MessageProxyUpdate: decodeProxyUpdate,
+	MessageHello:      decodeHello,
+	MessageConnect:    decodeConnect,
+	MessageDisconnect: decodeDisconnect,
+	MessageHeartbeat:  decodeHeartbeat,
+	MessageMonitor:    decodeMonitor,
+	MessageCtrl:       decodeCtrl,
+
+	MessageNetworkStatus: decodeBandwidth,
+	MessageNodeStatus:    decodeNode,
+	MessageProxyUpdate:   decodeProxyUpdate,
 }
 
 var HeaderDecoder = decodeHeader
