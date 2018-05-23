@@ -19,9 +19,9 @@ package booster
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
-	"encoding/json"
 	"time"
 
 	"github.com/danielmorandini/booster/log"
@@ -30,10 +30,9 @@ import (
 	"github.com/danielmorandini/booster/node"
 	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/pubsub"
+	"github.com/danielmorandini/booster/socks5"
 	"github.com/danielmorandini/booster/tracer"
 )
-
-const TopicNode = "topic_node"
 
 // Networks is a convenience type that wraps a map of Network instances.
 type Networks map[string]*Network
@@ -375,7 +374,6 @@ func (n *Network) Ack(node *node.Node, target string) error {
 		return err
 	}
 
-	n.Pub(node, TopicNode)
 	return nil
 }
 
@@ -392,7 +390,6 @@ func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool)
 		return err
 	}
 
-	n.Pub(node, TopicNode)
 	return nil
 }
 
@@ -409,12 +406,12 @@ func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", t.Target, node.ID())
 
 	node.AddTunnel(t)
-	n.Pub(node, TopicNode)
 }
 
 // UpdateNode acknoledges or remove a tunnel of node, depending on p's content.
 func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
-	n := Nets.Get(b.ID)
+	n := b.Net()
+	n.Pub(p, socks5.TopicTunnelEvents)
 
 	switch p.Operation {
 	case protocol.TunnelAck:
@@ -474,7 +471,6 @@ func (c *Conn) Close() error {
 	n := Nets.Get(c.boosterID)
 	// Publish the event and trace the node only if requested. For example, we
 	// do not want to trace a node that was manually disconnected.
-	n.Pub(c.RemoteNode, TopicNode)
 	if c.RemoteNode.ToBeTraced {
 		if err := n.Trace(c.RemoteNode); err != nil {
 			return err

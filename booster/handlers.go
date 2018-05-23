@@ -389,7 +389,7 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 		switch v {
 		case protocol.MessageProxyUpdate:
 			wg.Add(1)
-			go exec(b.serveNode)
+			go exec(b.serveProxy)
 		case protocol.MessageNetworkStatus:
 			wg.Add(1)
 			go exec(b.serveNet)
@@ -453,17 +453,56 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 	}
 }
 
-func (b *Booster) serveNode(ctx context.Context, conn SendCloser) error {
+func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
+	sendNode := func(n *node.Node) error {
+		tunnels := []*protocol.Tunnel{}
+		for _, v := range n.Tunnels() {
+			tunnels = append(tunnels, &protocol.Tunnel{
+				ID:        v.ID(),
+				Target:    v.Target,
+				ProxiedBy: v.ProxiedBy,
+				Acks:      v.Acks(),
+				Copies:    v.Copies(),
+			})
+		}
+		node := &protocol.PayloadNode{
+			ID:      n.ID(),
+			BAddr:   n.BAddr.String(),
+			PAddr:   n.PAddr.String(),
+			Active:  n.IsActive(),
+			Tunnels: tunnels,
+		}
+
+		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, protocol.EncodingJson)
+		if err != nil {
+			return err
+		}
+		if err = conn.Send(p); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// send the initial node state first, then proxy updates
+	rootNode, nodes := b.Net().Nodes()
+	if err := sendNode(rootNode); err != nil {
+		return err
+	}
+	for _, v := range nodes {
+		if err := sendNode(v); err != nil {
+			return err
+		}
+	}
+
 	errc := make(chan error)
 	cancel, err := b.Net().Sub(&pubsub.Command{
-		Topic: TopicNode,
+		Topic: socks5.TopicTunnelEvents,
 		Run: func(i interface{}) error {
-			n, ok := i.(*node.Node)
+			ppu, ok := i.(protocol.PayloadProxyUpdate)
 			if !ok {
 				return fmt.Errorf("unrecognised node message: %v", i)
 			}
-
-			p, err := b.Net().composeNode(n)
+			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, protocol.EncodingJson)
 			if err != nil {
 				return err
 			}
