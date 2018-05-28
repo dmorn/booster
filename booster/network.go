@@ -258,7 +258,7 @@ func (n *Network) ValidatePacket(p *packet.Packet) error {
 // added back to the connection as soon as it online again.
 func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 	if err := n.Tracer.Run(); err != nil {
-		return fmt.Errorf("booster: trace nodes: %v", err)
+		return fmt.Errorf("network: trace nodes: %v", err)
 	}
 	defer n.Tracer.Close()
 
@@ -268,7 +268,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 		Run: func(i interface{}) error {
 			m, ok := i.(tracer.Message)
 			if !ok {
-				return fmt.Errorf("booster: unable to recognise tracer message %v", m)
+				return fmt.Errorf("network: unable to recognise tracer message %v", m)
 			}
 
 			// means that the device is still offline.
@@ -279,7 +279,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 			// find connection
 			c, ok := n.Conns[m.ID]
 			if !ok {
-				log.Error.Printf("booster: tracer: found unresolved id: %v", m.ID)
+				log.Error.Printf("network: tracer: found unresolved id: %v", m.ID)
 				n.Untrace(m.ID)
 				return nil
 			}
@@ -305,7 +305,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("booster: trace nodes: %v", err)
+		return fmt.Errorf("network: trace nodes: %v", err)
 	}
 
 	select {
@@ -364,10 +364,6 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 // Ack finds the node in the network and acknoledges the tunnel labeled
 // with target. Publishes the node in TopicNode.
 func (n *Network) Ack(node *node.Node, target string) error {
-	if !node.IsLocal() {
-		n.Ack(n.LocalNode, target)
-	}
-
 	log.Debug.Printf("network: acknoledging (%v) on node (%v)", target, node.ID())
 
 	if err := node.Ack(target); err != nil {
@@ -380,11 +376,7 @@ func (n *Network) Ack(node *node.Node, target string) error {
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
 // with target from it. Publishes the node in TopicNode.
 func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool) error {
-	if !node.IsLocal() {
-		n.RemoveTunnel(n.LocalNode, target, acknoledged)
-	}
-
-	log.Debug.Printf("booster: removing (%v) on node (%v)", target, node.ID())
+	log.Debug.Printf("network: removing (%v) on node (%v)", target, node.ID())
 
 	if err := node.RemoveTunnel(target, acknoledged); err != nil {
 		return err
@@ -400,15 +392,15 @@ func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool)
 func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 	if !node.IsLocal() {
 		t.ProxiedBy = node.ProxyAddr().String()
-		n.AddTunnel(n.LocalNode, t)
+		n.AddTunnel(n.LocalNode, t.Copy())
 	}
 
-	log.Debug.Printf("booster: adding tunnel (%v) to node (%v)", t.Target, node.ID())
+	log.Debug.Printf("network: adding tunnel (%v) to node (%v)", t.Target, node.ID())
 
 	node.AddTunnel(t)
 }
 
-// UpdateNode acknoledges or remove a tunnel of node, depending on p's content.
+// UpdateNode acknoledges or removes a tunnel of node, depending on p's content.
 func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
 	if !node.IsLocal() {
 		p.ProxiedBy = node.ProxyAddr().String()
