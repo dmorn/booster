@@ -32,8 +32,8 @@ var (
 var (
 	verbose bool
 
-	pport   int
-	bport   int
+	pport int
+	bport int
 
 	feature string
 )

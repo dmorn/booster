@@ -32,7 +32,7 @@ var (
 var (
 	pport   int
 	bport   int
-	target string
+	target  string
 	verbose bool
 )
 

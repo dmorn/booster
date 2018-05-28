@@ -27,15 +27,15 @@ import (
 
 	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/log"
-	"github.com/danielmorandini/booster/protocol"
 	"github.com/danielmorandini/booster/network/packet"
+	"github.com/danielmorandini/booster/protocol"
 	"github.com/spf13/cobra"
 )
 
 var startCmd = &cobra.Command{
 	Use:   "start [x]",
 	Short: "starts an http server serving ws connections on /monitor. Connections serve information about node x in JSON encoded real-time messages.",
-	Long:  `starts an http server serving ws connections on /monitor. Connections serve information about node x in JSON encoded real-time messages.
+	Long: `starts an http server serving ws connections on /monitor. Connections serve information about node x in JSON encoded real-time messages.
 	
 x: node address (format host:port) that will be monitored (optional, default localhost:4884)
 
@@ -45,7 +45,7 @@ x: node address (format host:port) that will be monitored (optional, default loc
 
 Features allowed: proxy | net
 	`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if verbose {
 			log.SetLevel(log.DebugLevel)
@@ -166,8 +166,8 @@ func (m *monitor) handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type Message struct {
-	Type string      `json:"type"`
-	Data []byte      `json:"data"`
+	Type string `json:"type"`
+	Data []byte `json:"data"`
 }
 
 var upgrader = websocket.Upgrader{

@@ -98,4 +98,3 @@ var stream = func(addr string, feature protocol.Message) {
 
 	wg.Wait()
 }
-
