@@ -410,6 +410,10 @@ func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 
 // UpdateNode acknoledges or remove a tunnel of node, depending on p's content.
 func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
+	if !node.IsLocal() {
+		p.ProxiedBy = node.ProxyAddr().String()
+	}
+
 	n := b.Net()
 	n.Pub(p, socks5.TopicTunnelEvents)
 
