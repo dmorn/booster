@@ -56,3 +56,12 @@ func (t *Tunnel) Acks() int {
 
 	return t.acks
 }
+
+func (t *Tunnel) Copy() *Tunnel {
+	return &Tunnel{
+		id: t.ID(),
+		Target: t.Target,
+		copies: t.Copies(),
+		acks: t.Acks(),
+	}
+}

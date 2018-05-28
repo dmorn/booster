@@ -48,13 +48,13 @@ func New(host, pport, bport string, isLocal bool) (*Node, error) {
 	n := new(Node)
 	baddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, bport))
 	if err != nil {
-		return nil, errors.New("node: unable to create baddr: " + err.Error())
+		return nil, errors.New("New: unable to create baddr: " + err.Error())
 	}
 	n.BAddr = baddr
 
 	paddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, pport))
 	if err != nil {
-		return nil, errors.New("node: unable to create paddr: " + err.Error())
+		return nil, errors.New("New: unable to create paddr: " + err.Error())
 	}
 	n.PAddr = paddr
 
@@ -165,14 +165,14 @@ func (n *Node) Ack(target string) error {
 	t, ok := n.tunnels[target]
 	n.Unlock()
 	if !ok {
-		return fmt.Errorf("node: cannot ack [%v], no such tunnel", target)
+		return fmt.Errorf("Ack: %v not found", target)
 	}
 
 	t.Lock()
 	defer t.Unlock()
 
 	if t.acks >= t.copies {
-		return fmt.Errorf("node: cannot ack already acknoledged node [%v]: acks %v, copies: %v", target, t.acks, t.copies)
+		return fmt.Errorf("Ack: tunnel %v already acknoledged on node %v (acks:%v - copies:%v)", target, n.ID(), t.acks, t.copies)
 	}
 
 	t.acks++
@@ -198,7 +198,7 @@ func (n *Node) RemoveTunnel(target string, acknoledged bool) error {
 
 	t, ok := n.tunnels[target]
 	if !ok {
-		return fmt.Errorf("node: cannot delete [%v], no such tunnel", target)
+		return fmt.Errorf("RemoveTunnel: tunnel %v does not exist in %v", target, n.ID())
 	}
 
 	t.Lock()
@@ -222,7 +222,7 @@ func (n *Node) Tunnel(target string) (*Tunnel, error) {
 
 	t, ok := n.tunnels[target]
 	if !ok {
-		return nil, fmt.Errorf("node: no such tunnel [%v]", target)
+		return nil, fmt.Errorf("Tunnel: %v not found", target)
 	}
 
 	return t, nil
