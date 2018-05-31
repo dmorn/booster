@@ -49,10 +49,10 @@ type Conn struct {
 
 type Config struct {
 	packet.TagSet
+	MaxIdle time.Duration
 }
 
-// Open creates a new Conn. Used mainly for testing outside of the package.
-// Usally connections are created using the listener.
+// Open creates a new connection backed by conn configured with config.
 func Open(conn net.Conn, config Config) *Conn {
 	return &Conn{
 		conn:   conn,
@@ -186,7 +186,7 @@ func NewDialer(d *net.Dialer, config Config) *Dialer {
 	}
 }
 
-// DialContext dials a new booster connection, starting the heartbeat procedure on it.
+// DialContext dials a new connection, starting the heartbeat procedure on it.
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, error) {
 	conn, err := d.d.DialContext(ctx, network, addr)
 	if err != nil {

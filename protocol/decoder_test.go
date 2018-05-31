@@ -19,15 +19,30 @@ package protocol_test
 
 import (
 	"testing"
+	"reflect"
+	"fmt"
 
 	"github.com/danielmorandini/booster/protocol"
 )
 
-func mockDecodeHello(p []byte) (interface{}, error) {
-	return &protocol.PayloadHello{
+func mockDecodeHello(p []byte, v interface{}) error {
+	payload := &protocol.PayloadHello{
 		BPort: "1234",
 		PPort: "4321",
-	}, nil
+	}
+	val := reflect.ValueOf(payload)
+
+	ptr := reflect.ValueOf(v).Elem()
+	if !ptr.CanSet() {
+		return fmt.Errorf("unable to set to %v", ptr)
+	}
+
+	if ptr.Type() != val.Type() {
+		return fmt.Errorf("types differ: %T != %T", ptr, val)
+	}
+
+	ptr.Set(val)
+	return nil
 }
 
 func TestDecode(t *testing.T) {

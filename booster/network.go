@@ -68,7 +68,7 @@ func (n Networks) Set(id string, net *Network) {
 func (n Networks) Close(id string) {
 	net := n.Get(id)
 
-	for _, c := range net.Conns {
+	for _, c := range net.Outgoing {
 		c.RemoteNode.ToBeTraced = false
 		c.Close()
 	}
@@ -87,7 +87,7 @@ type Network struct {
 
 	mux       sync.Mutex
 	LocalNode *node.Node
-	Conns     map[string]*Conn
+	Outgoing     map[string]*Conn
 }
 
 // NewNet returns a new network instance, configured with default parameters.
@@ -98,7 +98,7 @@ func NewNet(n *node.Node, boosterID string) *Network {
 		LocalNode: n,
 		boosterID: boosterID,
 		IOTimeout: 2 * time.Second,
-		Conns:     make(map[string]*Conn),
+		Outgoing:     make(map[string]*Conn),
 	}
 }
 
@@ -277,7 +277,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 			}
 
 			// find connection
-			c, ok := n.Conns[m.ID]
+			c, ok := n.Outgoing[m.ID]
 			if !ok {
 				log.Error.Printf("network: tracer: found unresolved id: %v", m.ID)
 				n.Untrace(m.ID)
@@ -323,7 +323,7 @@ func (n *Network) AddConn(c *Conn) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
-	if cc, ok := n.Conns[c.ID]; ok {
+	if cc, ok := n.Outgoing[c.ID]; ok {
 		// check if the connnection is nil. It that case, simply substitute
 		// it.
 		if cc.Conn != nil {
@@ -339,7 +339,7 @@ func (n *Network) AddConn(c *Conn) error {
 	}
 
 	c.boosterID = n.boosterID
-	n.Conns[c.ID] = c
+	n.Outgoing[c.ID] = c
 	return nil
 }
 
@@ -352,7 +352,7 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	root := n.LocalNode
 	nodes := []*node.Node{}
 
-	for _, c := range n.Conns {
+	for _, c := range n.Outgoing {
 		if c.RemoteNode.IsActive() && c.Conn != nil {
 			nodes = append(nodes, c.RemoteNode)
 		}

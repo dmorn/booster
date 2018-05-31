@@ -27,7 +27,7 @@ import (
 )
 
 // DecoderFunc defines how a decoder should behave.
-type DecoderFunc func([]byte) (interface{}, error)
+type DecoderFunc func([]byte, interface{}) error
 
 // Implemented default decoders
 var PayloadDecoders = map[Message]DecoderFunc{
@@ -51,11 +51,15 @@ var HeaderDecoder = decodeHeader
 //
 // v has to be a pointer to a struct.
 func Decode(p []byte, v interface{}, f DecoderFunc) error {
-	s, err := f(p)
-	if err != nil {
-		return fmt.Errorf("protocol: decode error: %v", err)
+	if err := f(p, v); err != nil {
+		return fmt.Errorf("protocol: decode: %v", err)
 	}
 
+	return nil
+}
+
+// set s into v.
+func set(s interface{}, v interface{}) error {
 	// reflect the actual value decoded
 	val := reflect.ValueOf(s)
 
@@ -76,68 +80,65 @@ func Decode(p []byte, v interface{}, f DecoderFunc) error {
 	return nil
 }
 
-// TODO: probably this whole boilerplate code below could be replaced
-// using reflection.
-
-func decodeHeader(p []byte) (interface{}, error) {
+func decodeHeader(p []byte, v interface{}) error {
 	header := new(internal.Header)
 	if err := proto.Unmarshal(p, header); err != nil {
-		return nil, err
+		return err
 	}
 
 	t, err := ptypes.Timestamp(header.SentAt)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &Header{
+	return set(&Header{
 		ID:              Message(header.Id),
 		ProtocolVersion: header.ProtocolVersion,
 		SentAt:          t,
 		Modules:         header.Modules,
-	}, nil
+	}, v)
 }
 
-func decodeHello(p []byte) (interface{}, error) {
+func decodeHello(p []byte, v interface{}) error {
 	payload := new(internal.PayloadHello)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadHello{
+	return set(&PayloadHello{
 		BPort: payload.Bport,
 		PPort: payload.Pport,
-	}, nil
+	}, v)
 }
 
-func decodeCtrl(p []byte) (interface{}, error) {
+func decodeCtrl(p []byte, v interface{}) error {
 	payload := new(internal.PayloadCtrl)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadCtrl{
+	return set(&PayloadCtrl{
 		Operation: Operation(payload.Operation),
-	}, nil
+	}, v)
 }
 
-func decodeBandwidth(p []byte) (interface{}, error) {
+func decodeBandwidth(p []byte, v interface{}) error {
 	payload := new(internal.PayloadBandwidth)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadBandwidth{
+	return set(&PayloadBandwidth{
 		Tot:       int(payload.Tot),
 		Bandwidth: int(payload.Bandwidth),
 		Type:      payload.Type,
-	}, nil
+	}, v)
 }
 
-func decodeMonitor(p []byte) (interface{}, error) {
+func decodeMonitor(p []byte, v interface{}) error {
 	payload := new(internal.PayloadMonitor)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
 	features := []Message{}
@@ -145,37 +146,37 @@ func decodeMonitor(p []byte) (interface{}, error) {
 		features = append(features, Message(v))
 	}
 
-	return &PayloadMonitor{
+	return set(&PayloadMonitor{
 		Features: features,
-	}, nil
+	}, v)
 }
 
-func decodeConnect(p []byte) (interface{}, error) {
+func decodeConnect(p []byte, v interface{}) error {
 	payload := new(internal.PayloadConnect)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadConnect{
+	return set(&PayloadConnect{
 		Target: payload.Target,
-	}, nil
+	}, v)
 }
 
-func decodeDisconnect(p []byte) (interface{}, error) {
+func decodeDisconnect(p []byte, v interface{}) error {
 	payload := new(internal.PayloadDisconnect)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadDisconnect{
+	return set(&PayloadDisconnect{
 		ID: payload.Id,
-	}, nil
+	}, v)
 }
 
-func decodeNode(p []byte) (interface{}, error) {
+func decodeNode(p []byte, v interface{}) error {
 	payload := new(internal.PayloadNode)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
 	ts := []*Tunnel{}
@@ -190,41 +191,41 @@ func decodeNode(p []byte) (interface{}, error) {
 		ts = append(ts, tunnel)
 	}
 
-	return &PayloadNode{
+	return set(&PayloadNode{
 		ID:      payload.Id,
 		BAddr:   payload.Baddr,
 		PAddr:   payload.Paddr,
 		Active:  payload.Active,
 		Tunnels: ts,
-	}, nil
+	}, v)
 }
 
-func decodeHeartbeat(p []byte) (interface{}, error) {
+func decodeHeartbeat(p []byte, v interface{}) error {
 	payload := new(internal.PayloadHeartbeat)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
 	t, err := ptypes.Timestamp(payload.Ttl)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadHeartbeat{
+	return set(&PayloadHeartbeat{
 		ID:   payload.Id,
 		Hops: int(payload.Hops),
 		TTL:  t,
-	}, nil
+	}, v)
 }
 
-func decodeProxyUpdate(p []byte) (interface{}, error) {
+func decodeProxyUpdate(p []byte, v interface{}) error {
 	payload := new(internal.PayloadProxyUpdate)
 	if err := proto.Unmarshal(p, payload); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PayloadProxyUpdate{
+	return set(&PayloadProxyUpdate{
 		Target:    payload.Target,
 		Operation: Operation(payload.Operation),
-	}, nil
+	}, v)
 }

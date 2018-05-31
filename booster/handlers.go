@@ -252,7 +252,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	log.Info.Printf("booster: <- disconnect: %v", pl.ID)
 
 	// retrieve the connection we're trying to disconnect from
-	c, ok := b.Net().Conns[pl.ID]
+	c, ok := b.Net().Outgoing[pl.ID]
 	if !ok {
 		fail(fmt.Errorf("unexpected identifier [%v]", pl.ID))
 		return
