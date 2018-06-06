@@ -22,10 +22,10 @@ import (
 )
 
 type Header struct {
-	ID              Message
-	ProtocolVersion string
-	SentAt          time.Time
-	Modules         []string
+	ID              Message   `json:"id"`
+	ProtocolVersion string    `json:"protocol_version"`
+	SentAt          time.Time `json:"sent_at"`
+	Modules         []string  `json:"modules"`
 }
 
 func (h *Header) HasModule(m string) bool {
@@ -35,4 +35,8 @@ func (h *Header) HasModule(m string) bool {
 		}
 	}
 	return false
+}
+
+type Meta struct {
+	Encoding string `json:"encoding"`
 }

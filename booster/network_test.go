@@ -36,7 +36,7 @@ func TestEncode(t *testing.T) {
 	}
 	msg := protocol.MessageHello
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		t.Fatal(err)
 	}

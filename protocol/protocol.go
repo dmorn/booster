@@ -24,14 +24,20 @@ import (
 )
 
 // Booster protocol version
-const Version = "v0.1.0"
-
-type Encoding uint8
+const Version = "v0.2"
 
 // Possible encodings
 const (
-	EncodingProtobuf Encoding = iota
-	EncodingJson
+	EncodingProtobuf uint8 = 1
+	EncodingJson           = 2
+)
+
+const (
+	CompressionNone uint8 = 1
+)
+
+const (
+	EncryptionNone uint8 = 1
 )
 
 type Module string
@@ -44,11 +50,11 @@ const (
 
 // Tags used in the encoding and decoding of packets.
 const (
-	PacketOpeningTag  = ">"
-	PacketClosingTag  = "<"
-	PayloadOpeningTag = "["
-	PayloadClosingTag = "]"
-	Separator         = ":"
+	PacketOpeningTag = ">"
+	PacketClosingTag = "<"
+	ModuleOpeningTag = "["
+	ModuleClosingTag = "]"
+	Separator        = ":"
 )
 
 type Message int32

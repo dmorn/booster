@@ -80,6 +80,16 @@ type Booster struct {
 	restart   chan struct{}
 }
 
+var DefaultNetConfig = network.Config{
+	TagSet: packet.TagSet{
+		PacketOpeningTag: protocol.PacketOpeningTag,
+		PacketClosingTag: protocol.PacketClosingTag,
+		ModuleOpeningTag: protocol.ModuleOpeningTag,
+		ModuleClosingTag: protocol.ModuleClosingTag,
+		Separator:        protocol.Separator,
+	},
+}
+
 // New creates a new configured booster node. Creates a network configuration
 // based in the information contained in the protocol package.
 //
@@ -100,21 +110,12 @@ func New(pport, bport int) (*Booster, error) {
 	pubsub := pubsub.New()
 	dialer := node.NewDispatcher(n)
 	proxy := socks5.New(dialer)
-	netconfig := network.Config{
-		TagSet: packet.TagSet{
-			PacketOpeningTag:  protocol.PacketOpeningTag,
-			PacketClosingTag:  protocol.PacketClosingTag,
-			PayloadClosingTag: protocol.PayloadClosingTag,
-			Separator:         protocol.Separator,
-		},
-	}
-
 	Nets.Set(id, n)
 
 	b.ID = id
 	b.Proxy = proxy
 	b.PubSub = pubsub
-	b.Netconfig = netconfig
+	b.Netconfig = DefaultNetConfig
 	b.stop = make(chan struct{})
 	b.restart = make(chan struct{})
 
@@ -315,7 +316,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// compose the notify packet which tells the receiver to start sending
 	// information notifications when its state changes
-	p, err := b.Net().Encode(nil, protocol.MessageNotify, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(nil, protocol.MessageNotify)
 	if err != nil {
 		return fail(err)
 	}

@@ -87,7 +87,7 @@ type Network struct {
 
 	mux       sync.Mutex
 	LocalNode *node.Node
-	Outgoing     map[string]*Conn
+	Outgoing  map[string]*Conn
 }
 
 // NewNet returns a new network instance, configured with default parameters.
@@ -98,16 +98,26 @@ func NewNet(n *node.Node, boosterID string) *Network {
 		LocalNode: n,
 		boosterID: boosterID,
 		IOTimeout: 2 * time.Second,
-		Outgoing:     make(map[string]*Conn),
+		Outgoing:  make(map[string]*Conn),
 	}
 }
 
-func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encoding) (*packet.Packet, error) {
+// EncodeDefault calls Encode using protobuf for encoding, no compression nor encryption.
+func (n *Network) EncodeDefault(v interface{}, msg protocol.Message) (*packet.Packet, error) {
+	return n.Encode(v, msg, packet.Metadata{
+		Encoding:    protocol.EncodingProtobuf,
+		Compression: protocol.CompressionNone,
+		Encryption:  protocol.EncryptionNone,
+	})
+}
+
+func (n *Network) Encode(v interface{}, msg protocol.Message, meta packet.Metadata) (*packet.Packet, error) {
 	// TODO: this could be the place where we encrypt the payloads
 	p := packet.New()
+	p.M = meta
 
 	var f protocol.EncoderFunc
-	if enc == protocol.EncodingJson {
+	if meta.Encoding == protocol.EncodingJson {
 		f = json.Marshal
 	} else {
 		f = protocol.HeaderEncoder
@@ -119,13 +129,13 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encod
 		return nil, fmt.Errorf("network: %v", err)
 	}
 	// ... and add it to the packet
-	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw, uint8(enc)); err != nil {
+	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw); err != nil {
 		return nil, fmt.Errorf("network: encode failure: %v", err)
 	}
 
 	// encode the payload if present
 	if v != nil {
-		if enc == protocol.EncodingJson {
+		if meta.Encoding == protocol.EncodingJson {
 			f = json.Marshal
 		} else {
 			f = protocol.PayloadEncoders[msg]
@@ -136,7 +146,7 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encod
 			return nil, fmt.Errorf("network: %v", err)
 		}
 
-		if _, err = p.AddModule(string(protocol.ModulePayload), praw, uint8(enc)); err != nil {
+		if _, err = p.AddModule(string(protocol.ModulePayload), praw); err != nil {
 			return nil, fmt.Errorf("network: encode failure: %v", err)
 		}
 	}
@@ -195,7 +205,7 @@ func (n *Network) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	payload.Hops++
 	payload.TTL = time.Now().Add(n.HeartbeatTTL)
 
-	return n.Encode(payload, protocol.MessageHeartbeat, protocol.EncodingProtobuf)
+	return n.EncodeDefault(payload, protocol.MessageHeartbeat)
 }
 
 func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
@@ -223,7 +233,7 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		Tunnels: tunnels,
 	}
 
-	return n.Encode(param, protocol.MessageNodeStatus, protocol.EncodingProtobuf)
+	return n.EncodeDefault(param, protocol.MessageNodeStatus)
 }
 
 // ValidatePackets extracts the header from the packet and checks if

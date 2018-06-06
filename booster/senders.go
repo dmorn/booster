@@ -41,7 +41,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	}
 	msg := protocol.MessageHello
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Op
 	}
 	msg := protocol.MessageCtrl
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	}
 	msg := protocol.MessageConnect
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +145,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	}
 	msg := protocol.MessageDisconnect
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 		Features: []protocol.Message{cmd.Feature},
 	}
 	msg := protocol.MessageMonitor
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		conn.Close()
 		return err

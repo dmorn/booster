@@ -321,7 +321,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			}
 
 			msg := protocol.MessageProxyUpdate
-			p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+			p, err := b.Net().EncodeDefault(pl, msg)
 			if err != nil {
 				return err
 			}
@@ -423,7 +423,7 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 			}
 			msg := protocol.MessageNetworkStatus
 
-			p, err := b.Net().Encode(pl, msg, protocol.EncodingJson)
+			p, err := b.Net().EncodeDefault(pl, msg)
 			if err != nil {
 				return err
 			}
@@ -473,7 +473,9 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			Tunnels: tunnels,
 		}
 
-		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, protocol.EncodingJson)
+		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, packet.Metadata{
+			Encoding: protocol.EncodingJson,
+		})
 		if err != nil {
 			return err
 		}
@@ -502,7 +504,9 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			if !ok {
 				return fmt.Errorf("unrecognised node message: %v", i)
 			}
-			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, protocol.EncodingJson)
+			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, packet.Metadata{
+				Encoding: protocol.EncodingJson,
+			})
 			if err != nil {
 				return err
 			}
