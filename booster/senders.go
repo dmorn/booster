@@ -117,9 +117,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
-
-	if err = b.Net().Decode(p, m, &node, f); err != nil {
+	if err = b.Net().Decode(p, m, &node); err != nil {
 		return "", err
 	}
 
@@ -164,8 +162,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
-	return b.Net().Decode(p, m, &node, f)
+	return b.Net().Decode(p, m, &node)
 }
 
 type Inspection struct {

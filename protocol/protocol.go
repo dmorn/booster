@@ -28,16 +28,16 @@ const Version = "v0.2"
 
 // Possible encodings
 const (
-	EncodingProtobuf uint8 = 1
-	EncodingJson           = 2
+	EncodingProtobuf uint8 = iota
+	EncodingJson
 )
 
 const (
-	CompressionNone uint8 = 1
+	CompressionNone uint8 = iota
 )
 
 const (
-	EncryptionNone uint8 = 1
+	EncryptionNone uint8 = iota
 )
 
 type Module string

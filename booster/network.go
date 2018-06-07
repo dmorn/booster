@@ -161,7 +161,7 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, meta packet.Metada
 // decode an "Hello" message using a "Node" decoder.
 //
 // Check package protocol for the decoding functions available.
-func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}, f protocol.DecoderFunc) error {
+func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}) error {
 	// TODO: this is the place where we can decode a packet that was
 	// encripted. Network should store the cookie (key), use it here
 	// to descrypt the content of the packet and then decode the
@@ -170,6 +170,23 @@ func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}, f p
 	// validate packet
 	if err := n.ValidatePacket(p); err != nil {
 		return err
+	}
+
+	// find encoding type
+	var f protocol.DecoderFunc
+	if p.M.Encoding == protocol.EncodingJson {
+		f = json.Unmarshal
+	} else {
+		f = protocol.HeaderDecoder
+	}
+
+	header := new(protocol.Header)
+	if err := n.decode(p, protocol.ModuleHeader, &header, f); err != nil {
+		return err
+	}
+
+	if p.M.Encoding == protocol.EncodingProtobuf {
+		f = protocol.PayloadDecoders[header.ID]
 	}
 
 	return n.decode(p, m, v, f)

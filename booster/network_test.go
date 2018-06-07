@@ -42,8 +42,7 @@ func TestEncode(t *testing.T) {
 	}
 
 	rpl := new(protocol.PayloadHello)
-	f := protocol.PayloadDecoders[msg]
-	if err = b.Net().Decode(p, protocol.ModulePayload, &rpl, f); err != nil {
+	if err = b.Net().Decode(p, protocol.ModulePayload, &rpl); err != nil {
 		t.Fatal(err)
 	}
 

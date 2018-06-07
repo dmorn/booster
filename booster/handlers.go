@@ -45,8 +45,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	handler := func(p *packet.Packet) error {
 		m := protocol.ModuleHeader
 		h := new(protocol.Header)
-		f := protocol.HeaderDecoder
-		if err := b.Net().Decode(p, m, &h, f); err != nil {
+		if err := b.Net().Decode(p, m, &h); err != nil {
 			return err
 		}
 
@@ -102,8 +101,7 @@ func (b *Booster) HandleCtrl(ctx context.Context, conn SendCloser, p *packet.Pac
 	// extract information
 	pl := new(protocol.PayloadCtrl)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageCtrl]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -137,8 +135,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	// extract information
 	pl := new(protocol.PayloadHeartbeat)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageHeartbeat]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -197,8 +194,7 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	// extract information
 	pl := new(protocol.PayloadConnect)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageConnect]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -243,8 +239,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	// extract information
 	pl := new(protocol.PayloadDisconnect)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageDisconnect]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -288,8 +283,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	// extract information
 	pl := new(protocol.PayloadProxyUpdate)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageProxyUpdate]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -371,8 +365,7 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 	// extract features to serve
 	pl := new(protocol.PayloadMonitor)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageMonitor]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
