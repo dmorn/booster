@@ -52,7 +52,7 @@ var HeaderDecoder = decodeHeader
 // v has to be a pointer to a struct.
 func Decode(p []byte, v interface{}, f DecoderFunc) error {
 	if err := f(p, v); err != nil {
-		return fmt.Errorf("protocol: decode: %v", err)
+		return err
 	}
 
 	return nil

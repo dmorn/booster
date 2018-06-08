@@ -167,11 +167,6 @@ func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}) err
 	// to descrypt the content of the packet and then decode the
 	// payload.
 
-	// validate packet
-	if err := n.ValidatePacket(p); err != nil {
-		return err
-	}
-
 	// find encoding type
 	var f protocol.DecoderFunc
 	if p.M.Encoding == protocol.EncodingJson {
@@ -180,8 +175,20 @@ func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}) err
 		f = protocol.HeaderDecoder
 	}
 
+	// check if we're just going to decode the header...
+	if m == protocol.ModuleHeader {
+		return n.decode(p, m, v, f)
+	}
+
+	// ...otherwise decode the header than check which decoding function
+	// has to be used for the requested module.
 	header := new(protocol.Header)
 	if err := n.decode(p, protocol.ModuleHeader, &header, f); err != nil {
+		return err
+	}
+
+	// validate packet
+	if err := n.ValidatePacket(p, header); err != nil {
 		return err
 	}
 
@@ -196,13 +203,13 @@ func (n *Network) decode(p *packet.Packet, m protocol.Module, v interface{}, f p
 	// extract the module
 	mod, err := p.Module(string(m))
 	if err != nil {
-		return fmt.Errorf("network: decode error: %v", err)
+		return fmt.Errorf("network: decode: %v", err)
 	}
 
 	// decode its payload into v
 	err = protocol.Decode(mod.Payload(), v, f)
 	if err != nil {
-		return fmt.Errorf("network: %v", err)
+		return fmt.Errorf("network: decode: %v", err)
 	}
 
 	return nil
@@ -255,15 +262,7 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 
 // ValidatePackets extracts the header from the packet and checks if
 // the validity/reliability of its contents.
-func (n *Network) ValidatePacket(p *packet.Packet) error {
-	// Find header
-	m := protocol.ModuleHeader
-	h := new(protocol.Header)
-	f := protocol.HeaderDecoder
-	if err := n.decode(p, m, &h, f); err != nil {
-		return err
-	}
-
+func (n *Network) ValidatePacket(p *packet.Packet, h *protocol.Header) error {
 	// Check packet version
 	if !protocol.IsVersionSupported(h.ProtocolVersion) {
 		return fmt.Errorf("packet validation: version (%v) is not supported", h.ProtocolVersion)

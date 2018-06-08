@@ -87,7 +87,6 @@ func (c *Conn) Consume() (<-chan *packet.Packet, error) {
 		defer close(ch)
 		for {
 			p := packet.New()
-
 			err := c.pd.Decode(p)
 			if err != nil {
 				c.Err = err

@@ -221,7 +221,7 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 					return
 				}
 
-				// TODO(daniel): extract header (be careful with encidings)
+				// TODO(daniel): extract header (be careful with encodings)
 
 				// return payload
 				module, err := p.Module(string(protocol.ModulePayload))
