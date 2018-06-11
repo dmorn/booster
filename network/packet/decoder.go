@@ -32,6 +32,8 @@ func NewDecoder(r io.Reader, t TagSet) *Decoder {
 	d := new(Decoder)
 	d.TagSet = t
 
+	// unbuffered reading from network connections leads
+	// to unwanted behaviour.
 	if _, ok := r.(io.ByteReader); !ok {
 		r = bufio.NewReader(r)
 	}

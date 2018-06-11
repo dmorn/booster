@@ -416,7 +416,11 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 			}
 			msg := protocol.MessageNetworkStatus
 
-			p, err := b.Net().EncodeDefault(pl, msg)
+			p, err := b.Net().Encode(pl, msg, packet.Metadata{
+				Encoding:    protocol.EncodingJson,
+				Compression: protocol.CompressionNone,
+				Encryption:  protocol.EncryptionNone,
+			})
 			if err != nil {
 				return err
 			}
@@ -467,7 +471,9 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 		}
 
 		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, packet.Metadata{
-			Encoding: protocol.EncodingJson,
+			Encoding:    protocol.EncodingJson,
+			Compression: protocol.CompressionNone,
+			Encryption:  protocol.EncryptionNone,
 		})
 		if err != nil {
 			return err

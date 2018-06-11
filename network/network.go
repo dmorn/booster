@@ -185,7 +185,8 @@ func NewDialer(d *net.Dialer, config Config) *Dialer {
 	}
 }
 
-// DialContext dials a new connection, starting the heartbeat procedure on it.
+// DialContext dials a new net.Conn with addr, wrapping the new connection
+// with a packet encoder/decoder.
 func (d *Dialer) DialContext(ctx context.Context, network, addr string) (*Conn, error) {
 	conn, err := d.d.DialContext(ctx, network, addr)
 	if err != nil {
