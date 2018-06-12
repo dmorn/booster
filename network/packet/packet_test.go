@@ -21,16 +21,12 @@ import (
 	"io"
 	"testing"
 
+	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/network/packet"
 	"github.com/danielmorandini/booster/protocol"
 )
 
-var tagset packet.TagSet = packet.TagSet{
-	PacketOpeningTag:  protocol.PacketOpeningTag,
-	PacketClosingTag:  protocol.PacketClosingTag,
-	PayloadClosingTag: protocol.PayloadClosingTag,
-	Separator:         protocol.Separator,
-}
+var tagset packet.TagSet = booster.DefaultNetConfig.TagSet
 
 func TestAddModule(t *testing.T) {
 	p := packet.New()
@@ -38,7 +34,7 @@ func TestAddModule(t *testing.T) {
 	id := string(protocol.ModuleHeader)
 
 	// try to add the header module
-	m, err := p.AddModule(id, pl, 0)
+	m, err := p.AddModule(id, pl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +50,7 @@ func TestAddModule(t *testing.T) {
 
 	// try to add a custom module
 	id = "fo"
-	m, err = p.AddModule(id, pl, 0)
+	m, err = p.AddModule(id, pl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,11 +77,11 @@ func TestEncodeDecode(t *testing.T) {
 	hid := string(protocol.ModuleHeader)
 	pid := string(protocol.ModulePayload)
 
-	m, err := p.AddModule(hid, pl, 0)
+	m, err := p.AddModule(hid, pl)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = p.AddModule(pid, ppl, 0)
+	_, err = p.AddModule(pid, ppl)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,14 +90,19 @@ func TestEncodeDecode(t *testing.T) {
 	pe := packet.NewEncoder(w, tagset)
 	pd := packet.NewDecoder(r, tagset)
 
+	errc := make(chan error)
 	go func() {
-		if err = pe.Encode(p); err != nil {
-			t.Fatal(err)
-		}
+		err = pe.Encode(p)
+		errc <- err
 	}()
 
 	pr := packet.New() // packet read
 	if err = pd.Decode(pr); err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for read to complete
+	if err = <-errc; err != nil {
 		t.Fatal(err)
 	}
 

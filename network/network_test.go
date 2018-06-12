@@ -18,23 +18,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package network_test
 
 import (
+	"bufio"
+	"bytes"
 	"net"
 	"testing"
-	"time"
 
+	"github.com/danielmorandini/booster/booster"
 	"github.com/danielmorandini/booster/network"
 	"github.com/danielmorandini/booster/network/packet"
-	"github.com/danielmorandini/booster/protocol"
 )
-
-var netconfig network.Config = network.Config{
-	TagSet: packet.TagSet{
-		PacketOpeningTag:  protocol.PacketOpeningTag,
-		PacketClosingTag:  protocol.PacketClosingTag,
-		PayloadClosingTag: protocol.PayloadClosingTag,
-		Separator:         protocol.Separator,
-	},
-}
 
 type conn struct {
 	server net.Conn
@@ -50,82 +42,108 @@ func newConn() *conn {
 	return conn
 }
 
+var netconfig = booster.DefaultNetConfig
+
 // protocol stubs
 func (c *conn) Close() error { return nil }
 
-func TestSendRecv(t *testing.T) {
+func TestSend(t *testing.T) {
 	mc := newConn()
 	client := network.Open(mc.client, netconfig)
-	server := network.Open(mc.server, netconfig)
 
 	p := packet.New()
+	p.M = packet.Metadata{
+		Encoding:    1,
+		Compression: 2,
+		Encryption:  3,
+	}
+
 	pl := []byte("hello")
-	_, err := p.AddModule("fo", pl, 0)
+	_, err := p.AddModule("fo", pl)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	data := make([]byte, 0, 1024)
+	errc := make(chan error)
 
 	go func() {
-		if err := server.Send(p); err != nil {
-			t.Fatal(err)
+		r := bufio.NewReader(mc.server)
+		buf := make([]byte, 8)
+		for {
+			n, err := r.Read(buf)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			p := buf[:n]
+			data = append(data, p...)
+
+			if bytes.HasSuffix(data, []byte(netconfig.TagSet.PacketClosingTag)) {
+				errc <- nil
+				return
+			}
 		}
 	}()
-
-	rp, err := client.Recv()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	m, err := rp.Module("fo")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(m.Payload()) != len(pl) {
-		t.Fatalf("%v, wanted %v", m.Payload(), pl)
-	}
-}
-
-func TestSendConsume(t *testing.T) {
-	mc := newConn()
-	client := network.Open(mc.client, netconfig)
-	server := network.Open(mc.server, netconfig)
-
-	c := make(chan *packet.Packet)
-	go func() {
-		pkts, err := server.Consume()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		c <- <-pkts
-	}()
-
-	p := packet.New()
-	_, err := p.AddModule("fo", []byte{1}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = p.AddModule("of", []byte{1}, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	if err := client.Send(p); err != nil {
 		t.Fatal(err)
 	}
 
-	select {
-	case p1 := <-c:
-		if p1 == nil {
-			t.Fatalf("unexpected nil packet")
-		}
-
-		if _, err := p1.Module("fo"); err != nil {
-			t.Fatalf("packet %+v: %v", p1, err)
-		}
-
-	case <-time.After(1 * time.Second):
-		t.Fatal("timeout: couldn't read packet")
+	// wait for reading to be completed
+	if err := <-errc; err != nil {
+		t.Fatal(err)
 	}
+
+	exo := []byte{62, 1, 58, 2, 58, 3, 58, 1, 91, 102, 111, 58, 0, 5, 58, 104, 101, 108, 108, 111, 93, 60} // >1:2:3:1[fo:5:hello]<
+
+	if !bytes.Equal(exo, data) {
+		t.Fatalf("content of expected output and data differ: (%v) != (%v)", exo, data)
+	}
+}
+
+func TestRecv(t *testing.T) {
+	mc := newConn()
+	server := network.Open(mc.server, netconfig)
+
+	p := []byte{62, 1, 58, 2, 58, 3, 58, 1, 91, 102, 111, 58, 0, 5, 58, 104, 101, 108, 108, 111, 93, 60} // >1:2:3:1[fo:5:hello]<
+	errc := make(chan error)
+
+	go func() {
+		_, err := mc.client.Write(p)
+		errc <- err
+	}()
+
+	packet, err := server.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait for writing to return
+	if err = <-errc; err != nil {
+		t.Fatal(err)
+	}
+
+	// test full packet content
+	m := packet.M
+	if m.Encoding != 1 {
+		t.Fatalf("unexpected encoding: wanted 1, found %v", m.Encoding)
+	}
+	if m.Compression != 2 {
+		t.Fatalf("unexpected compression: wanted 2, found %v", m.Compression)
+	}
+	if m.Encryption != 3 {
+		t.Fatalf("unexpected encryption: wanted 3, found %v", m.Encryption)
+	}
+
+	module, err := packet.Module("fo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(module.Payload()) != "hello" {
+		t.Fatalf("unexpected payload: wanted hello, found %v", module.Payload())
+	}
+
 }

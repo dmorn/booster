@@ -45,8 +45,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 	handler := func(p *packet.Packet) error {
 		m := protocol.ModuleHeader
 		h := new(protocol.Header)
-		f := protocol.HeaderDecoder
-		if err := b.Net().Decode(p, m, &h, f); err != nil {
+		if err := b.Net().Decode(p, m, &h); err != nil {
 			return err
 		}
 
@@ -102,8 +101,7 @@ func (b *Booster) HandleCtrl(ctx context.Context, conn SendCloser, p *packet.Pac
 	// extract information
 	pl := new(protocol.PayloadCtrl)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageCtrl]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -137,8 +135,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 	// extract information
 	pl := new(protocol.PayloadHeartbeat)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageHeartbeat]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -197,8 +194,7 @@ func (b *Booster) HandleConnect(ctx context.Context, conn SendCloser, p *packet.
 	// extract information
 	pl := new(protocol.PayloadConnect)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageConnect]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -243,8 +239,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	// extract information
 	pl := new(protocol.PayloadDisconnect)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageDisconnect]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -252,7 +247,7 @@ func (b *Booster) HandleDisconnect(ctx context.Context, conn SendCloser, p *pack
 	log.Info.Printf("booster: <- disconnect: %v", pl.ID)
 
 	// retrieve the connection we're trying to disconnect from
-	c, ok := b.Net().Conns[pl.ID]
+	c, ok := b.Net().Outgoing[pl.ID]
 	if !ok {
 		fail(fmt.Errorf("unexpected identifier [%v]", pl.ID))
 		return
@@ -288,8 +283,7 @@ func (b *Booster) HandleTunnel(ctx context.Context, conn *Conn, p *packet.Packet
 	// extract information
 	pl := new(protocol.PayloadProxyUpdate)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageProxyUpdate]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -321,7 +315,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 			}
 
 			msg := protocol.MessageProxyUpdate
-			p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+			p, err := b.Net().EncodeDefault(pl, msg)
 			if err != nil {
 				return err
 			}
@@ -371,8 +365,7 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 	// extract features to serve
 	pl := new(protocol.PayloadMonitor)
 	m := protocol.ModulePayload
-	f := protocol.PayloadDecoders[protocol.MessageMonitor]
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		fail(err)
 		return
 	}
@@ -423,7 +416,11 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 			}
 			msg := protocol.MessageNetworkStatus
 
-			p, err := b.Net().Encode(pl, msg, protocol.EncodingJson)
+			p, err := b.Net().Encode(pl, msg, packet.Metadata{
+				Encoding:    protocol.EncodingJson,
+				Compression: protocol.CompressionNone,
+				Encryption:  protocol.EncryptionNone,
+			})
 			if err != nil {
 				return err
 			}
@@ -460,8 +457,6 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			tunnels = append(tunnels, &protocol.Tunnel{
 				ID:        v.ID(),
 				Target:    v.Target,
-				ProxiedBy: v.ProxiedBy,
-				Acks:      v.Acks(),
 				Copies:    v.Copies(),
 			})
 		}
@@ -473,7 +468,11 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			Tunnels: tunnels,
 		}
 
-		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, protocol.EncodingJson)
+		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, packet.Metadata{
+			Encoding:    protocol.EncodingJson,
+			Compression: protocol.CompressionNone,
+			Encryption:  protocol.EncryptionNone,
+		})
 		if err != nil {
 			return err
 		}
@@ -502,7 +501,9 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			if !ok {
 				return fmt.Errorf("unrecognised node message: %v", i)
 			}
-			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, protocol.EncodingJson)
+			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, packet.Metadata{
+				Encoding: protocol.EncodingJson,
+			})
 			if err != nil {
 				return err
 			}

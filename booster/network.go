@@ -68,7 +68,7 @@ func (n Networks) Set(id string, net *Network) {
 func (n Networks) Close(id string) {
 	net := n.Get(id)
 
-	for _, c := range net.Conns {
+	for _, c := range net.Outgoing {
 		c.RemoteNode.ToBeTraced = false
 		c.Close()
 	}
@@ -87,7 +87,7 @@ type Network struct {
 
 	mux       sync.Mutex
 	LocalNode *node.Node
-	Conns     map[string]*Conn
+	Outgoing  map[string]*Conn
 }
 
 // NewNet returns a new network instance, configured with default parameters.
@@ -98,16 +98,26 @@ func NewNet(n *node.Node, boosterID string) *Network {
 		LocalNode: n,
 		boosterID: boosterID,
 		IOTimeout: 2 * time.Second,
-		Conns:     make(map[string]*Conn),
+		Outgoing:  make(map[string]*Conn),
 	}
 }
 
-func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encoding) (*packet.Packet, error) {
+// EncodeDefault calls Encode using protobuf for encoding, no compression nor encryption.
+func (n *Network) EncodeDefault(v interface{}, msg protocol.Message) (*packet.Packet, error) {
+	return n.Encode(v, msg, packet.Metadata{
+		Encoding:    protocol.EncodingProtobuf,
+		Compression: protocol.CompressionNone,
+		Encryption:  protocol.EncryptionNone,
+	})
+}
+
+func (n *Network) Encode(v interface{}, msg protocol.Message, meta packet.Metadata) (*packet.Packet, error) {
 	// TODO: this could be the place where we encrypt the payloads
 	p := packet.New()
+	p.M = meta
 
 	var f protocol.EncoderFunc
-	if enc == protocol.EncodingJson {
+	if meta.Encoding == protocol.EncodingJson {
 		f = json.Marshal
 	} else {
 		f = protocol.HeaderEncoder
@@ -119,13 +129,13 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encod
 		return nil, fmt.Errorf("network: %v", err)
 	}
 	// ... and add it to the packet
-	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw, uint8(enc)); err != nil {
+	if _, err = p.AddModule(string(protocol.ModuleHeader), hraw); err != nil {
 		return nil, fmt.Errorf("network: encode failure: %v", err)
 	}
 
 	// encode the payload if present
 	if v != nil {
-		if enc == protocol.EncodingJson {
+		if meta.Encoding == protocol.EncodingJson {
 			f = json.Marshal
 		} else {
 			f = protocol.PayloadEncoders[msg]
@@ -136,7 +146,7 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encod
 			return nil, fmt.Errorf("network: %v", err)
 		}
 
-		if _, err = p.AddModule(string(protocol.ModulePayload), praw, uint8(enc)); err != nil {
+		if _, err = p.AddModule(string(protocol.ModulePayload), praw); err != nil {
 			return nil, fmt.Errorf("network: encode failure: %v", err)
 		}
 	}
@@ -151,15 +161,39 @@ func (n *Network) Encode(v interface{}, msg protocol.Message, enc protocol.Encod
 // decode an "Hello" message using a "Node" decoder.
 //
 // Check package protocol for the decoding functions available.
-func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}, f protocol.DecoderFunc) error {
+func (n *Network) Decode(p *packet.Packet, m protocol.Module, v interface{}) error {
 	// TODO: this is the place where we can decode a packet that was
 	// encripted. Network should store the cookie (key), use it here
 	// to descrypt the content of the packet and then decode the
 	// payload.
 
-	// validate packet
-	if err := n.ValidatePacket(p); err != nil {
+	// find encoding type
+	var f protocol.DecoderFunc
+	if p.M.Encoding == protocol.EncodingJson {
+		f = json.Unmarshal
+	} else {
+		f = protocol.HeaderDecoder
+	}
+
+	// check if we're just going to decode the header...
+	if m == protocol.ModuleHeader {
+		return n.decode(p, m, v, f)
+	}
+
+	// ...otherwise decode the header than check which decoding function
+	// has to be used for the requested module.
+	header := new(protocol.Header)
+	if err := n.decode(p, protocol.ModuleHeader, &header, f); err != nil {
 		return err
+	}
+
+	// validate packet
+	if err := n.ValidatePacket(p, header); err != nil {
+		return err
+	}
+
+	if p.M.Encoding == protocol.EncodingProtobuf {
+		f = protocol.PayloadDecoders[header.ID]
 	}
 
 	return n.decode(p, m, v, f)
@@ -169,13 +203,13 @@ func (n *Network) decode(p *packet.Packet, m protocol.Module, v interface{}, f p
 	// extract the module
 	mod, err := p.Module(string(m))
 	if err != nil {
-		return fmt.Errorf("network: decode error: %v", err)
+		return fmt.Errorf("network: decode: %v", err)
 	}
 
 	// decode its payload into v
 	err = protocol.Decode(mod.Payload(), v, f)
 	if err != nil {
-		return fmt.Errorf("network: %v", err)
+		return fmt.Errorf("network: decode: %v", err)
 	}
 
 	return nil
@@ -195,7 +229,7 @@ func (n *Network) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	payload.Hops++
 	payload.TTL = time.Now().Add(n.HeartbeatTTL)
 
-	return n.Encode(payload, protocol.MessageHeartbeat, protocol.EncodingProtobuf)
+	return n.EncodeDefault(payload, protocol.MessageHeartbeat)
 }
 
 func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
@@ -208,8 +242,6 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		tunnel := &protocol.Tunnel{
 			ID:        t.ID(),
 			Target:    t.Target,
-			ProxiedBy: t.ProxiedBy,
-			Acks:      t.Acks(),
 			Copies:    t.Copies(),
 		}
 
@@ -223,20 +255,12 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		Tunnels: tunnels,
 	}
 
-	return n.Encode(param, protocol.MessageNodeStatus, protocol.EncodingProtobuf)
+	return n.EncodeDefault(param, protocol.MessageNodeStatus)
 }
 
 // ValidatePackets extracts the header from the packet and checks if
 // the validity/reliability of its contents.
-func (n *Network) ValidatePacket(p *packet.Packet) error {
-	// Find header
-	m := protocol.ModuleHeader
-	h := new(protocol.Header)
-	f := protocol.HeaderDecoder
-	if err := n.decode(p, m, &h, f); err != nil {
-		return err
-	}
-
+func (n *Network) ValidatePacket(p *packet.Packet, h *protocol.Header) error {
 	// Check packet version
 	if !protocol.IsVersionSupported(h.ProtocolVersion) {
 		return fmt.Errorf("packet validation: version (%v) is not supported", h.ProtocolVersion)
@@ -277,7 +301,7 @@ func (n *Network) TraceNodes(ctx context.Context, b *Booster) error {
 			}
 
 			// find connection
-			c, ok := n.Conns[m.ID]
+			c, ok := n.Outgoing[m.ID]
 			if !ok {
 				log.Error.Printf("network: tracer: found unresolved id: %v", m.ID)
 				n.Untrace(m.ID)
@@ -323,7 +347,7 @@ func (n *Network) AddConn(c *Conn) error {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 
-	if cc, ok := n.Conns[c.ID]; ok {
+	if cc, ok := n.Outgoing[c.ID]; ok {
 		// check if the connnection is nil. It that case, simply substitute
 		// it.
 		if cc.Conn != nil {
@@ -339,7 +363,7 @@ func (n *Network) AddConn(c *Conn) error {
 	}
 
 	c.boosterID = n.boosterID
-	n.Conns[c.ID] = c
+	n.Outgoing[c.ID] = c
 	return nil
 }
 
@@ -352,25 +376,13 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	root := n.LocalNode
 	nodes := []*node.Node{}
 
-	for _, c := range n.Conns {
+	for _, c := range n.Outgoing {
 		if c.RemoteNode.IsActive() && c.Conn != nil {
 			nodes = append(nodes, c.RemoteNode)
 		}
 	}
 
 	return root, nodes
-}
-
-// Ack finds the node in the network and acknoledges the tunnel labeled
-// with target. Publishes the node in TopicNode.
-func (n *Network) Ack(node *node.Node, target string) error {
-	log.Debug.Printf("network: acknoledging (%v) on node (%v)", target, node.ID())
-
-	if err := node.Ack(target); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
@@ -390,34 +402,22 @@ func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool)
 // adds the tunnel to the local node, but settings its ProxiedBy value to the
 // remote node's proxy address. Publishes the update in TopicNode.
 func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
-	if !node.IsLocal() {
-		t.ProxiedBy = node.ProxyAddr().String()
-		n.AddTunnel(n.LocalNode, t.Copy())
-	}
-
 	log.Debug.Printf("network: adding tunnel (%v) to node (%v)", t.Target, node.ID())
 
 	node.AddTunnel(t)
 }
 
 // UpdateNode acknoledges or removes a tunnel of node, depending on p's content.
-func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
-	if !node.IsLocal() {
-		p.ProxiedBy = node.ProxyAddr().String()
-	}
-
-	n := b.Net()
-	n.Pub(p, socks5.TopicTunnelEvents)
+func (b *Booster) UpdateNode(n *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
+	b.Net().Pub(p, socks5.TopicTunnelEvents)
 
 	switch p.Operation {
-	case protocol.TunnelAck:
-		if err := n.Ack(node, p.Target); err != nil {
-			return err
-		}
 	case protocol.TunnelRemove:
-		if err := n.RemoveTunnel(node, p.Target, acknoledged); err != nil {
+		if err := b.Net().RemoveTunnel(n, p.Target, acknoledged); err != nil {
 			return err
 		}
+	case protocol.TunnelAdd:
+		b.Net().AddTunnel(n, node.NewTunnel(p.Target))
 	default:
 		return fmt.Errorf("update node: unrecognised operation: %+v", p)
 	}

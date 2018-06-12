@@ -24,11 +24,9 @@ import (
 type Tunnel struct {
 	id        string
 	Target    string
-	ProxiedBy string
 
 	sync.Mutex
 	copies int // number of copies
-	acks   int // number of acknoledged copies
 }
 
 func NewTunnel(target string) *Tunnel {
@@ -50,18 +48,10 @@ func (t *Tunnel) Copies() int {
 	return t.copies
 }
 
-func (t *Tunnel) Acks() int {
-	t.Lock()
-	defer t.Unlock()
-
-	return t.acks
-}
-
 func (t *Tunnel) Copy() *Tunnel {
 	return &Tunnel{
 		id:     t.ID(),
 		Target: t.Target,
 		copies: t.Copies(),
-		acks:   t.Acks(),
 	}
 }

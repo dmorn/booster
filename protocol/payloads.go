@@ -23,7 +23,6 @@ import (
 
 type PayloadProxyUpdate struct {
 	Target    string    `json:"target"`
-	ProxiedBy string    `json:"proxied_by"`
 	Operation Operation `json:"operation"`
 }
 

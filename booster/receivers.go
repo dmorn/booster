@@ -46,9 +46,7 @@ func (b *Booster) RecvHello(ctx context.Context, conn *network.Conn) (*Conn, err
 
 	m := protocol.ModulePayload
 	pl := new(protocol.PayloadHello)
-	f := protocol.PayloadDecoders[protocol.MessageHello]
-
-	if err := b.Net().Decode(p, m, &pl, f); err != nil {
+	if err := b.Net().Decode(p, m, &pl); err != nil {
 		return fail(err)
 	}
 

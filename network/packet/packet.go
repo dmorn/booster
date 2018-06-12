@@ -24,14 +24,21 @@ import (
 )
 
 type TagSet struct {
-	PacketOpeningTag  string
-	PacketClosingTag  string
-	PayloadOpeningTag string
-	PayloadClosingTag string
-	Separator         string
+	PacketOpeningTag string
+	PacketClosingTag string
+	ModuleOpeningTag string
+	ModuleClosingTag string
+	Separator        string
+}
+
+type Metadata struct {
+	Encoding    uint8
+	Compression uint8
+	Encryption  uint8
 }
 
 type Packet struct {
+	M       Metadata
 	modules map[string]*Module
 }
 
@@ -41,12 +48,12 @@ func New() *Packet {
 	}
 }
 
-func (p *Packet) AddModule(id string, payload []byte, encoding uint8) (*Module, error) {
+func (p *Packet) AddModule(id string, payload []byte) (*Module, error) {
 	if _, ok := p.modules[id]; ok {
 		return nil, fmt.Errorf("packet: module [%v] already present", id)
 	}
 
-	m, err := NewModule(id, payload, encoding)
+	m, err := NewModule(id, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +78,12 @@ func (p *Packet) Module(id string) (*Module, error) {
 }
 
 type Module struct {
-	id       string
-	size     uint16
-	encoding uint8
-	payload  []byte
+	id      string
+	size    uint16
+	payload []byte
 }
 
-func NewModule(id string, payload []byte, encoding uint8) (*Module, error) {
+func NewModule(id string, payload []byte) (*Module, error) {
 	if len([]byte(id)) != 2 {
 		return nil, fmt.Errorf("module: id must be a 2 letters identifier: example: HE. Found %v", id)
 	}
@@ -88,10 +94,9 @@ func NewModule(id string, payload []byte, encoding uint8) (*Module, error) {
 	}
 
 	return &Module{
-		id:       string(id),
-		size:     uint16(size),
-		encoding: encoding,
-		payload:  payload,
+		id:      string(id),
+		size:    uint16(size),
+		payload: payload,
 	}, nil
 }
 

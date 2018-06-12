@@ -312,9 +312,9 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	defer tconn.Close()
 
 	// start proxying
-	s.pubUpdate(target, protocol.TunnelAck)
+	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelAdd)
 	s.ProxyData(conn, tconn)
-	s.pubUpdate(target, protocol.TunnelRemove)
+	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelRemove)
 
 	return nil
 }

@@ -144,8 +144,8 @@ func (n *Node) AddTunnel(tunnel *Tunnel) {
 	n.SetIsActive(true)
 
 	n.Lock()
+	defer n.Unlock()
 	t, ok := n.tunnels[tunnel.Target]
-	n.Unlock()
 	if ok {
 		t.Lock()
 		defer t.Unlock()
@@ -154,29 +154,7 @@ func (n *Node) AddTunnel(tunnel *Tunnel) {
 		return
 	}
 
-	n.Lock()
-	defer n.Unlock()
 	n.tunnels[tunnel.Target] = tunnel
-}
-
-// Ack acknoledges the target tunnel, impling that the node is actually working on it.
-func (n *Node) Ack(target string) error {
-	n.Lock()
-	t, ok := n.tunnels[target]
-	n.Unlock()
-	if !ok {
-		return fmt.Errorf("Ack: %v not found", target)
-	}
-
-	t.Lock()
-	defer t.Unlock()
-
-	if t.acks >= t.copies {
-		return fmt.Errorf("Ack: tunnel %v already acknoledged on node %v (acks:%v - copies:%v)", target, n.ID(), t.acks, t.copies)
-	}
-
-	t.acks++
-	return nil
 }
 
 func (n *Node) Tunnels() map[string]*Tunnel {
@@ -209,9 +187,6 @@ func (n *Node) RemoveTunnel(target string, acknoledged bool) error {
 	}
 
 	t.copies--
-	if acknoledged {
-		t.acks--
-	}
 
 	return nil
 }

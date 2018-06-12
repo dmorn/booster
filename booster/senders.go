@@ -41,7 +41,7 @@ func (b *Booster) SendHello(ctx context.Context, conn SendCloser) error {
 	}
 	msg := protocol.MessageHello
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (b *Booster) Ctrl(ctx context.Context, network, addr string, op protocol.Op
 	}
 	msg := protocol.MessageCtrl
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 	}
 	msg := protocol.MessageConnect
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return "", err
 	}
@@ -117,9 +117,7 @@ func (b *Booster) Connect(ctx context.Context, network, laddr, raddr string) (st
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
-
-	if err = b.Net().Decode(p, m, &node, f); err != nil {
+	if err = b.Net().Decode(p, m, &node); err != nil {
 		return "", err
 	}
 
@@ -145,7 +143,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 	}
 	msg := protocol.MessageDisconnect
 
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		return err
 	}
@@ -164,8 +162,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 
 	m := protocol.ModulePayload
 	node := new(protocol.PayloadNode)
-	f := protocol.PayloadDecoders[protocol.MessageNodeStatus]
-	return b.Net().Decode(p, m, &node, f)
+	return b.Net().Decode(p, m, &node)
 }
 
 type Inspection struct {
@@ -187,7 +184,7 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 		Features: []protocol.Message{cmd.Feature},
 	}
 	msg := protocol.MessageMonitor
-	p, err := b.Net().Encode(pl, msg, protocol.EncodingProtobuf)
+	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
 		conn.Close()
 		return err
@@ -224,7 +221,7 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 					return
 				}
 
-				// TODO(daniel): extract header (be careful with encidings)
+				// TODO(daniel): extract header (be careful with encodings)
 
 				// return payload
 				module, err := p.Module(string(protocol.ModulePayload))

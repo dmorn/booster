@@ -32,6 +32,8 @@ func NewDecoder(r io.Reader, t TagSet) *Decoder {
 	d := new(Decoder)
 	d.TagSet = t
 
+	// unbuffered reading from network connections leads
+	// to unwanted behaviour.
 	if _, ok := r.(io.ByteReader); !ok {
 		r = bufio.NewReader(r)
 	}
@@ -41,28 +43,70 @@ func NewDecoder(r io.Reader, t TagSet) *Decoder {
 }
 
 func (d *Decoder) Decode(packet *Packet) error {
+	str := NewTagReader(d.r, d.Separator)        // separator tag reader
 	otr := NewTagReader(d.r, d.PacketOpeningTag) // open tag reader
 	ctr := NewTagReader(d.r, d.PacketClosingTag) // close tag reader
 	md := NewModuleDecoder(d.r, d.TagSet)        // module decoder
 
+	meta := Metadata{}
+
+	// read open tag
 	buf := make([]byte, 4)
 	_, err := otr.Read(buf)
 	if err != io.EOF {
 		return fmt.Errorf("packet: read open tag: %v", err)
 	}
 
+	// encoding
+	buf = buf[:1]
+	if _, err := io.ReadFull(d.r, buf); err != nil {
+		return fmt.Errorf("packet: unable to read encoding: %v", err)
+	}
+	meta.Encoding = buf[0]
+
+	// read separator
+	if _, err = str.Read(buf); err != nil && err != io.EOF {
+		return fmt.Errorf("packet: unable to read separator: %v", err)
+	}
+	str.Flush()
+
+	// compression
+	if _, err := io.ReadFull(d.r, buf); err != nil {
+		return fmt.Errorf("packet: unable to read compression: %v", err)
+	}
+	meta.Compression = buf[0]
+
+	// read separator
+	if _, err = str.Read(buf); err != nil && err != io.EOF {
+		return fmt.Errorf("packet: unable to read separator: %v", err)
+	}
+	str.Flush()
+
+	// encryption
+	if _, err := io.ReadFull(d.r, buf); err != nil {
+		return fmt.Errorf("packet: unable to read encryption: %v", err)
+	}
+	meta.Encryption = buf[0]
+
+	// read separator
+	if _, err = str.Read(buf); err != nil && err != io.EOF {
+		return fmt.Errorf("packet: unable to read separator: %v", err)
+	}
+	str.Flush()
+
+	packet.M = meta
+
 	// read modules number
-	buf = buf[:2]
+	buf = buf[:1]
 	if _, err := io.ReadFull(d.r, buf); err != nil {
 		return fmt.Errorf("packet: unable to read modules number: %v", err)
 	}
 
-	mn := int(buf[0])<<8 | int(buf[1])
+	mn := int(buf[0])
 	i := 0
 
 	for {
-		i++
-		if i > mn {
+		if i >= mn {
 			buf = buf[:4]
 			if _, err := ctr.Read(buf); err != nil {
 				if err == io.EOF {
@@ -86,6 +130,7 @@ func (d *Decoder) Decode(packet *Packet) error {
 		}
 
 		packet.modules[m.id] = m
+		i++
 	}
 }
 
@@ -104,57 +149,50 @@ func NewModuleDecoder(r io.Reader, t TagSet) *ModuleDecoder {
 
 func (d *ModuleDecoder) Decode(m *Module) error {
 	r := d.r
-	sr := NewTagReader(r, d.Separator)          // separator reader
-	otr := NewTagReader(r, d.PayloadOpeningTag) // open tag reader
-	ctr := NewTagReader(r, d.PayloadClosingTag) // close tag reader
+	sr := NewTagReader(r, d.Separator)         // separator reader
+	otr := NewTagReader(r, d.ModuleOpeningTag) // open tag reader
+	ctr := NewTagReader(r, d.ModuleClosingTag) // close tag reader
+
+	buf := make([]byte, 2)
+
+	// module open tag
+	if _, err := otr.Read(buf); err != io.EOF {
+		return fmt.Errorf("decoder: read module open tag: %v", err)
+	}
 
 	// read module id
-	buf := make([]byte, 2)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return fmt.Errorf("module: unable to read module id: %v", err)
+		return fmt.Errorf("decoder: unable to read module id: %v", err)
 	}
 	m.id = string(buf)
 
 	// separator
 	if _, err := sr.Read(buf); err != io.EOF {
-		return fmt.Errorf("module: read separator: %v", err)
+		return fmt.Errorf("decoder: read separator: %v", err)
 	}
 	sr.Flush()
 
 	// read payload size
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return fmt.Errorf("module: unable to read payload size: %v", err)
+		return fmt.Errorf("decoder: unable to read payload size: %v", err)
 	}
 	m.size = uint16(buf[0])<<8 | uint16(buf[1])
 
 	// separator
 	if _, err := sr.Read(buf); err != io.EOF {
-		return fmt.Errorf("module: read separator: %v", err)
-	}
-	sr.Flush()
-
-	// read encoding type
-	buf = buf[:1]
-	if _, err := io.ReadFull(r, buf); err != nil {
-		return fmt.Errorf("module: unable to read encoding type: %v", err)
-	}
-	m.encoding = buf[0]
-
-	// payload open tag
-	if _, err := otr.Read(buf); err != io.EOF {
-		return fmt.Errorf("module: read payload open tag: %v", err)
+		return fmt.Errorf("decoder: read separator: %v", err)
 	}
 
 	buf = make([]byte, m.size)
 	if _, err := io.ReadFull(r, buf); err != nil {
-		return fmt.Errorf("module: unable to read payload: %v", err)
+		return fmt.Errorf("decoder: unable to read payload: %v", err)
 	}
 	m.payload = make([]byte, m.size)
 	copy(m.payload, buf)
 
-	// payload close tag
+	// module close tag
 	if _, err := ctr.Read(buf); err != io.EOF {
-		return fmt.Errorf("module: read payload close tag: %v", err)
+		return fmt.Errorf("decoder: read module close tag: %v", err)
 	}
 
 	return nil
