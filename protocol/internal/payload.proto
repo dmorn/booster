@@ -57,8 +57,6 @@ message PayloadNode {
 		string id = 1;
 		// target is the remote endpoint address of the tunnel.
 		string target = 2;
-		// acks is the number of acknoledgments on this tunnel.
-		int32 acks = 3;
 		// copies are the replications of this tunnel.
 		int32 copies = 4;
 	}

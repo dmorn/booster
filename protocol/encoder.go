@@ -185,7 +185,6 @@ func encodeNode(v interface{}) ([]byte, error) {
 		tunnel := &internal.PayloadNode_Tunnel{
 			Id:     t.ID,
 			Target: t.Target,
-			Acks:   int32(t.Acks),
 			Copies: int32(t.Copies),
 		}
 

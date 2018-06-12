@@ -457,8 +457,6 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			tunnels = append(tunnels, &protocol.Tunnel{
 				ID:        v.ID(),
 				Target:    v.Target,
-				ProxiedBy: v.ProxiedBy,
-				Acks:      v.Acks(),
 				Copies:    v.Copies(),
 			})
 		}

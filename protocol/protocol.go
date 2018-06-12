@@ -87,7 +87,6 @@ type Operation int32
 // Tunnel operations
 const (
 	TunnelAdd Operation = iota
-	TunnelAck
 	TunnelRemove
 )
 

@@ -184,7 +184,6 @@ func decodeNode(p []byte, v interface{}) error {
 		tunnel := &Tunnel{
 			ID:     t.Id,
 			Target: t.Target,
-			Acks:   int(t.Acks),
 			Copies: int(t.Copies),
 		}
 

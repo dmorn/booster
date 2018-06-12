@@ -242,8 +242,6 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		tunnel := &protocol.Tunnel{
 			ID:        t.ID(),
 			Target:    t.Target,
-			ProxiedBy: t.ProxiedBy,
-			Acks:      t.Acks(),
 			Copies:    t.Copies(),
 		}
 
@@ -387,18 +385,6 @@ func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	return root, nodes
 }
 
-// Ack finds the node in the network and acknoledges the tunnel labeled
-// with target. Publishes the node in TopicNode.
-func (n *Network) Ack(node *node.Node, target string) error {
-	log.Debug.Printf("network: acknoledging (%v) on node (%v)", target, node.ID())
-
-	if err := node.Ack(target); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // RemoveTunnel finds the node in the network and removes the tunnel labeled
 // with target from it. Publishes the node in TopicNode.
 func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool) error {
@@ -416,34 +402,22 @@ func (n *Network) RemoveTunnel(node *node.Node, target string, acknoledged bool)
 // adds the tunnel to the local node, but settings its ProxiedBy value to the
 // remote node's proxy address. Publishes the update in TopicNode.
 func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
-	if !node.IsLocal() {
-		t.ProxiedBy = node.ProxyAddr().String()
-		n.AddTunnel(n.LocalNode, t.Copy())
-	}
-
 	log.Debug.Printf("network: adding tunnel (%v) to node (%v)", t.Target, node.ID())
 
 	node.AddTunnel(t)
 }
 
 // UpdateNode acknoledges or removes a tunnel of node, depending on p's content.
-func (b *Booster) UpdateNode(node *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
-	if !node.IsLocal() {
-		p.ProxiedBy = node.ProxyAddr().String()
-	}
-
-	n := b.Net()
-	n.Pub(p, socks5.TopicTunnelEvents)
+func (b *Booster) UpdateNode(n *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
+	b.Net().Pub(p, socks5.TopicTunnelEvents)
 
 	switch p.Operation {
-	case protocol.TunnelAck:
-		if err := n.Ack(node, p.Target); err != nil {
-			return err
-		}
 	case protocol.TunnelRemove:
-		if err := n.RemoveTunnel(node, p.Target, acknoledged); err != nil {
+		if err := b.Net().RemoveTunnel(n, p.Target, acknoledged); err != nil {
 			return err
 		}
+	case protocol.TunnelAdd:
+		b.Net().AddTunnel(n, node.NewTunnel(p.Target))
 	default:
 		return fmt.Errorf("update node: unrecognised operation: %+v", p)
 	}
