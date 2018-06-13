@@ -38,9 +38,10 @@ var PayloadDecoders = map[Message]DecoderFunc{
 	MessageMonitor:    decodeMonitor,
 	MessageCtrl:       decodeCtrl,
 
-	MessageNodeStatus:    decodeNode,
-	MessageNetworkUpdate: decodeBandwidth,
-	MessageNodeUpdate:   decodeProxyUpdate,
+	MessageNodeStatus:         decodeNode,
+	MessageNetworkUsageUpdate: decodeBandwidth,
+	MessageProxyUpdate:        decodeProxyUpdate,
+	MessageNetworkUpdate:      decodeNetworkUpdate,
 }
 
 var HeaderDecoder = decodeHeader
@@ -129,6 +130,7 @@ func decodeBandwidth(p []byte, v interface{}) error {
 	}
 
 	return set(&PayloadBandwidth{
+		NodeID:    payload.NodeID,
 		Tot:       int(payload.Tot),
 		Bandwidth: int(payload.Bandwidth),
 		Type:      payload.Type,
@@ -141,13 +143,8 @@ func decodeMonitor(p []byte, v interface{}) error {
 		return err
 	}
 
-	features := []Message{}
-	for _, v := range payload.Features {
-		features = append(features, Message(v))
-	}
-
 	return set(&PayloadMonitor{
-		Features: features,
+		Feature: MonitorFeature(payload.Feature),
 	}, v)
 }
 
@@ -173,12 +170,7 @@ func decodeDisconnect(p []byte, v interface{}) error {
 	}, v)
 }
 
-func decodeNode(p []byte, v interface{}) error {
-	payload := new(internal.PayloadNode)
-	if err := proto.Unmarshal(p, payload); err != nil {
-		return err
-	}
-
+func nodeFromInternal(payload *internal.PayloadNode) *PayloadNode {
 	ts := []*Tunnel{}
 	for _, t := range payload.Tunnels {
 		tunnel := &Tunnel{
@@ -189,14 +181,22 @@ func decodeNode(p []byte, v interface{}) error {
 
 		ts = append(ts, tunnel)
 	}
-
-	return set(&PayloadNode{
+	return &PayloadNode{
 		ID:      payload.Id,
 		BAddr:   payload.Baddr,
 		PAddr:   payload.Paddr,
 		Active:  payload.Active,
 		Tunnels: ts,
-	}, v)
+	}
+}
+
+func decodeNode(p []byte, v interface{}) error {
+	payload := new(internal.PayloadNode)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return err
+	}
+
+	return set(nodeFromInternal(payload), v)
 }
 
 func decodeHeartbeat(p []byte, v interface{}) error {
@@ -224,7 +224,23 @@ func decodeProxyUpdate(p []byte, v interface{}) error {
 	}
 
 	return set(&PayloadProxyUpdate{
+		NodeID:    payload.NodeID,
 		Target:    payload.Target,
 		Operation: Operation(payload.Operation),
+	}, v)
+}
+
+func decodeNetworkUpdate(p []byte, v interface{}) error {
+	payload := new(internal.PayloadNetworkUpdate)
+	if err := proto.Unmarshal(p, payload); err != nil {
+		return err
+	}
+
+	remoteNode := nodeFromInternal(payload.RemoteNode)
+
+	return set(&PayloadNetworkUpdate{
+		NodeID:     payload.NodeID,
+		RemoteNode: remoteNode,
+		Operation:  Operation(payload.Operation),
 	}, v)
 }

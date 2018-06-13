@@ -166,7 +166,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 }
 
 type Inspection struct {
-	Feature protocol.Message
+	Feature protocol.MonitorFeature
 	Run     func(m packet.Module) error
 	PostRun func(err error)
 }
@@ -179,10 +179,11 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 		return fmt.Errorf("booster: unable to connect to (%v): %v", addr, err)
 	}
 
-	// compose & send the inspect packet
+	// compose & send the monitor message
 	pl := protocol.PayloadMonitor{
-		Features: []protocol.Message{cmd.Feature},
+		Feature: cmd.Feature,
 	}
+
 	msg := protocol.MessageMonitor
 	p, err := b.Net().EncodeDefault(pl, msg)
 	if err != nil {
@@ -220,8 +221,6 @@ func (b *Booster) Monitor(ctx context.Context, network, addr string, cmd Inspect
 					fail(err)
 					return
 				}
-
-				// TODO(daniel): extract header (be careful with encodings)
 
 				// return payload
 				module, err := p.Module(string(protocol.ModulePayload))

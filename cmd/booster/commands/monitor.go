@@ -49,7 +49,7 @@ var monitorNodeCmd = &cobra.Command{
 	`,
 	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		stream(target, protocol.MessageNodeUpdate)
+		stream(target, protocol.MonitorNode)
 	},
 }
 
@@ -63,11 +63,11 @@ var monitorNetCmd = &cobra.Command{
 	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		stream(target, protocol.MessageNetworkUpdate)
+		stream(target, protocol.MonitorNet)
 	},
 }
 
-var stream = func(addr string, feature protocol.Message) {
+var stream = func(addr string, feature protocol.MonitorFeature) {
 	b, err := booster.New(pport, bport)
 	if err != nil {
 		fmt.Println(err)

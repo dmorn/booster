@@ -121,7 +121,7 @@ func (m *monitor) handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	var feature protocol.Message
+	var feature protocol.MonitorFeature
 	switch m.feature {
 	case "node":
 		feature = protocol.MonitorNode

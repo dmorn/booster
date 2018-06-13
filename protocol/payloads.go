@@ -21,7 +21,14 @@ import (
 	"time"
 )
 
+type PayloadNetworkUpdate struct {
+	NodeID     string       `json:"node_id"`
+	Operation  Operation    `json:"operation"`
+	RemoteNode *PayloadNode `json:"remote_node"`
+}
+
 type PayloadProxyUpdate struct {
+	NodeID    string    `json:"node_id"`
 	Target    string    `json:"target"`
 	Operation Operation `json:"operation"`
 }
@@ -31,13 +38,14 @@ type PayloadCtrl struct {
 }
 
 type PayloadBandwidth struct {
+	NodeID    string `json:"-"`
 	Tot       int    `json:"tot"`
 	Bandwidth int    `json:"bandwidth"`
 	Type      string `json:"type"`
 }
 
 type PayloadMonitor struct {
-	Features []Message
+	Feature MonitorFeature
 }
 
 type PayloadHello struct {
@@ -62,7 +70,7 @@ type PayloadNode struct {
 }
 
 type Tunnel struct {
-	ID        string `json:"id"`
+	ID        string `json:"-"`
 	Target    string `json:"target"`
 	ProxiedBy string `json:"proxied_by"`
 	Acks      int    `json:"acks"`

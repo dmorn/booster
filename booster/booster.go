@@ -209,7 +209,15 @@ func (b *Booster) run(ctx context.Context) error {
 		wg.Done()
 	}()
 
-	err := <-errc // read only the first message that arrives
+	// read only the first message that arrives
+	err := <-errc
+	if ctx.Err() == nil {
+		// it means that one of the rountines up here failed, but no close
+		// was manually called
+		b.Close()
+	}
+
+	// wait for every rountine to return before quitting
 	wg.Wait()
 
 	return err
@@ -309,7 +317,7 @@ func (b *Booster) Wire(ctx context.Context, network, target string) (*Conn, erro
 
 	// if AddConn returns an error, chances are that the connection is
 	// already present and active.
-	err = Nets.Get(b.ID).AddConn(conn)
+	err = b.Net().AddConn(conn)
 	if err != nil {
 		return fail(err)
 	}
