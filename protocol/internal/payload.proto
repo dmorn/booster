@@ -3,6 +3,14 @@ package internal;
 
 import "google/protobuf/timestamp.proto";
 
+message PayloadNetworkUpdate {
+	string nodeID = 3;
+	// operation is the event that occured to remote node.
+	int32 operation = 1;
+	// remoteNode is the node on which actions where taken.	
+	PayloadNode remoteNode = 2;
+}
+
 message PayloadCtrl {
 	// operation is the operation that has to be performed.
 	// See Ctrl operations in protocol.go
@@ -10,6 +18,8 @@ message PayloadCtrl {
 }
 
 message PayloadBandwidth {
+	// node identifier.
+	string nodeID = 4;
 	// tot is the total number of bytes transmitted.
 	int64 tot = 1;
 	// bandwidth is the current bandwidth.
@@ -19,8 +29,8 @@ message PayloadBandwidth {
 }
 
 message PayloadMonitor {
-	// features contains the features that should be inspected.
-	repeated int32 features = 1;
+	// feature contains the feature that should be monitored.
+	int32 feature = 1;
 }
 
 message PayloadHello {
@@ -72,6 +82,7 @@ message PayloadHeartbeat {
 }
 
 message PayloadProxyUpdate {
+	string nodeID = 3;
 	// target is the remote endpoint address of the tunnel.
 	string target = 1;
 	// operation is the action performed on the tunnel.

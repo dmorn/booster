@@ -40,6 +40,9 @@ type Networks map[string]*Network
 // Nets will be populated with the networks of every booster node started.
 var Nets = &Networks{}
 
+// TopicNetworkUpdate is the topic where the network updates, such as connection creation, are published.
+const TopicNetworkUpdate = "topic_network_update"
+
 // Get returns a network associated with id. Panics if the network was not
 // previously registered.
 func (n Networks) Get(id string) *Network {
@@ -232,7 +235,7 @@ func (n *Network) composeHeartbeat(pl *protocol.PayloadHeartbeat) (*packet.Packe
 	return n.EncodeDefault(payload, protocol.MessageHeartbeat)
 }
 
-func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
+func buildProtocolNode(node *node.Node) *protocol.PayloadNode {
 	tunnels := []*protocol.Tunnel{}
 	for _, t := range node.Tunnels() {
 		if t == nil {
@@ -240,22 +243,25 @@ func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
 		}
 
 		tunnel := &protocol.Tunnel{
-			ID:        t.ID(),
-			Target:    t.Target,
-			Copies:    t.Copies(),
+			ID:     t.ID(),
+			Target: t.Target,
+			Copies: t.Copies(),
 		}
 
 		tunnels = append(tunnels, tunnel)
 	}
-	param := protocol.PayloadNode{
+	return &protocol.PayloadNode{
 		ID:      node.ID(),
 		BAddr:   node.BAddr.String(),
 		PAddr:   node.PAddr.String(),
 		Active:  node.IsActive(),
 		Tunnels: tunnels,
 	}
+}
 
-	return n.EncodeDefault(param, protocol.MessageNodeStatus)
+func (n *Network) composeNode(node *node.Node) (*packet.Packet, error) {
+	pn := buildProtocolNode(node)
+	return n.EncodeDefault(*pn, protocol.MessageNodeStatus)
 }
 
 // ValidatePackets extracts the header from the packet and checks if
@@ -364,6 +370,16 @@ func (n *Network) AddConn(c *Conn) error {
 
 	c.boosterID = n.boosterID
 	n.Outgoing[c.ID] = c
+
+	// Publish the event
+	p := protocol.PayloadNetworkUpdate{
+		NodeID:     n.LocalNode.ID(),
+		RemoteNode: buildProtocolNode(c.RemoteNode),
+		Operation:  protocol.NodeAdded,
+	}
+	if err := n.Pub(p, TopicNetworkUpdate); err != nil {
+		log.Error.Printf("network: unable to pub network update: %v", err)
+	}
 	return nil
 }
 
@@ -409,14 +425,15 @@ func (n *Network) AddTunnel(node *node.Node, t *node.Tunnel) {
 
 // UpdateNode acknoledges or removes a tunnel of node, depending on p's content.
 func (b *Booster) UpdateNode(n *node.Node, p protocol.PayloadProxyUpdate, acknoledged bool) error {
+	p.NodeID = n.ID()
 	b.Net().Pub(p, socks5.TopicTunnelEvents)
 
 	switch p.Operation {
-	case protocol.TunnelRemove:
+	case protocol.TunnelRemoved:
 		if err := b.Net().RemoveTunnel(n, p.Target, acknoledged); err != nil {
 			return err
 		}
-	case protocol.TunnelAdd:
+	case protocol.TunnelAdded:
 		b.Net().AddTunnel(n, node.NewTunnel(p.Target))
 	default:
 		return fmt.Errorf("update node: unrecognised operation: %+v", p)
@@ -465,11 +482,21 @@ func (c *Conn) Close() error {
 	c.RemoteNode.SetIsActive(false)
 
 	n := Nets.Get(c.boosterID)
-	// Publish the event and trace the node only if requested. For example, we
-	// do not want to trace a node that was manually disconnected.
+
+	// Publish the event
+	p := protocol.PayloadNetworkUpdate{
+		NodeID:     n.LocalNode.ID(),
+		RemoteNode: buildProtocolNode(c.RemoteNode),
+		Operation:  protocol.NodeRemoved,
+	}
+	if err := n.Pub(p, TopicNetworkUpdate); err != nil {
+		log.Error.Printf("network: unable to pub network update: %v", err)
+	}
+
+	// Trace the node if needed
 	if c.RemoteNode.ToBeTraced {
 		if err := n.Trace(c.RemoteNode); err != nil {
-			return err
+			log.Error.Printf("network: unable to trace node: %v", err)
 		}
 	}
 

@@ -39,17 +39,17 @@ var monitorCmd = &cobra.Command{
 	},
 }
 
-var monitorProxyCmd = &cobra.Command{
-	Use:   "proxy",
-	Short: "proxy will monitor proxy updates.",
-	Long: `proxy will monitor proxy updates. Logs a stream of json encoded data.
+var monitorNodeCmd = &cobra.Command{
+	Use:   "node",
+	Short: "node will monitor node updates.",
+	Long: `node will monitor node updates. Logs a stream of json encoded data.
 
 	Example:
-	bin/booster monitor proxy
+	bin/booster monitor node
 	`,
 	Args: cobra.MaximumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		stream(target, protocol.MessageProxyUpdate)
+		stream(target, protocol.MonitorNode)
 	},
 }
 
@@ -63,11 +63,11 @@ var monitorNetCmd = &cobra.Command{
 	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		stream(target, protocol.MessageNetworkStatus)
+		stream(target, protocol.MonitorNet)
 	},
 }
 
-var stream = func(addr string, feature protocol.Message) {
+var stream = func(addr string, feature protocol.MonitorFeature) {
 	b, err := booster.New(pport, bport)
 	if err != nil {
 		fmt.Println(err)

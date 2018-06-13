@@ -24,21 +24,16 @@ import (
 )
 
 // Booster protocol version
-const Version = "0.2"
+const Version = "0.3"
 
 // Possible encodings
 const (
-	EncodingProtobuf uint8 = iota
+	EncodingProtobuf uint8 = iota + 1
 	EncodingJson
 )
 
-const (
-	CompressionNone uint8 = iota
-)
-
-const (
-	EncryptionNone uint8 = iota
-)
+const CompressionNone uint8 = 1
+const EncryptionNone uint8 = 1
 
 type Module string
 
@@ -62,7 +57,7 @@ type Message int32
 // Booster possible packet messages
 const (
 	// Commands
-	MessageHello Message = iota
+	MessageHello Message = iota + 1
 	MessageConnect
 	MessageDisconnect
 	MessageHeartbeat
@@ -71,14 +66,17 @@ const (
 	MessageCtrl
 
 	// Monitor related
-	MessageNetworkStatus
 	MessageNodeStatus
+	MessageNetworkUsageUpdate
 	MessageProxyUpdate
+	MessageNetworkUpdate
 )
+
+type MonitorFeature Message
 
 // Booster possible monitor features
 const (
-	MonitorProxy Message = iota
+	MonitorNode MonitorFeature = iota + 1
 	MonitorNet
 )
 
@@ -86,14 +84,19 @@ type Operation int32
 
 // Tunnel operations
 const (
-	TunnelAdd Operation = iota
-	TunnelRemove
+	TunnelAdded Operation = iota + 1
+	TunnelRemoved
 )
 
 // Ctrl operations
 const (
-	CtrlStop Operation = iota
+	CtrlStop Operation = iota + 1
 	CtrlRestart
+)
+
+const (
+	NodeAdded Operation = iota + 1
+	NodeRemoved
 )
 
 // OperationFromString converts raw, if possible, into a protocol

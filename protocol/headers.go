@@ -36,7 +36,3 @@ func (h *Header) HasModule(m string) bool {
 	}
 	return false
 }
-
-type Meta struct {
-	Encoding string `json:"encoding"`
-}

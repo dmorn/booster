@@ -38,9 +38,10 @@ var PayloadEncoders = map[Message]EncoderFunc{
 	MessageMonitor:    encodeMonitor,
 	MessageCtrl:       encodeCtrl,
 
-	MessageNetworkStatus: encodeBandwidth,
-	MessageNodeStatus:    encodeNode,
-	MessageProxyUpdate:   encodeProxyUpdate,
+	MessageNodeStatus:         encodeNode,
+	MessageNetworkUsageUpdate: encodeBandwidth,
+	MessageProxyUpdate:        encodeProxyUpdate,
+	MessageNetworkUpdate:      encodeNetworkUpdate,
 }
 
 // HeaderEncoder is the default function used to encode the headers.
@@ -122,6 +123,7 @@ func encodeBandwidth(v interface{}) ([]byte, error) {
 	}
 
 	p := &internal.PayloadBandwidth{
+		NodeID:    d.NodeID,
 		Tot:       int64(d.Tot),
 		Bandwidth: int64(d.Bandwidth),
 		Type:      d.Type,
@@ -136,13 +138,8 @@ func encodeMonitor(v interface{}) ([]byte, error) {
 		return nil, conversionFail(v)
 	}
 
-	features := []int32{}
-	for _, v := range d.Features {
-		features = append(features, int32(v))
-	}
-
 	p := &internal.PayloadMonitor{
-		Features: features,
+		Feature: int32(d.Feature),
 	}
 
 	return proto.Marshal(p)
@@ -174,12 +171,7 @@ func encodeDisconnect(v interface{}) ([]byte, error) {
 	return proto.Marshal(p)
 }
 
-func encodeNode(v interface{}) ([]byte, error) {
-	d, ok := v.(PayloadNode)
-	if !ok {
-		return nil, conversionFail(v)
-	}
-
+func nodeToInternal(d *PayloadNode) *internal.PayloadNode {
 	ts := []*internal.PayloadNode_Tunnel{}
 	for _, t := range d.Tunnels {
 		tunnel := &internal.PayloadNode_Tunnel{
@@ -191,15 +183,22 @@ func encodeNode(v interface{}) ([]byte, error) {
 		ts = append(ts, tunnel)
 	}
 
-	p := &internal.PayloadNode{
+	return &internal.PayloadNode{
 		Id:      d.ID,
 		Baddr:   d.BAddr,
 		Paddr:   d.PAddr,
 		Active:  d.Active,
 		Tunnels: ts,
 	}
+}
 
-	return proto.Marshal(p)
+func encodeNode(v interface{}) ([]byte, error) {
+	d, ok := v.(PayloadNode)
+	if !ok {
+		return nil, conversionFail(v)
+	}
+
+	return proto.Marshal(nodeToInternal(&d))
 }
 
 func encodeHeartbeat(v interface{}) ([]byte, error) {
@@ -229,8 +228,24 @@ func encodeProxyUpdate(v interface{}) ([]byte, error) {
 	}
 
 	p := &internal.PayloadProxyUpdate{
+		NodeID:    d.NodeID,
 		Target:    d.Target,
 		Operation: int32(d.Operation),
+	}
+
+	return proto.Marshal(p)
+}
+
+func encodeNetworkUpdate(v interface{}) ([]byte, error) {
+	d, ok := v.(PayloadNetworkUpdate)
+	if !ok {
+		return nil, conversionFail(v)
+	}
+
+	p := &internal.PayloadNetworkUpdate{
+		NodeID:     d.NodeID,
+		RemoteNode: nodeToInternal(d.RemoteNode),
+		Operation:  int32(d.Operation),
 	}
 
 	return proto.Marshal(p)

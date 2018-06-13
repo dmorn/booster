@@ -314,6 +314,10 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 				return fmt.Errorf("unable to recognise workload message: %v", pl)
 			}
 
+			// add node identifer as the proxy does not know anything
+			// about it
+			pl.NodeID = b.Net().LocalNode.ID()
+
 			msg := protocol.MessageProxyUpdate
 			p, err := b.Net().EncodeDefault(pl, msg)
 			if err != nil {
@@ -354,6 +358,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 // ServeMonitor is a blocking function that serves information responding to an monitor package.
 // The package should contain a list of supported features that should be delivered.
 func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.Packet) {
+	// TODO(daniel): currenlty serve monitor only supports JSON encoding!
 	log.Info.Print("booster: <- serving monitor...")
 
 	defer conn.Close()
@@ -378,18 +383,16 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 		wg.Done()
 	}
 
-	for _, v := range pl.Features {
-		switch v {
-		case protocol.MessageProxyUpdate:
-			wg.Add(1)
-			go exec(b.serveProxy)
-		case protocol.MessageNetworkStatus:
-			wg.Add(1)
-			go exec(b.serveNet)
-		default:
-			// do nothing, feature not supported
-			log.Info.Printf("booster: serve monitor: feature (%v) not supported", v)
-		}
+	switch pl.Feature {
+	case protocol.MonitorNode:
+		wg.Add(1)
+		go exec(b.serveNode)
+	case protocol.MonitorNet:
+		wg.Add(1)
+		go exec(b.serveNet)
+	default:
+		// do nothing, feature not supported
+		log.Info.Printf("booster: serve monitor: feature (%v) not supported", pl.Feature)
 	}
 
 	wg.Wait()
@@ -398,7 +401,7 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 	errc := make(chan error)
 	cancel, err := b.Proxy.Sub(&pubsub.Command{
-		Topic: socks5.TopicNet,
+		Topic: socks5.TopicNetUsage,
 		Run: func(i interface{}) error {
 			bm, ok := i.(*socks5.BandwidthMessage)
 			if !ok {
@@ -409,12 +412,21 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 				t = "upload"
 			}
 
-			pl := protocol.PayloadBandwidth{
-				Tot:       bm.Tot,
-				Bandwidth: bm.Bandwidth,
-				Type:      t,
+			// TODO(daniel): this modification to the struct makes the encoding/decoding
+			// work only with JSON encoding.
+
+			pl := struct {
+				SenderID string                    `json:"sender_id"`
+				Data     protocol.PayloadBandwidth `json:"data"`
+			}{
+				SenderID: b.Net().LocalNode.ID(),
+				Data: protocol.PayloadBandwidth{
+					Tot:       bm.Tot,
+					Bandwidth: bm.Bandwidth,
+					Type:      t,
+				},
 			}
-			msg := protocol.MessageNetworkStatus
+			msg := protocol.MessageNetworkUsageUpdate
 
 			p, err := b.Net().Encode(pl, msg, packet.Metadata{
 				Encoding:    protocol.EncodingJson,
@@ -450,25 +462,11 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 	}
 }
 
-func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
-	sendNode := func(n *node.Node) error {
-		tunnels := []*protocol.Tunnel{}
-		for _, v := range n.Tunnels() {
-			tunnels = append(tunnels, &protocol.Tunnel{
-				ID:        v.ID(),
-				Target:    v.Target,
-				Copies:    v.Copies(),
-			})
-		}
-		node := &protocol.PayloadNode{
-			ID:      n.ID(),
-			BAddr:   n.BAddr.String(),
-			PAddr:   n.PAddr.String(),
-			Active:  n.IsActive(),
-			Tunnels: tunnels,
-		}
+func (b *Booster) serveNode(ctx context.Context, conn SendCloser) error {
 
-		p, err := b.Net().Encode(node, protocol.MessageNodeStatus, packet.Metadata{
+	sendNode := func(n *node.Node) error {
+		pl := buildProtocolNode(n)
+		p, err := b.Net().Encode(pl, protocol.MessageNodeStatus, packet.Metadata{
 			Encoding:    protocol.EncodingJson,
 			Compression: protocol.CompressionNone,
 			Encryption:  protocol.EncryptionNone,
@@ -482,7 +480,7 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 		return nil
 	}
 
-	// send the initial node state first, then proxy updates
+	// send the initial node state first, then proxy & node updates
 	rootNode, nodes := b.Net().Nodes()
 	if err := sendNode(rootNode); err != nil {
 		return err
@@ -494,7 +492,39 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 	}
 
 	errc := make(chan error)
-	cancel, err := b.Net().Sub(&pubsub.Command{
+
+	// network events
+	cancelN, err := b.Net().Sub(&pubsub.Command{
+		Topic: TopicNetworkUpdate,
+		Run: func(i interface{}) error {
+			pnu, ok := i.(protocol.PayloadNetworkUpdate)
+			if !ok {
+				return fmt.Errorf("unrecognised network message: %v", i)
+			}
+			p, err := b.Net().Encode(pnu, protocol.MessageNetworkUpdate, packet.Metadata{
+				Encoding: protocol.EncodingJson,
+			})
+			if err != nil {
+				return err
+			}
+
+			if err = conn.Send(p); err != nil {
+				return err
+			}
+			return nil
+		},
+		PostRun: func(err error) {
+			if err != nil {
+				errc <- err
+			}
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	// tunnel events
+	cancelT, err := b.Net().Sub(&pubsub.Command{
 		Topic: socks5.TopicTunnelEvents,
 		Run: func(i interface{}) error {
 			ppu, ok := i.(protocol.PayloadProxyUpdate)
@@ -521,6 +551,11 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 	})
 	if err != nil {
 		return err
+	}
+
+	cancel := func() {
+		cancelN()
+		cancelT()
 	}
 
 	select {

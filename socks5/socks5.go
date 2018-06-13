@@ -95,8 +95,8 @@ const (
 	// TopicTunnelEvents is the topic where the tunnels updates are published
 	TopicTunnelEvents = "topic_tunnel_events"
 
-	// TopicNet is the topic where bandwidth usage updates are published
-	TopicNet = "topic_network"
+	// TopicNetUsage is the topic where bandwidth usage updates are published
+	TopicNetUsage = "topic_network_usage"
 )
 
 type Event int
@@ -167,7 +167,7 @@ func New(d Dialer) *Socks5 {
 				Tot:       int(n),
 				D:         bc,
 				Download:  dl,
-			}, TopicNet)
+			}, TopicNetUsage)
 		}
 	}
 
@@ -312,9 +312,9 @@ func (s *Socks5) Handle(ctx context.Context, conn net.Conn) error {
 	defer tconn.Close()
 
 	// start proxying
-	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelAdd)
+	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelAdded)
 	s.ProxyData(conn, tconn)
-	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelRemove)
+	s.pubUpdate(tconn.RemoteAddr().String(), protocol.TunnelRemoved)
 
 	return nil
 }
