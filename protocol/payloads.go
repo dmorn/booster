@@ -72,8 +72,6 @@ type PayloadNode struct {
 type Tunnel struct {
 	ID        string `json:"-"`
 	Target    string `json:"target"`
-	ProxiedBy string `json:"proxied_by"`
-	Acks      int    `json:"acks"`
 	Copies    int    `json:"copies"`
 }
 
