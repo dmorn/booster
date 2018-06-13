@@ -38,9 +38,9 @@ var PayloadEncoders = map[Message]EncoderFunc{
 	MessageMonitor:    encodeMonitor,
 	MessageCtrl:       encodeCtrl,
 
-	MessageNetworkStatus: encodeBandwidth,
 	MessageNodeStatus:    encodeNode,
-	MessageProxyUpdate:   encodeProxyUpdate,
+	MessageNetworkUpdate: encodeBandwidth,
+	MessageNodeUpdate:   encodeProxyUpdate,
 }
 
 // HeaderEncoder is the default function used to encode the headers.

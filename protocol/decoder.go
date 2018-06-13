@@ -38,9 +38,9 @@ var PayloadDecoders = map[Message]DecoderFunc{
 	MessageMonitor:    decodeMonitor,
 	MessageCtrl:       decodeCtrl,
 
-	MessageNetworkStatus: decodeBandwidth,
 	MessageNodeStatus:    decodeNode,
-	MessageProxyUpdate:   decodeProxyUpdate,
+	MessageNetworkUpdate: decodeBandwidth,
+	MessageNodeUpdate:   decodeProxyUpdate,
 }
 
 var HeaderDecoder = decodeHeader

@@ -32,13 +32,8 @@ const (
 	EncodingJson
 )
 
-const (
-	CompressionNone uint8 = iota
-)
-
-const (
-	EncryptionNone uint8 = iota
-)
+const CompressionNone uint8 = iota
+const EncryptionNone uint8 = iota
 
 type Module string
 
@@ -71,14 +66,14 @@ const (
 	MessageCtrl
 
 	// Monitor related
-	MessageNetworkStatus
 	MessageNodeStatus
-	MessageProxyUpdate
+	MessageNetworkUpdate
+	MessageNodeUpdate
 )
 
 // Booster possible monitor features
 const (
-	MonitorProxy Message = iota
+	MonitorNode Message = iota
 	MonitorNet
 )
 

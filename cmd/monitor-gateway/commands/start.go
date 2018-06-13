@@ -43,7 +43,7 @@ x: node address (format host:port) that will be monitored (optional, default loc
 	bin/monitor-gateway start
 	2018/05/28 17:47:23.247894 Listening on port: :4000
 
-Features allowed: proxy | net
+Features allowed: node | net
 	`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -123,8 +123,8 @@ func (m *monitor) handler(w http.ResponseWriter, r *http.Request) {
 
 	var feature protocol.Message
 	switch m.feature {
-	case "proxy":
-		feature = protocol.MonitorProxy
+	case "node":
+		feature = protocol.MonitorNode
 	case "net":
 		feature = protocol.MonitorNet
 	}

@@ -59,7 +59,7 @@ func Execute() {
 	monitorCmd.Flags().StringVarP(&target, "target", "t", "localhost:4884", "address to monitor")
 
 	// add commands
-	monitorCmd.AddCommand(monitorProxyCmd, monitorNetCmd)
+	monitorCmd.AddCommand(monitorNodeCmd, monitorNetCmd)
 	rootCmd.AddCommand(versionCmd, startCmd, connectCmd, disconnectCmd, monitorCmd, ctrlCmd)
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 

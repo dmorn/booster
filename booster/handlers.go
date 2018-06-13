@@ -60,7 +60,7 @@ func (b *Booster) Handle(ctx context.Context, conn SendConsumeCloser) {
 		case protocol.MessageHeartbeat:
 			b.HandleHeartbeat(ctx, conn, p)
 
-		case protocol.MessageProxyUpdate:
+		case protocol.MessageNodeUpdate:
 			if bc, ok := conn.(*Conn); ok {
 				b.HandleTunnel(ctx, bc, p)
 			} else {
@@ -314,7 +314,7 @@ func (b *Booster) ServeStatus(ctx context.Context, conn SendCloser) {
 				return fmt.Errorf("unable to recognise workload message: %v", pl)
 			}
 
-			msg := protocol.MessageProxyUpdate
+			msg := protocol.MessageNodeUpdate
 			p, err := b.Net().EncodeDefault(pl, msg)
 			if err != nil {
 				return err
@@ -380,10 +380,10 @@ func (b *Booster) ServeMonitor(ctx context.Context, conn SendCloser, p *packet.P
 
 	for _, v := range pl.Features {
 		switch v {
-		case protocol.MessageProxyUpdate:
+		case protocol.MessageNodeUpdate:
 			wg.Add(1)
 			go exec(b.serveProxy)
-		case protocol.MessageNetworkStatus:
+		case protocol.MessageNetworkUpdate:
 			wg.Add(1)
 			go exec(b.serveNet)
 		default:
@@ -414,7 +414,7 @@ func (b *Booster) serveNet(ctx context.Context, conn SendCloser) error {
 				Bandwidth: bm.Bandwidth,
 				Type:      t,
 			}
-			msg := protocol.MessageNetworkStatus
+			msg := protocol.MessageNetworkUpdate
 
 			p, err := b.Net().Encode(pl, msg, packet.Metadata{
 				Encoding:    protocol.EncodingJson,
@@ -501,7 +501,7 @@ func (b *Booster) serveProxy(ctx context.Context, conn SendCloser) error {
 			if !ok {
 				return fmt.Errorf("unrecognised node message: %v", i)
 			}
-			p, err := b.Net().Encode(ppu, protocol.MessageProxyUpdate, packet.Metadata{
+			p, err := b.Net().Encode(ppu, protocol.MessageNodeUpdate, packet.Metadata{
 				Encoding: protocol.EncodingJson,
 			})
 			if err != nil {
