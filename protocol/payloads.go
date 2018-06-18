@@ -70,9 +70,9 @@ type PayloadNode struct {
 }
 
 type Tunnel struct {
-	ID        string `json:"-"`
-	Target    string `json:"target"`
-	Copies    int    `json:"copies"`
+	ID     string `json:"-"`
+	Target string `json:"target"`
+	Copies int    `json:"copies"`
 }
 
 type PayloadHeartbeat struct {
