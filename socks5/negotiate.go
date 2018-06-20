@@ -60,7 +60,7 @@ func (s *Socks5) Negotiate(conn net.Conn) error {
 	buf = append(buf, m)
 
 	if _, err := conn.Write(buf); err != nil {
-		return errors.New("proxy: unable to write negotitation reponse: " + err.Error())
+		return errors.New("proxy: unable to write negotitation response: " + err.Error())
 	}
 
 	return nil

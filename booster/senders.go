@@ -153,7 +153,7 @@ func (b *Booster) Disconnect(ctx context.Context, network, addr, id string) erro
 		return err
 	}
 
-	// TODO(daniel): here we reuse the same reponse as for a connect request.
+	// TODO(daniel): here we reuse the same response as for a connect request.
 	// This is not actually very appropriate is it?
 	p, err = conn.Recv()
 	if err != nil {

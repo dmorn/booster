@@ -15,7 +15,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// Package network provides a protable interface for network I/O, constraining
+// Package network provides a portable interface for network I/O, constraining
 // its usage allowing only to send & receive data in a packet format.
 package network
 
