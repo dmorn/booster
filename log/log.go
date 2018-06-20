@@ -56,7 +56,7 @@ var (
 	mu    sync.RWMutex
 	state = globalState{
 		currentLevel:  InfoLevel,
-		defaultLogger: newDefaultLogger(os.Stderr),
+		defaultLogger: newDefaultLogger(os.Stdout),
 	}
 )
 
