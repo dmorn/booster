@@ -46,7 +46,7 @@ func (c *channel) run() (chan interface{}, error) {
 	send := func(m interface{}) {
 		defer func() {
 			if err := recover(); err != nil {
-				// we tried to send somethign trough ch and we found it closed.
+				// we tried to send something trough ch and we found it closed.
 				// need to remove this channel.
 				c.stop()
 			}

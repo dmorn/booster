@@ -175,7 +175,7 @@ func (b *Booster) HandleHeartbeat(ctx context.Context, conn SendCloser, p *packe
 // target node from its payload. It then wires with the target node, handling the new
 // connection in a different goroutine.
 //
-// If the connection with the remote node is successfull, sends a node packet with
+// If the connection with the remote node is successful, sends a node packet with
 // the information regarding the added node back. The node identifier contained in
 // the packet is used as connection identifier in the network.
 //

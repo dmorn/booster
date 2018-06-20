@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 // Package booster provides the higher interface for dealing with booster instances
-// that follow the booster protocol. It wraps togheter node, proxy, network.
+// that follow the booster protocol. It wraps together node, proxy, network.
 package booster
 
 import (

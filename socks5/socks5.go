@@ -357,7 +357,7 @@ func (s *Socks5) ProxyData(src net.Conn, dst net.Conn) {
 		}
 
 		// io operations did not return any errors. Reset
-		// deadline and keep on transfering data
+		// deadline and keep on transferring data
 		timer.Reset(s.ReadWriteTimeout)
 	}
 }

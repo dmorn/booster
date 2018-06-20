@@ -383,7 +383,7 @@ func (n *Network) AddConn(c *Conn) error {
 	return nil
 }
 
-// Nodes returns the root node of the network, togheter with all the remote
+// Nodes returns the root node of the network, together with all the remote
 // nodes connected to it.
 func (n *Network) Nodes() (*node.Node, []*node.Node) {
 	n.mux.Lock()

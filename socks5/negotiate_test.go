@@ -32,7 +32,7 @@ func TestNegotiate(t *testing.T) {
 		out []byte
 		err bool // should expect negotiation error?
 	}{
-		{in: []byte{5, 2, 0, 1}, out: []byte{5, 0}, err: false}, // successfull response
+		{in: []byte{5, 2, 0, 1}, out: []byte{5, 0}, err: false}, // successful response
 		{in: []byte{5, 1, 1}, out: []byte{5, 0xff}, err: false}, // command not supported
 		{in: []byte{4}, out: []byte{}, err: true},               // wrong version
 		{in: []byte{5, 0, 1}, out: []byte{}, err: true},         // wrong methods number

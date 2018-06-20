@@ -163,7 +163,7 @@ func (d *Dispatcher) dialerForNode(node *Node) (socks5.Dialer, error) {
 	return newSocks5Dialer(d.Fallback, node.PAddr.Network(), node.PAddr.String())
 }
 
-// DialContext uses the underlying load balancer to retrieve a possibile socks5 proxy
+// DialContext uses the underlying load balancer to retrieve a possible socks5 proxy
 // address to chain the connection to. If none available, dials the connection using
 // the default net.Dialer.
 func (d *Dispatcher) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
