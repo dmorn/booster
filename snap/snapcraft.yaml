@@ -17,8 +17,11 @@ confinement: devmode
 
 parts:
   booster:
+    after: [go]
     source: .
     plugin: make
+  go:
+    source-tag: go1.10.3
 
 apps:
   booster:
