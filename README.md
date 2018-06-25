@@ -1,5 +1,6 @@
 # booster
 [![Build Status](https://travis-ci.org/danielmorandini/booster.svg?branch=master)](https://travis-ci.org/danielmorandini/booster)
+[![Snap Status](https://build.snapcraft.io/badge/danielmorandini/booster.svg)](https://build.snapcraft.io/user/danielmorandini/booster)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/danielmorandini/booster)
 [![Go Report Card](https://goreportcard.com/badge/github.com/danielmorandini/booster)](https://goreportcard.com/report/github.com/danielmorandini/booster)
 
