@@ -1,0 +1,30 @@
+name: booster
+version: git
+summary: Clever proxy dispatcher.
+description: |
+        A single running booster node is just a forward proxy server,
+        that can be used to proxy the network traffic of a device.
+        When node A is connected to a new node B though, A's network traffic
+        is splitted between the proxies of both nodes. When another
+        node is added to the network, the bandwidth is furtherly
+        splitted, and so on. 
+        The objective is to let A, or better, the device that needs a network
+        \"boost\", exploit every available internet access point, resulting
+        in an effective improvement of the download/upload speed.
+
+grade: devel
+confinement: devmode
+
+parts:
+  booster:
+    source: .
+    plugin: make
+
+apps:
+  booster:
+    command: bin/booster
+    plugs: [network, network-bind]
+  boosterd:
+    command: bin/booster start
+    daemon: simple
+    plugs: [network, network-bind]
