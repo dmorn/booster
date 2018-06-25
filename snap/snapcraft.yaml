@@ -20,6 +20,8 @@ parts:
     after: [go]
     source: .
     plugin: make
+    make-parameters: [booster]
+    artifacts: [bin/booster]
   go:
     source-tag: go1.10.3
 
