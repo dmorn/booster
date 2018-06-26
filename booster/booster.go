@@ -119,7 +119,7 @@ func New(pport, bport int) (*Booster, error) {
 	b.stop = make(chan struct{})
 	b.restart = make(chan struct{})
 
-	b.Net().HeartbeatTTL = time.Second * 4
+	b.Net().HeartbeatTTL = time.Second * 8
 	b.Net().DialTimeout = time.Second * 4
 
 	return b, nil
