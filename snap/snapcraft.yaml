@@ -9,11 +9,11 @@ description: |
         node is added to the network, the bandwidth is furtherly
         splitted, and so on. 
         The objective is to let A, or better, the device that needs a network
-        \"boost\", exploit every available internet access point, resulting
+        "boost", exploit every available internet access point, resulting
         in an effective improvement of the download/upload speed.
 
 grade: devel
-confinement: devmode
+confinement: strict
 
 parts:
   booster:
