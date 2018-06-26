@@ -1,6 +1,6 @@
 name: booster
 version: git
-summary: Clever proxy dispatcher.
+summary: Peer-to-peer network interface balancer.
 description: |
         A single running booster node is just a forward proxy server,
         that can be used to proxy the network traffic of a device.
@@ -29,7 +29,7 @@ apps:
   booster:
     command: bin/booster
     plugs: [network, network-bind]
-  boosterd:
+  d:
     command: bin/booster start
     daemon: simple
     plugs: [network, network-bind]

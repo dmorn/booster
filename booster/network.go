@@ -377,9 +377,8 @@ func (n *Network) AddConn(c *Conn) error {
 		RemoteNode: buildProtocolNode(c.RemoteNode),
 		Operation:  protocol.NodeAdded,
 	}
-	if err := n.Pub(p, TopicNetworkUpdate); err != nil {
-		log.Error.Printf("network: unable to pub network update: %v", err)
-	}
+
+	n.Pub(p, TopicNetworkUpdate)
 	return nil
 }
 
@@ -489,9 +488,8 @@ func (c *Conn) Close() error {
 		RemoteNode: buildProtocolNode(c.RemoteNode),
 		Operation:  protocol.NodeRemoved,
 	}
-	if err := n.Pub(p, TopicNetworkUpdate); err != nil {
-		log.Error.Printf("network: unable to pub network update: %v", err)
-	}
+
+	n.Pub(p, TopicNetworkUpdate);
 
 	// Trace the node if needed
 	if c.RemoteNode.ToBeTraced {

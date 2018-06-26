@@ -55,7 +55,7 @@ type Proxy interface {
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
 	Sub(cmd *pubsub.Command) (pubsub.CancelFunc, error)
-	Pub(message interface{}, topic string) error
+	Pub(message interface{}, topic string)
 }
 
 type SendConsumeCloser interface {

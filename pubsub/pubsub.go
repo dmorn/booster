@@ -188,12 +188,11 @@ func (ps *PubSub) Close(topic string) error {
 }
 
 // Pub broadcasts the message to the listeners of topic.
-// Returns an error if no such topic is present, unsubscribes
-// a channel if it is closed when sending to it. (i.e. causes a panic)
-func (ps *PubSub) Pub(message interface{}, topic string) error {
+// unsubscribes a channel if it is closed when sending to it. (i.e. causes a panic)
+func (ps *PubSub) Pub(message interface{}, topic string) {
 	t, err := ps.topic(topic)
 	if err != nil {
-		return err
+		return
 	}
 
 	t.Lock()
@@ -206,7 +205,6 @@ func (ps *PubSub) Pub(message interface{}, topic string) error {
 
 		c.send(message)
 	}
-	return nil
 }
 
 func (ps *PubSub) topic(name string) (*topic, error) {

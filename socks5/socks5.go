@@ -110,7 +110,7 @@ const (
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
 	Sub(cmd *pubsub.Command) (pubsub.CancelFunc, error)
-	Pub(message interface{}, topic string) error
+	Pub(message interface{}, topic string)
 }
 
 // Dialer is the interface that wraps the DialContext function.
@@ -527,12 +527,9 @@ func (s *Socks5) pubUpdate(target string, op protocol.Operation) error {
 		Target:    target,
 		Operation: op,
 	}
-	err := s.Pub(p, TopicTunnelEvents)
-	if err != nil {
-		log.Error.Printf("socks5: unable to publish message: %v", err)
-	}
 
-	return err
+	s.Pub(p, TopicTunnelEvents)
+	return nil
 }
 
 func sha1Hash(images ...[]byte) string {

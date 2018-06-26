@@ -57,7 +57,7 @@ type Pinger interface {
 // PubSub describes the required functionalities of a publication/subscription object.
 type PubSub interface {
 	Sub(cmd *pubsub.Command) (pubsub.CancelFunc, error)
-	Pub(message interface{}, topic string) error
+	Pub(message interface{}, topic string)
 }
 
 // Tracer can monitor remote interfaces until they're up.
