@@ -1,3 +1,6 @@
+# Going on with the new booster on
+https://github.com/booster-proj/booster
+
 # booster
 [![Build Status](https://travis-ci.org/danielmorandini/booster.svg?branch=master)](https://travis-ci.org/danielmorandini/booster)
 [![Snap Status](https://build.snapcraft.io/badge/danielmorandini/booster.svg)](https://build.snapcraft.io/user/danielmorandini/booster)
