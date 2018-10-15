@@ -1,4 +1,4 @@
-# Going on with the new booster on
+# Continuing with the booster project on
 https://github.com/booster-proj/booster
 
 # booster
